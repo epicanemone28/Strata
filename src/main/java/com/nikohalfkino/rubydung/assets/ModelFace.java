@@ -26,12 +26,12 @@ public class ModelFace {
         };
 
         switch(this.direction){
-            case NORTH: return new float[][]{v[0],v[1],v[5],v[4]};
-            case EAST: return new float[][]{v[1],v[2],v[6],v[5]};
-            case SOUTH: return new float[][]{v[2],v[3],v[7],v[6]};
-            case WEST: return new float[][]{v[3],v[0],v[4],v[7]};
-            case UP: return new float[][]{v[4],v[5],v[6],v[7]};
-            case DOWN: return new float[][]{v[3],v[2],v[1],v[0]};
+            case NORTH: return new float[][]{v[1],v[5],v[7],v[3]};
+            case EAST: return new float[][]{v[3],v[7],v[6],v[2]};
+            case SOUTH: return new float[][]{v[2],v[6],v[4],v[0]};
+            case WEST: return new float[][]{v[0],v[4],v[5],v[1]};
+            case UP: return new float[][]{v[6],v[7],v[5],v[4]};
+            case DOWN: return new float[][]{v[3],v[2],v[0],v[1]};
             default: throw new RuntimeException("????? invalid direction when creating quad ?????");
         }
     }

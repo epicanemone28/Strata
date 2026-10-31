@@ -309,16 +309,28 @@ public class Tile {
                 float maxV = 1.0F;
 
                 if(shouldRenderFace(level,x+d.x,y+d.y,z+d.z)){
-                    tessellator.color(1.0f, 1.0f, 1.0f);
-                    float[][] verts = face.getQuadFromCube(e,minX,minY,minZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(verts[0]);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(verts[1]);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(verts[2]);
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(verts[3]);
+                    float shade = 1.0f;
+                    switch(d.axis){
+                        case X: shade = shadeX;
+                        case Y: shade = shadeY;
+                        case Z: shade = shadeZ;
+                    }
+                    float brightness = level.getBrightness(x + d.x, y + d.y, z + d.z);
+                    brightness *= shade;
+
+                    if (layer == 1 ^ brightness == shade) {
+                        tessellator.color(brightness,brightness,brightness);
+                        float[][] verts = face.getQuadFromCube(e,minX,minY,minZ);
+                        tessellator.texture(minU, maxV);
+                        tessellator.vertex(verts[0]);
+                        tessellator.texture(minU, minV);
+                        tessellator.vertex(verts[1]);
+                        tessellator.texture(maxU, minV);
+                        tessellator.vertex(verts[2]);
+                        tessellator.texture(maxU, maxV);
+                        tessellator.vertex(verts[3]);
+                    }
+
                 }
             }
         }
