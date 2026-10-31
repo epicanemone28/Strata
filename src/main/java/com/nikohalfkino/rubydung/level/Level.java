@@ -1,16 +1,31 @@
 package com.nikohalfkino.rubydung.level;
 
+import com.nikohalfkino.rubydung.level.Tiles.DimensionalDoorTile;
 import com.nikohalfkino.rubydung.level.Tiles.Tile;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
 import com.nikohalfkino.rubydung.phys.AABB;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 public class Level {
 
     public static final int GROUND_HEIGHT = 64 * 2 / 3;
+
+    /** How many tiles below a block its shadow reaches before fading out completely. */
+    public static final int SHADOW_FADE_DISTANCE = 10;
+
+    /** Brightness directly under a block (1.0 = fully lit). */
+    public static final float SHADOW_DARKEST = 0.5F;
+
+    /** Largest radius (in blocks) a light-emitting tile may have. */
+    public static final int MAX_LIGHT_RADIUS = 16;
 
     public final int width;
     public final int height;
@@ -33,9 +48,55 @@ public class Level {
         return this.worldName;
     }
 
+    /**
+     * Which tile each saved block value stands for. Blocks are written to disk as palette indices
+     * and converted back to current tile ids on load, so reordering the tile registry can't corrupt saves.
+     */
+    private TilePalette palette;
+
     private final byte[] blocks;
     private final byte[] data;
     private final int[] lightDepths;
+
+    /** Light from emitting tiles, 0..255 per cell (same indexing as blocks). Not saved; rebuilt on load. */
+    private final byte[] blockLight;
+    private final ArrayList<LightSource> lightSources = new ArrayList<>();
+
+    // Scratch buffers for spreadLight (sized for the largest possible radius).
+    private static final int LIGHT_SCRATCH_SIZE = (2 * MAX_LIGHT_RADIUS + 1) * (2 * MAX_LIGHT_RADIUS + 1) * (2 * MAX_LIGHT_RADIUS + 1);
+    private final boolean[] lightVisited = new boolean[LIGHT_SCRATCH_SIZE];
+    private final int[] lightQueue = new int[LIGHT_SCRATCH_SIZE];
+
+    private static final int[][] LIGHT_DIRECTIONS = {
+            {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}
+    };
+
+    private static final class LightSource {
+        final int x, y, z;
+        final float radius;
+
+        LightSource(int x, int y, int z, float radius) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.radius = radius;
+        }
+
+        int cubeRadius() {
+            return (int) Math.ceil(this.radius);
+        }
+    }
+
+    /**
+     * Multi-tile objects (see Tile.setFootprint). Every cell an object covers, origin included,
+     * maps to its instance. Objects only exist here when placed through setTile/placeMultiTile,
+     * generated, or upgraded on load (see upgradeLegacyMultiTiles).
+     */
+    private final HashMap<Integer, MultiTileInstance> multiTileCells = new HashMap<>();
+    private final Set<MultiTileInstance> multiTiles = new LinkedHashSet<>();
+
+    /** Origins of the multi-tile objects the generator placed; only needed while the level is being constructed. */
+    private List<int[]> generatedMultiTiles;
 
     private final ArrayList<LevelListener> levelListeners = new ArrayList<>();
 
@@ -46,6 +107,62 @@ public class Level {
     public boolean hasFlightState = false;
     public boolean savedFlying, savedNoClip;
     public float savedFlySpeedMultiplier = 1.0F;
+
+    /**
+     * Sky ambient multiplier, set each frame by GameRenderer from the DayNightCycle.
+     * 1.0 = full brightness (noon), ~0.05 = near-dark (midnight).
+     * Block light (lamps, lampposts) is unaffected and always shines at full strength.
+     */
+    private float skyAmbient = 1.0F;
+
+    /**
+     * Terrain brightness is baked into chunk meshes, so changing the ambient means re-meshing
+     * every chunk. To keep that affordable the value is only re-applied when it has drifted by
+     * AMBIENT_STEP (the cycle itself is smooth, so the steps are small), or, for the last bit
+     * of drift near a plateau (noon/midnight/frozen time), at most every AMBIENT_SETTLE_MS.
+     */
+    private static final float AMBIENT_STEP = 0.03F;
+    private static final float AMBIENT_SETTLE_EPSILON = 0.001F;
+    private static final long AMBIENT_SETTLE_MS = 3000L;
+
+    private long lastAmbientApplyMs = 0L;
+    private int lightVersion = 0;
+    private boolean fullBright = false;
+
+    public void setSkyAmbient(float ambient) {
+        float diff = Math.abs(ambient - this.skyAmbient);
+        if (diff <= AMBIENT_SETTLE_EPSILON) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        boolean bigEnough = diff >= AMBIENT_STEP;
+        boolean settleDue = now - this.lastAmbientApplyMs >= AMBIENT_SETTLE_MS;
+        if (!bigEnough && !settleDue) {
+            return;
+        }
+
+        this.skyAmbient = ambient;
+        this.lastAmbientApplyMs = now;
+
+        // Brightness is baked into the chunk display lists. Chunks compare this version against
+        // the one they were built with and refresh themselves on a budget (see Chunk), so the
+        // whole world is never re-meshed in a single frame.
+        this.lightVersion++;
+    }
+
+    /** Bumped every time the sky ambient is re-applied; chunks built with an older value are stale. */
+    public int getLightVersion() {
+        return this.lightVersion;
+    }
+
+    /**
+     * While true, getBrightness() returns 1.0 everywhere. Used when drawing tile icons so the
+     * inventory and selected-tile HUD don't go dark at night.
+     */
+    public void setFullBright(boolean fullBright) {
+        this.fullBright = fullBright;
+    }
 
     public void setPlayerFlightState(boolean flying, boolean noClip, float flySpeedMultiplier) {
         this.savedFlying = flying;
@@ -71,20 +188,54 @@ public class Level {
         this.type = type;
         this.seed = seed;
 
-        this.blocks = LevelGenerator.generate(type, width, height, depth, seed);
+        LevelGenerator.Result generated = LevelGenerator.generateWorld(type, width, height, depth, seed);
+        this.blocks = generated.blocks;
+        this.generatedMultiTiles = generated.multiTileOrigins;
         this.data = new byte[width * height * depth];
         this.lightDepths = new int[width * height];
+        this.blockLight = new byte[width * height * depth];
+
+        // A fresh world is generated with current tile ids; load() replaces this with the saved palette.
+        this.palette = TilePalette.fromCurrentRegistry();
 
         calcLightDepths(0, 0, width, height);
 
         if (loadFromDisk) {
             load();
+        } else {
+            registerMultiTiles(this.generatedMultiTiles);
+            rebuildBlockLight();
         }
+
+        this.generatedMultiTiles = null;
     }
 
     public void load() {
-        LevelIO.SavedPosition position = LevelIO.load(WorldManager.levelFile(this.worldName), this.blocks, this.data);
+        File levelFile = WorldManager.levelFile(this.worldName);
+        boolean hasSave = levelFile.isFile();
+
+        LevelIO.SavedPosition position = LevelIO.load(levelFile, this.blocks, this.data);
+
+        if (hasSave) {
+            // The file holds palette indices. Saves without a palette predate palettes and use the legacy order.
+            TilePalette saved = WorldManager.loadWorldPalette(this.worldName);
+            this.palette = saved != null ? saved : TilePalette.legacy();
+            this.palette.decode(this.blocks);
+        } else {
+            // Nothing was loaded, so the blocks are still the freshly generated ones (current ids).
+            this.palette = TilePalette.fromCurrentRegistry();
+        }
+
+        // Must happen before the light is rebuilt: only an object's origin cell emits light.
+        if (hasSave) {
+            registerMultiTiles(WorldManager.loadWorldMultiTiles(this.worldName));
+        } else {
+            // Nothing was loaded, so the blocks are still the generated ones and so are its objects.
+            registerMultiTiles(this.generatedMultiTiles);
+        }
+
         calcLightDepths(0, 0, this.width, this.height);
+        rebuildBlockLight();
 
         if (position.hasSeed) {
             this.seed = position.seed;
@@ -126,7 +277,15 @@ public class Level {
             position = position.withFlightState(this.savedFlying, this.savedNoClip, this.savedFlySpeedMultiplier);
         }
 
-        LevelIO.save(WorldManager.levelFile(this.worldName), this.blocks, this.data, position);
+        // Write blocks as palette indices. The palette only ever grows and is written first, so a
+        // crash between the two writes still leaves a level file that matches its palette.
+        byte[] encodedBlocks = this.palette.encode(this.blocks);
+        WorldManager.saveWorldPalette(this.worldName, this.palette);
+
+        WorldManager.saveWorldMultiTiles(this.worldName, collectMultiTileOrigins());
+        DoorRegistry.save(this.worldName, getDoors());
+
+        LevelIO.save(WorldManager.levelFile(this.worldName), encodedBlocks, this.data, position);
     }
 
     public void setPlayerPosition(double x, double y, double z, float yRotation, float xRotation) {
@@ -207,19 +366,244 @@ public class Level {
         return this.isSolidTile(x, y, z);
     }
 
+    /**
+     * Brightness of a cell. Looks for the nearest light-blocking tile above it (within
+     * SHADOW_FADE_DISTANCE). Directly under a block it is SHADOW_DARKEST, and it fades
+     * linearly back to full brightness over SHADOW_FADE_DISTANCE tiles.
+     *
+     * The result is scaled by skyAmbient so the world dims naturally during night.
+     * Block light (lamps etc.) is added on top in Tile.render() and is unaffected by this.
+     */
     public float getBrightness(int x, int y, int z) {
-        float dark = 0.8F;
-        float light = 1.0F;
+        if (this.fullBright) {
+            return 1.0F;
+        }
 
         if (x < 0 || y < 0 || z < 0 || x >= this.width || y >= this.depth || z >= this.height) {
-            return light;
+            return this.skyAmbient;
         }
 
-        if (y < this.lightDepths[x + z * this.width]) {
-            return dark;
+        int maxDistance = Math.min(SHADOW_FADE_DISTANCE, this.depth - 1 - y);
+
+        // A multi-tile object doesn't shade itself: the upper cells of a tall tree must not darken
+        // the sprite drawn from its origin cell.
+        MultiTileInstance self = this.multiTileCells.get(cellIndex(x, y, z));
+
+        for (int distance = 1; distance <= maxDistance; distance++) {
+            if (isLightBlocker(x, y + distance, z) && (self == null || !self.contains(x, y + distance, z))) {
+                float t = (distance - 1) / (float) SHADOW_FADE_DISTANCE;
+                float raw = SHADOW_DARKEST + (1.0F - SHADOW_DARKEST) * t;
+                return raw * this.skyAmbient;
+            }
         }
 
-        return light;
+        return this.skyAmbient;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Block light (light emitted by tiles such as lamps)
+    // ---------------------------------------------------------------------------------------
+
+    public boolean hasLightSources() {
+        return !this.lightSources.isEmpty();
+    }
+
+    /** Light emitted by nearby tiles at a cell, 0.0 (none) to 1.0 (at the source). */
+    public float getBlockLight(int x, int y, int z) {
+        if (x < 0 || y < 0 || z < 0 || x >= this.width || y >= this.depth || z >= this.height) {
+            return 0.0F;
+        }
+        int index = (y * this.height + z) * this.width + x;
+        return (this.blockLight[index] & 0xFF) / 255.0F;
+    }
+
+    /** Whether the tile at this cell stops emitted light from passing. */
+    public boolean blocksBlockLight(int x, int y, int z) {
+        Tile tile = Tile.byId(getTile(x, y, z));
+        return tile != null && tile.blocksLight();
+    }
+
+    private void rebuildBlockLight() {
+        Arrays.fill(this.blockLight, (byte) 0);
+        this.lightSources.clear();
+
+        for (int y = 0; y < this.depth; y++) {
+            for (int z = 0; z < this.height; z++) {
+                for (int x = 0; x < this.width; x++) {
+                    Tile tile = Tile.byId(this.blocks[(y * this.height + z) * this.width + x] & 0xFF);
+                    if (tile != null && tile.emitsLight() && !isMultiTilePart(x, y, z)) {
+                        this.lightSources.add(new LightSource(x, y, z, tile.getLightRadius()));
+                    }
+                }
+            }
+        }
+
+        for (LightSource source : this.lightSources) {
+            spreadLight(source);
+        }
+    }
+
+    /**
+     * Spreads one source's light. The intensity depends on the straight-line (Euclidean) distance,
+     * so open air gets a round, smoothly fading ball of light instead of a diamond. Light only
+     * reaches cells connected to the source through non-blocking cells within the radius.
+     * Overlapping sources combine with max().
+     */
+    private void spreadLight(LightSource source) {
+        int r = source.cubeRadius();
+        int size = 2 * r + 1;
+        float radius = source.radius;
+        float radiusSq = radius * radius;
+
+        Arrays.fill(this.lightVisited, 0, size * size * size, false);
+
+        int head = 0;
+        int tail = 0;
+
+        int origin = (r * size + r) * size + r;
+        this.lightVisited[origin] = true;
+        this.lightQueue[tail++] = origin;
+        storeLight(source.x, source.y, source.z, 255);
+
+        while (head < tail) {
+            int current = this.lightQueue[head++];
+            int lx = current % size;
+            int lz = (current / size) % size;
+            int ly = current / (size * size);
+
+            for (int[] dir : LIGHT_DIRECTIONS) {
+                int nlx = lx + dir[0];
+                int nly = ly + dir[1];
+                int nlz = lz + dir[2];
+
+                if (nlx < 0 || nly < 0 || nlz < 0 || nlx >= size || nly >= size || nlz >= size) {
+                    continue;
+                }
+
+                int dx = nlx - r;
+                int dy = nly - r;
+                int dz = nlz - r;
+                float distSq = dx * dx + dy * dy + dz * dz;
+                if (distSq >= radiusSq) {
+                    continue;
+                }
+
+                int next = (nly * size + nlz) * size + nlx;
+                if (this.lightVisited[next]) {
+                    continue;
+                }
+
+                int wx = source.x + dx;
+                int wy = source.y + dy;
+                int wz = source.z + dz;
+                if (wx < 0 || wy < 0 || wz < 0 || wx >= this.width || wy >= this.depth || wz >= this.height) {
+                    continue;
+                }
+
+                this.lightVisited[next] = true;
+
+                if (blocksBlockLight(wx, wy, wz)) {
+                    continue;
+                }
+
+                float t = 1.0F - (float) Math.sqrt(distSq) / radius;
+                int value = (int) (t * t * 255.0F + 0.5F);
+                if (value > 0) {
+                    storeLight(wx, wy, wz, value);
+                }
+
+                this.lightQueue[tail++] = next;
+            }
+        }
+    }
+
+    private void storeLight(int x, int y, int z, int value) {
+        int index = (y * this.height + z) * this.width + x;
+        if ((this.blockLight[index] & 0xFF) < value) {
+            this.blockLight[index] = (byte) value;
+        }
+    }
+
+    /**
+     * Called after a tile changed. Only the emitters whose light could pass through the changed
+     * cell are affected: their areas are cleared and every emitter overlapping those areas is
+     * spread again.
+     */
+    private void updateBlockLight(int x, int y, int z, Tile oldTile, Tile newTile, boolean oldWasPart, boolean newIsPart) {
+        // Only the origin cell of a multi-tile object is a light source; its other cells still block light.
+        float oldRadius = !oldWasPart && oldTile != null && oldTile.emitsLight() ? oldTile.getLightRadius() : 0.0F;
+        float newRadius = !newIsPart && newTile != null && newTile.emitsLight() ? newTile.getLightRadius() : 0.0F;
+        boolean opacityChanged = (oldTile != null && oldTile.blocksLight()) != (newTile != null && newTile.blocksLight());
+
+        if (oldRadius > 0.0F) {
+            for (int i = 0; i < this.lightSources.size(); i++) {
+                LightSource s = this.lightSources.get(i);
+                if (s.x == x && s.y == y && s.z == z) {
+                    this.lightSources.remove(i);
+                    break;
+                }
+            }
+        }
+        if (newRadius > 0.0F) {
+            this.lightSources.add(new LightSource(x, y, z, newRadius));
+        }
+
+        if (oldRadius == 0.0F && newRadius == 0.0F && !opacityChanged) {
+            return;
+        }
+
+        // Areas whose light may have changed.
+        ArrayList<LightSource> affected = new ArrayList<>();
+        if (oldRadius > 0.0F) {
+            affected.add(new LightSource(x, y, z, oldRadius));
+        }
+        for (LightSource s : this.lightSources) {
+            int dx = s.x - x, dy = s.y - y, dz = s.z - z;
+            if (dx * dx + dy * dy + dz * dz < s.radius * s.radius) {
+                affected.add(s);
+            }
+        }
+
+        if (affected.isEmpty()) {
+            return;
+        }
+
+        for (LightSource a : affected) {
+            int r = a.cubeRadius();
+            for (int cy = Math.max(0, a.y - r); cy <= Math.min(this.depth - 1, a.y + r); cy++) {
+                for (int cz = Math.max(0, a.z - r); cz <= Math.min(this.height - 1, a.z + r); cz++) {
+                    int row = (cy * this.height + cz) * this.width;
+                    int fromX = Math.max(0, a.x - r);
+                    int toX = Math.min(this.width - 1, a.x + r);
+                    Arrays.fill(this.blockLight, row + fromX, row + toX + 1, (byte) 0);
+                }
+            }
+        }
+
+        for (LightSource s : this.lightSources) {
+            for (LightSource a : affected) {
+                int reach = s.cubeRadius() + a.cubeRadius();
+                if (Math.abs(s.x - a.x) <= reach && Math.abs(s.y - a.y) <= reach && Math.abs(s.z - a.z) <= reach) {
+                    spreadLight(s);
+                    break;
+                }
+            }
+        }
+
+        // Re-mesh everything that samples the changed light (one extra cell for smooth lighting).
+        for (LightSource a : affected) {
+            int r = a.cubeRadius() + 1;
+            int minY = Math.max(0, a.y - r);
+            int maxY = Math.min(this.depth - 1, a.y + r);
+
+            for (int cx = Math.max(0, a.x - r); cx <= Math.min(this.width - 1, a.x + r); cx++) {
+                for (int cz = Math.max(0, a.z - r); cz <= Math.min(this.height - 1, a.z + r); cz++) {
+                    for (LevelListener levelListener : this.levelListeners) {
+                        levelListener.lightColumnChanged(cx, cz, minY, maxY);
+                    }
+                }
+            }
+        }
     }
 
     public ArrayList<AABB> getCubes(AABB boundingBox) {
@@ -260,20 +644,315 @@ public class Level {
         setTile(x, y, z, id, 0);
     }
 
+    /**
+     * Sets a cell. Multi-tile aware, so existing callers (placing and breaking) keep working:
+     *  - placing a multi-tile id places the whole object anchored here (data = rotation, 0..3), or
+     *    does nothing if the footprint doesn't fit (ask canPlaceTile first to find out);
+     *  - overwriting any cell of a multi-tile object removes the whole object first.
+     */
     public void setTile(int x, int y, int z, int id, int data) {
         if (x < 0 || y < 0 || z < 0 || x >= this.width || y >= this.depth || z >= this.height) {
             return;
         }
 
-        int index = (y * this.height + z) * this.width + x;
+        Tile newTile = Tile.byId(id & 0xFF);
+        if (newTile != null && newTile.isMultiTile()) {
+            placeMultiTile(newTile, x, y, z, data);
+            return;
+        }
+
+        MultiTileInstance existing = this.multiTileCells.get(cellIndex(x, y, z));
+        if (existing != null) {
+            removeMultiTile(existing);
+        }
+
+        setBlock(x, y, z, id, data, false, false);
+    }
+
+    /** The actual single-cell write: updates the arrays, light and notifies listeners. */
+    private void setBlock(int x, int y, int z, int id, int data, boolean oldWasPart, boolean newIsPart) {
+        int index = cellIndex(x, y, z);
+        Tile oldTile = Tile.byId(this.blocks[index] & 0xFF);
         this.blocks[index] = (byte) id;
         this.data[index] = (byte) data;
 
         this.calcLightDepths(x, z, 1, 1);
+        updateBlockLight(x, y, z, oldTile, Tile.byId(id & 0xFF), oldWasPart, newIsPart);
 
         for (LevelListener levelListener : this.levelListeners) {
             levelListener.tileChanged(x, y, z);
+
+            // The shadow of this tile reaches SHADOW_FADE_DISTANCE tiles down, so the
+            // chunks below it need rebuilding too.
+            levelListener.lightColumnChanged(x, z, Math.max(0, y - SHADOW_FADE_DISTANCE), y);
         }
+    }
+
+    private int cellIndex(int x, int y, int z) {
+        return (y * this.height + z) * this.width + x;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Multi-tile objects
+    // ---------------------------------------------------------------------------------------
+
+    /** The multi-tile object covering this cell, or null for an ordinary cell. */
+    public MultiTileInstance getMultiTile(int x, int y, int z) {
+        if (x < 0 || y < 0 || z < 0 || x >= this.width || y >= this.depth || z >= this.height) {
+            return null;
+        }
+        return this.multiTileCells.get(cellIndex(x, y, z));
+    }
+
+    /** True for every cell of a multi-tile object except its origin. Such cells aren't drawn as billboards. */
+    public boolean isMultiTilePart(int x, int y, int z) {
+        MultiTileInstance instance = getMultiTile(x, y, z);
+        return instance != null && !instance.isOrigin(x, y, z);
+    }
+
+    /** True if both cells belong to the same multi-tile object. */
+    public boolean isSameMultiTile(int ax, int ay, int az, int bx, int by, int bz) {
+        MultiTileInstance a = getMultiTile(ax, ay, az);
+        return a != null && a == getMultiTile(bx, by, bz);
+    }
+
+    /** Whether the player could place this tile here. Always true for single-cell tiles in bounds. */
+    public boolean canPlaceTile(Tile tile, int x, int y, int z, int rotation) {
+        if (tile == null || !tile.isMultiTile()) {
+            return x >= 0 && y >= 0 && z >= 0 && x < this.width && y < this.depth && z < this.height;
+        }
+        return canPlaceMultiTile(tile, x, y, z, rotation);
+    }
+
+    /** Every cell of the footprint must be in bounds and empty (air). */
+    public boolean canPlaceMultiTile(Tile tile, int x, int y, int z, int rotation) {
+        rotation &= 3;
+        int sizeX = tile.getSizeX(rotation);
+        int sizeY = tile.getSizeY();
+        int sizeZ = tile.getSizeZ(rotation);
+
+        if (x < 0 || y < 0 || z < 0 || x + sizeX > this.width || y + sizeY > this.depth || z + sizeZ > this.height) {
+            return false;
+        }
+
+        for (int cx = x; cx < x + sizeX; cx++) {
+            for (int cy = y; cy < y + sizeY; cy++) {
+                for (int cz = z; cz < z + sizeZ; cz++) {
+                    if (this.blocks[cellIndex(cx, cy, cz)] != 0) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Places a whole multi-tile object with its minimum corner at (x, y, z). Returns false (and
+     * changes nothing) if it doesn't fit.
+     */
+    public boolean placeMultiTile(Tile tile, int x, int y, int z, int rotation) {
+        if (tile == null || !tile.isMultiTile() || !canPlaceMultiTile(tile, x, y, z, rotation)) {
+            return false;
+        }
+
+        MultiTileInstance instance = new MultiTileInstance(tile, x, y, z, rotation);
+
+        // Register first so listeners that run during setBlock already see a consistent object.
+        this.multiTiles.add(instance);
+        for (int cx = x; cx < x + instance.sizeX; cx++) {
+            for (int cy = y; cy < y + instance.sizeY; cy++) {
+                for (int cz = z; cz < z + instance.sizeZ; cz++) {
+                    this.multiTileCells.put(cellIndex(cx, cy, cz), instance);
+                }
+            }
+        }
+
+        for (int cx = x; cx < x + instance.sizeX; cx++) {
+            for (int cy = y; cy < y + instance.sizeY; cy++) {
+                for (int cz = z; cz < z + instance.sizeZ; cz++) {
+                    setBlock(cx, cy, cz, tile.id, instance.rotation, false, !instance.isOrigin(cx, cy, cz));
+                }
+            }
+        }
+        return true;
+    }
+
+    /** Removes every cell of a multi-tile object. */
+    public void removeMultiTile(MultiTileInstance instance) {
+        if (!this.multiTiles.remove(instance)) {
+            return;
+        }
+
+        for (int cx = instance.x; cx < instance.x + instance.sizeX; cx++) {
+            for (int cy = instance.y; cy < instance.y + instance.sizeY; cy++) {
+                for (int cz = instance.z; cz < instance.z + instance.sizeZ; cz++) {
+                    this.multiTileCells.remove(cellIndex(cx, cy, cz));
+                }
+            }
+        }
+
+        for (int cx = instance.x; cx < instance.x + instance.sizeX; cx++) {
+            for (int cy = instance.y; cy < instance.y + instance.sizeY; cy++) {
+                for (int cz = instance.z; cz < instance.z + instance.sizeZ; cz++) {
+                    setBlock(cx, cy, cz, 0, 0, !instance.isOrigin(cx, cy, cz), false);
+                }
+            }
+        }
+    }
+
+    /** Every dimensional door in this level (origin cell and colour); also what the per-world door index saves. */
+    public List<DoorRegistry.Entry> getDoors() {
+        List<DoorRegistry.Entry> doors = new ArrayList<>();
+        for (MultiTileInstance instance : this.multiTiles) {
+            if (instance.tile instanceof DimensionalDoorTile) {
+                doors.add(new DoorRegistry.Entry(instance.x, instance.y, instance.z,
+                        ((DimensionalDoorTile) instance.tile).getColor()));
+            }
+        }
+        return doors;
+    }
+
+    private List<int[]> collectMultiTileOrigins() {
+        List<int[]> origins = new ArrayList<>(this.multiTiles.size());
+        for (MultiTileInstance instance : this.multiTiles) {
+            origins.add(new int[]{instance.x, instance.y, instance.z});
+        }
+        return origins;
+    }
+
+    /**
+     * Registers multi-tile objects from a list of origins (from multitiles.dat or the world generator),
+     * then upgrades any leftover single-cell multi-tile tiles. The block array already holds every
+     * cell (with the rotation in the data byte); only the origins are stored separately. An object is
+     * only registered if its whole footprint still holds its tile, so a save that got out of sync
+     * degrades to ordinary single cells instead of corrupting anything.
+     */
+    private void registerMultiTiles(List<int[]> origins) {
+        this.multiTileCells.clear();
+        this.multiTiles.clear();
+
+        if (origins != null) {
+            for (int[] origin : origins) {
+                int x = origin[0], y = origin[1], z = origin[2];
+                if (x < 0 || y < 0 || z < 0 || x >= this.width || y >= this.depth || z >= this.height) {
+                    continue;
+                }
+
+                Tile tile = Tile.byId(getTile(x, y, z));
+                if (tile == null || !tile.isMultiTile()) {
+                    continue;
+                }
+
+                MultiTileInstance instance = new MultiTileInstance(tile, x, y, z, getData(x, y, z));
+                if (!footprintMatches(instance)) {
+                    continue;
+                }
+
+                this.multiTiles.add(instance);
+                for (int cx = x; cx < x + instance.sizeX; cx++) {
+                    for (int cy = y; cy < y + instance.sizeY; cy++) {
+                        for (int cz = z; cz < z + instance.sizeZ; cz++) {
+                            this.multiTileCells.put(cellIndex(cx, cy, cz), instance);
+                        }
+                    }
+                }
+            }
+        }
+
+        upgradeLegacyMultiTiles();
+    }
+
+    /**
+     * Worlds saved before a tile had a footprint (or before multi-tiles existed) hold such tiles as
+     * a single cell that only pretends to be bigger. This turns each one into a real object: the
+     * cells above/beside it are filled and it is registered, so it occupies all the space it defines.
+     * It only happens when the rest of the footprint is empty air; otherwise the cell stays as it was.
+     */
+    private void upgradeLegacyMultiTiles() {
+        boolean[] multiIds = new boolean[256];
+        boolean any = false;
+        for (Tile tile : Tile.getTiles()) {
+            if (tile.isMultiTile()) {
+                multiIds[tile.id & 0xFF] = true;
+                any = true;
+            }
+        }
+        if (!any) {
+            return;
+        }
+
+        for (int y = 0; y < this.depth; y++) {
+            for (int z = 0; z < this.height; z++) {
+                for (int x = 0; x < this.width; x++) {
+                    int index = cellIndex(x, y, z);
+                    int id = this.blocks[index] & 0xFF;
+                    if (!multiIds[id] || this.multiTileCells.containsKey(index)) {
+                        continue;
+                    }
+
+                    Tile tile = Tile.byId(id);
+                    MultiTileInstance instance = new MultiTileInstance(tile, x, y, z, this.data[index]);
+                    if (!footprintIsEmptyAround(instance)) {
+                        continue;
+                    }
+
+                    this.multiTiles.add(instance);
+                    for (int cx = x; cx < x + instance.sizeX; cx++) {
+                        for (int cy = y; cy < y + instance.sizeY; cy++) {
+                            for (int cz = z; cz < z + instance.sizeZ; cz++) {
+                                int cell = cellIndex(cx, cy, cz);
+                                this.blocks[cell] = (byte) id;
+                                this.data[cell] = (byte) instance.rotation;
+                                this.multiTileCells.put(cell, instance);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** In bounds, and every cell of the footprint except the origin is empty air. */
+    private boolean footprintIsEmptyAround(MultiTileInstance instance) {
+        if (instance.x + instance.sizeX > this.width || instance.y + instance.sizeY > this.depth
+                || instance.z + instance.sizeZ > this.height) {
+            return false;
+        }
+
+        for (int cx = instance.x; cx < instance.x + instance.sizeX; cx++) {
+            for (int cy = instance.y; cy < instance.y + instance.sizeY; cy++) {
+                for (int cz = instance.z; cz < instance.z + instance.sizeZ; cz++) {
+                    if (instance.isOrigin(cx, cy, cz)) {
+                        continue;
+                    }
+                    int index = cellIndex(cx, cy, cz);
+                    if (this.blocks[index] != 0 || this.multiTileCells.containsKey(index)) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    private boolean footprintMatches(MultiTileInstance instance) {
+        if (instance.x + instance.sizeX > this.width || instance.y + instance.sizeY > this.depth
+                || instance.z + instance.sizeZ > this.height) {
+            return false;
+        }
+
+        for (int cx = instance.x; cx < instance.x + instance.sizeX; cx++) {
+            for (int cy = instance.y; cy < instance.y + instance.sizeY; cy++) {
+                for (int cz = instance.z; cz < instance.z + instance.sizeZ; cz++) {
+                    int index = cellIndex(cx, cy, cz);
+                    if ((this.blocks[index] & 0xFF) != instance.tile.id || this.multiTileCells.containsKey(index)) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     public void addListener(LevelListener levelListener) {

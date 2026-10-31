@@ -111,10 +111,6 @@ public class Player {
         float forward = 0.0F;
         float vertical = 0.0F;
 
-        if (KeyMap.isDown(KeyMap.R)) {
-            resetPosition();
-        }
-
         if (KeyBinding.FORWARD.isDown() || KeyMap.isDown(KeyMap.UP)) {
             forward--;
         }

@@ -14,6 +14,9 @@ public final class GameSettings {
     public static final float MAX_FOV = 110.0f;
     public static final float DEFAULT_FOV = 70.0f;
 
+    public static final String DEFAULT_USERNAME = "Hakumu";
+    public static final int MAX_USERNAME_LENGTH = 16;
+
     public static final int UNCAPPED_FPS = 0;
     private static final int[] FPS_CAP_STEPS = {30, 60, 120, 144, 240, UNCAPPED_FPS};
 
@@ -22,6 +25,7 @@ public final class GameSettings {
     private static int fpsCap = 60;
     private static boolean showFpsInHud = true;
     private static float musicVolume = 0.15f;
+    private static String username = DEFAULT_USERNAME;
 
     private GameSettings() {
     }
@@ -69,6 +73,31 @@ public final class GameSettings {
         musicVolume = Math.max(0.0f, Math.min(1.0f, volume));
     }
 
+    public static String getUsername() {
+        return username;
+    }
+
+    /**
+     * Sets the player's name. Control characters are dropped, the result is trimmed and cut to
+     * {@link #MAX_USERNAME_LENGTH}; an empty name falls back to {@link #DEFAULT_USERNAME}.
+     */
+    public static void setUsername(String name) {
+        String cleaned = "";
+        if (name != null) {
+            StringBuilder builder = new StringBuilder();
+            for (char c : name.toCharArray()) {
+                if (c >= 32 && c != 127) {
+                    builder.append(c);
+                }
+            }
+            cleaned = builder.toString().trim();
+            if (cleaned.length() > MAX_USERNAME_LENGTH) {
+                cleaned = cleaned.substring(0, MAX_USERNAME_LENGTH).trim();
+            }
+        }
+        username = cleaned.isEmpty() ? DEFAULT_USERNAME : cleaned;
+    }
+
     public static boolean isShowFpsInHud() {
         return showFpsInHud;
     }
@@ -96,6 +125,11 @@ public final class GameSettings {
         fpsCap = parseInt(props.getProperty("fpsCap"), fpsCap);
         showFpsInHud = parseBoolean(props.getProperty("showFpsInHud"), showFpsInHud);
         setMusicVolume(parseFloat(props.getProperty("musicVolume"), musicVolume));
+
+        String savedName = props.getProperty("username");
+        if (savedName != null) {
+            setUsername(savedName);
+        }
     }
 
     public static void save() {
@@ -105,6 +139,7 @@ public final class GameSettings {
         props.setProperty("fpsCap", Integer.toString(fpsCap));
         props.setProperty("showFpsInHud", Boolean.toString(showFpsInHud));
         props.setProperty("musicVolume", Float.toString(musicVolume));
+        props.setProperty("username", username);
 
         try (FileOutputStream out = new FileOutputStream(OPTIONS_FILE_NAME)) {
             props.store(out, "Strata video/general options - see GameSettings");

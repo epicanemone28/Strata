@@ -3,6 +3,10 @@ package com.nikohalfkino.rubydung.level.generation;
 import com.nikohalfkino.rubydung.interfaces.screen.CreateWorldScreen;
 import com.nikohalfkino.rubydung.level.Level;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public final class LevelGenerator {
 
     private LevelGenerator() {
@@ -30,10 +34,32 @@ public final class LevelGenerator {
         }
     }
 
+    /**
+     * A generated world: the block array plus the origin cell {x, y, z} of every multi-tile object
+     * the generator stamped into it (all of an object's cells are already in the block array; the
+     * origins are what lets Level register them as objects, so they break and save as one).
+     */
+    public static final class Result {
+
+        public final byte[] blocks;
+        public final List<int[]> multiTileOrigins;
+
+        public Result(byte[] blocks, List<int[]> multiTileOrigins) {
+            this.blocks = blocks;
+            this.multiTileOrigins = multiTileOrigins;
+        }
+    }
+
+    public static Result generateWorld(WorldType type, int width, int height, int depth, long seed) {
+        if (type == WorldType.NATURAL) {
+            return NaturalLevelGenerator.generate(width, height, depth, seed);
+        }
+        return new Result(FlatLevelGenerator.generate(width, height, depth), new ArrayList<>());
+    }
+
+    /** Blocks only. Prefer generateWorld, which also reports multi-tile objects. */
     public static byte[] generate(WorldType type, int width, int height, int depth, long seed) {
-        return type == WorldType.NATURAL
-                ? NaturalLevelGenerator.generate(width, height, depth, seed)
-                : FlatLevelGenerator.generate(width, height, depth);
+        return generateWorld(type, width, height, depth, seed).blocks;
     }
 
     public static long parseSeed(String text) {

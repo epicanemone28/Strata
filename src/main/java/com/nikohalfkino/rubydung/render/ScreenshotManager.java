@@ -23,6 +23,9 @@ public class ScreenshotManager {
 
     private static final File SCREENSHOTS_DIR = new File("screenshots");
 
+    /** Must reach past the skybox (radius 2000) and the sun/moon, same as the in-game far plane. */
+    private static final float FAR_PLANE = 4096.0F;
+
     private final RubyDung game;
     private final GameRenderer gameRenderer;
 
@@ -47,7 +50,7 @@ public class ScreenshotManager {
         return new SceneCamera() {
             @Override
             public void applyProjection(int viewportWidth, int viewportHeight) {
-                gluPerspective(GameSettings.getFov(), viewportWidth / (float) viewportHeight, 0.05F, 1000);
+                gluPerspective(GameSettings.getFov(), viewportWidth / (float) viewportHeight, 0.05F, FAR_PLANE);
             }
 
             @Override
@@ -73,7 +76,7 @@ public class ScreenshotManager {
         return new SceneCamera() {
             @Override
             public void applyProjection(int viewportWidth, int viewportHeight) {
-                gluPerspective(90.0F, 1.0F, 0.05F, 1000);
+                gluPerspective(90.0F, 1.0F, 0.05F, FAR_PLANE);
             }
 
             @Override
@@ -103,7 +106,7 @@ public class ScreenshotManager {
         return new SceneCamera() {
             @Override
             public void applyProjection(int viewportWidth, int viewportHeight) {
-                glOrtho(-viewSize, viewSize, -viewSize, viewSize, -1000, 1000);
+                glOrtho(-viewSize, viewSize, -viewSize, viewSize, -FAR_PLANE, FAR_PLANE);
             }
 
             @Override
@@ -184,8 +187,8 @@ public class ScreenshotManager {
             double eyeY = player.prevY + (player.y - player.prevY) * 1.0F;
             double eyeZ = player.prevZ + (player.z - player.prevZ) * 1.0F;
 
-            this.gameRenderer.getSkyboxRenderer().render(eyeX, eyeY, eyeZ);
-            this.gameRenderer.getCloudRenderer().render(eyeX, eyeY, eyeZ);
+            this.gameRenderer.getSkyboxRenderer().render(eyeX, eyeY, eyeZ, this.game.getDayNightCycle());
+            this.gameRenderer.getCloudRenderer().render(eyeX, eyeY, eyeZ, this.game.getDayNightCycle());
 
             glEnable(GL_FOG);
             glFogi(GL_FOG_MODE, GL_LINEAR);

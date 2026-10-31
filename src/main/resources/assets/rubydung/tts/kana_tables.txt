@@ -1,0 +1,139 @@
+# Kana tables for Katakana.java: the letter-to-kana rules, letter names and number words.
+# This file is required: without it the chat voice has nothing to say.
+#
+# Lines starting with # and blank lines are ignored. Everything is UTF-8.
+
+[rows]
+# Consonant = the kana for that consonant + a i u e o (five entries). "-" is no consonant.
+# Keys the converter looks up: - k g s z t d n h f b p m y r w v j sh ch q
+-  = ア イ ウ エ オ
+k  = カ キ ク ケ コ
+g  = ガ ギ グ ゲ ゴ
+s  = サ シ ス セ ソ
+z  = ザ ジ ズ ゼ ゾ
+t  = タ ティ トゥ テ ト
+d  = ダ ディ ドゥ デ ド
+n  = ナ ニ ヌ ネ ノ
+h  = ハ ヒ フ ヘ ホ
+f  = ファ フィ フ フェ フォ
+b  = バ ビ ブ ベ ボ
+p  = パ ピ プ ペ ポ
+m  = マ ミ ム メ モ
+y  = ヤ イ ユ イェ ヨ
+r  = ラ リ ル レ ロ
+w  = ワ ウィ ウ ウェ ウォ
+v  = ヴァ ヴィ ヴ ヴェ ヴォ
+j  = ジャ ジ ジュ ジェ ジョ
+sh = シャ シ シュ シェ ショ
+ch = チャ チ チュ チェ チョ
+q  = クァ クィ ク クェ クォ
+
+[voiced_th]
+# Words where "th" is voiced (ザ行) instead of the default サ行.
+the this that these those they them then there than though their
+
+[letters]
+# Letter names, used for acronyms (TTS -> ティーティーエス).
+a = エイ
+b = ビー
+c = シー
+d = ディー
+e = イー
+f = エフ
+g = ジー
+h = エイチ
+i = アイ
+j = ジェイ
+k = ケイ
+l = エル
+m = エム
+n = エヌ
+o = オー
+p = ピー
+q = キュー
+r = アール
+s = エス
+t = ティー
+u = ユー
+v = ヴィー
+w = ダブリュー
+x = エックス
+y = ワイ
+z = ズィー
+
+[ones]
+# Number words: 0-19.
+0 = ゼロ
+1 = ワン
+2 = トゥー
+3 = スリー
+4 = フォー
+5 = ファイブ
+6 = シックス
+7 = セブン
+8 = エイト
+9 = ナイン
+10 = テン
+11 = イレブン
+12 = トゥエルブ
+13 = サーティーン
+14 = フォーティーン
+15 = フィフティーン
+16 = シックスティーン
+17 = セブンティーン
+18 = エイティーン
+19 = ナインティーン
+
+[tens]
+# 2-9 = twenty..ninety.
+2 = トゥエンティ
+3 = サーティ
+4 = フォーティ
+5 = フィフティ
+6 = シックスティ
+7 = セブンティ
+8 = エイティ
+9 = ナインティ
+
+[scales]
+# 1-4 = thousand, million, billion, trillion.
+1 = サウザンド
+2 = ミリオン
+3 = ビリオン
+4 = トリリオン
+
+[ordinals]
+# Last word of a number -> its ordinal form (1st, 2nd, ...). Any other word gets the suffix
+# from [misc] (ordinal_suffix, or ordinal_suffix_ty after a word ending in ordinal_ty_ending).
+ワン = ファースト
+トゥー = セカンド
+スリー = サード
+フォー = フォース
+ファイブ = フィフス
+シックス = シックスス
+エイト = エイス
+トゥエルブ = トゥエルフス
+
+[symbols]
+# symbol  reading   (separated by a space)
+& アンド
+% パーセント
++ プラス
+= イコール
+@ アット
+° ディグリー
+€ ユーロ
+£ ポンド
+
+[misc]
+hundred = ハンドレッド
+point = ポイント
+oh = オー
+minus = マイナス
+number = ナンバー
+hash = ハッシュ
+dollar = ダラー
+plural = ズ
+ordinal_suffix = ス
+ordinal_suffix_ty = エス
+ordinal_ty_ending = ティ

@@ -22,6 +22,9 @@ public class Console {
     private int historyIndex = -1;
     private boolean open = false;
 
+    /** While non-null, println() collects lines here instead of writing to the log (see execute). */
+    private List<String> capture;
+
     public Console(RubyDung game) {
         this.game = game;
 
@@ -33,6 +36,7 @@ public class Console {
         register(new ScreenshotCommand());
         register(new SeedCommand());
         register(new RegenerateCommand());
+        register(new TimeCommand());
 
         println("Type 'help' for a list of commands.");
     }
@@ -73,6 +77,11 @@ public class Console {
     }
 
     public void println(String line) {
+        if (this.capture != null) {
+            this.capture.add(line);
+            return;
+        }
+
         this.log.add(line);
         if (this.log.size() > MAX_LOG_LINES) {
             this.log.remove(0);
@@ -148,6 +157,29 @@ public class Console {
 
         this.commandHistory.add(line);
         println("] " + line);
+        dispatch(line);
+    }
+
+    /**
+     * Runs a command line and returns what it printed instead of writing it to the console log.
+     * Used by the chat screen's ".command" support.
+     */
+    public List<String> execute(String line) {
+        List<String> output = new ArrayList<>();
+        List<String> previous = this.capture;
+        this.capture = output;
+        try {
+            dispatch(line.trim());
+        } finally {
+            this.capture = previous;
+        }
+        return output;
+    }
+
+    private void dispatch(String line) {
+        if (line.isEmpty()) {
+            return;
+        }
 
         String[] parts = line.split("\\s+");
         String name = parts[0].toLowerCase();

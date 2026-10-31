@@ -23,6 +23,9 @@ public class TreeTile extends BillboardTile {
     public TreeTile(String name, TreeType treeType) {
         super(name, treeType.textureName, treeType.height);
         this.treeType = treeType;
+
+        // Trees occupy their full height (1 x height x 1) instead of one cell drawing a tall sprite.
+        occupyHeight();
     }
 
     public TreeType getType() {

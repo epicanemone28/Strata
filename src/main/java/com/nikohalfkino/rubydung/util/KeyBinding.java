@@ -58,9 +58,14 @@ public class KeyBinding {
     public static final KeyBinding BREAK_BLOCK = new KeyBinding("break_block", "Break Block", Device.MOUSE, 0, true);
     public static final KeyBinding PLACE_BLOCK = new KeyBinding("place_block", "Place Block", Device.MOUSE, 1, true);
     public static final KeyBinding PICK_BLOCK = new KeyBinding("pick_block", "Pick Block", Keyboard.KEY_LMENU, false);
-    public static final KeyBinding CYCLE_TREE = new KeyBinding("cycle_tree", "Cycle Tile Type", Keyboard.KEY_TAB, false);
+    public static final KeyBinding INTERACT = new KeyBinding("interact", "Interact", Keyboard.KEY_E, false);
+    // Default is G, not Tab: Tab now opens the inventory (see INVENTORY below).
+    public static final KeyBinding CYCLE_TREE = new KeyBinding("cycle_tree", "Cycle Tile Type", Keyboard.KEY_G, false);
 
-    // --- Interface. All three compared via getKey() (keyboard only) in InputHandler. ---
+    // --- Interface. All compared via getKey() (keyboard only) in InputHandler, and INVENTORY / CHAT
+    // are also compared by InventoryScreen / ChatScreen so the same key closes / is ignored on open. ---
+    public static final KeyBinding INVENTORY = new KeyBinding("inventory", "Open Inventory", Keyboard.KEY_TAB, false);
+    public static final KeyBinding CHAT = new KeyBinding("chat", "Open Chat", Keyboard.KEY_T, false);
     public static final KeyBinding CONSOLE = new KeyBinding("console", "Open Console", Keyboard.KEY_GRAVE, false);
     public static final KeyBinding DEBUG_HUD = new KeyBinding("debug_hud", "Toggle Debug Info", Keyboard.KEY_F3, false);
     public static final KeyBinding SCREENSHOT = new KeyBinding("screenshot", "Screenshot", Keyboard.KEY_F2, false);

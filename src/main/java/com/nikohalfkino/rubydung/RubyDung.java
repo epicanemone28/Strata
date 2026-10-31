@@ -1,20 +1,26 @@
 package com.nikohalfkino.rubydung;
 
+import com.nikohalfkino.rubydung.audio.JTalkSettings;
+import com.nikohalfkino.rubydung.audio.JTalkSpeaker;
 import com.nikohalfkino.rubydung.audio.MusicPlayer;
+import com.nikohalfkino.rubydung.console.ChatLog;
 import com.nikohalfkino.rubydung.console.Console;
 import com.nikohalfkino.rubydung.interfaces.*;
 import com.nikohalfkino.rubydung.interfaces.hud.CenterIndicator;
 import com.nikohalfkino.rubydung.interfaces.hud.CrosshairHud;
 import com.nikohalfkino.rubydung.interfaces.hud.DebugHud;
+import com.nikohalfkino.rubydung.interfaces.hud.InteractPromptHud;
 import com.nikohalfkino.rubydung.interfaces.hud.SelectedTileHud;
-import com.nikohalfkino.rubydung.interfaces.screen.LoadingScreen;
+import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.screen.TitleScreen;
 import com.nikohalfkino.rubydung.level.Chunk;
 import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.level.LevelRenderer;
+import com.nikohalfkino.rubydung.level.Tiles.DoorColor;
 import com.nikohalfkino.rubydung.level.Tiles.Tile;
 import com.nikohalfkino.rubydung.level.WorldManager;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
+import com.nikohalfkino.rubydung.player.DoorTravel;
 import com.nikohalfkino.rubydung.player.Player;
 import com.nikohalfkino.rubydung.player.PlayerInteraction;
 import com.nikohalfkino.rubydung.player.input.InputHandler;
@@ -22,6 +28,7 @@ import com.nikohalfkino.rubydung.render.Font;
 import com.nikohalfkino.rubydung.render.GameRenderer;
 import com.nikohalfkino.rubydung.render.ScreenshotManager;
 import com.nikohalfkino.rubydung.render.Textures;
+import com.nikohalfkino.rubydung.util.AutosaveSettings;
 import com.nikohalfkino.rubydung.util.GameSettings;
 import com.nikohalfkino.rubydung.util.KeyBinding;
 import org.lwjgl.LWJGLException;
@@ -36,22 +43,47 @@ import static org.lwjgl.opengl.GL11.*;
 
 public class RubyDung implements Runnable {
 
-    private final Timer timer = new Timer(60);
+    public static final String GAME_NAME = "Strata";
+    public static final String GAME_VERSION = "0.1.2";
+
+    public static final String GAME_TITLE = GAME_NAME + " " + GAME_VERSION;
+
+    private static final String PAUSED_TITLE = GAME_NAME + " - Paused";
+
+    /** Game ticks per second (the Timer's rate); autosave intervals are counted in ticks. */
+    private static final int TICKS_PER_SECOND = 60;
+
+    private final Timer timer = new Timer(TICKS_PER_SECOND);
 
     private final int width = 800;
     private final int height = 600;
     private final Console console = new Console(this);
+    private final ChatLog chatLog = new ChatLog();
     private final InputHandler inputHandler = new InputHandler(this);
     private final GameSession session = new GameSession(this);
     private final GameRenderer gameRenderer = new GameRenderer(this);
     private final ScreenshotManager screenshotManager = new ScreenshotManager(this, this.gameRenderer);
     private final MusicPlayer musicPlayer = new MusicPlayer();
+    private final JTalkSpeaker speaker = new JTalkSpeaker();
     private final Hud hud = new Hud();
     private final DebugHud debugHud = new DebugHud(this);
     private final CenterIndicator centerIndicator = new CenterIndicator(this);
+    private final DayNightCycle dayNightCycle = new DayNightCycle();
+
+    private static final int TIME_SAVE_INTERVAL_TICKS = 60 * 10;
+    private int ticksSinceTimeSave = 0;
+
+    /** Ticks of actual play since the world was last saved (counts only while the game is running). */
+    private int ticksSinceAutosave = 0;
     private boolean running = true;
     private Font font;
     private Screen currentScreen;
+
+    /**
+     * Set while travelling through a dimensional door: the colour to look for
+     * in the world being loaded.
+     */
+    private DoorColor pendingArrivalColor = null;
 
     public static void main(String[] args) {
         new Thread(new RubyDung()).start();
@@ -73,12 +105,20 @@ public class RubyDung implements Runnable {
         return this.console;
     }
 
+    public ChatLog getChatLog() {
+        return this.chatLog;
+    }
+
     public InputHandler getInputHandler() {
         return this.inputHandler;
     }
 
     public Font getFont() {
         return this.font;
+    }
+
+    public JTalkSpeaker getSpeaker() {
+        return this.speaker;
     }
 
     public Hud getHud() {
@@ -91,6 +131,10 @@ public class RubyDung implements Runnable {
 
     public float getFps() {
         return this.timer.fps;
+    }
+
+    public DayNightCycle getDayNightCycle() {
+        return this.dayNightCycle;
     }
 
     public boolean hasWorld() {
@@ -124,8 +168,10 @@ public class RubyDung implements Runnable {
     public void init() throws LWJGLException {
         GameSettings.load();
         KeyBinding.load();
+        JTalkSettings.load();
+        AutosaveSettings.load();
 
-        Display.setTitle("Strata 0.0.1");
+        Display.setTitle(GAME_TITLE);
         Display.setDisplayMode(new DisplayMode(this.width, this.height));
 
         Display.create();
@@ -151,38 +197,141 @@ public class RubyDung implements Runnable {
         this.hud.register(new SelectedTileHud(this));
         this.hud.register(this.debugHud);
         this.hud.register(new CrosshairHud());
+        this.hud.register(new InteractPromptHud(this), Anchor.CENTER, 0, 28);
         this.hud.register(this.centerIndicator);
 
         WorldManager.pruneIncompleteWorlds();
 
         this.musicPlayer.start();
+        this.speaker.start();
 
         openScreen(new TitleScreen(this));
     }
 
+    /**
+     * Leaves the current world through a dimensional door for another one.
+     * The current level is saved first (after the door screen has closed,
+     * so its door is saved closed); the player then arrives in front of
+     * a matching door in the new world, see {@link #finishedLoadingWorld}.
+     */
+    public void travelThroughDoor(String worldName, DoorColor pickedColor) {
+        closeScreen();
+        saveLevel();
+        this.pendingArrivalColor = pickedColor;
+        loadWorld(worldName);
+    }
+
     public void finishedLoadingWorld() {
+        this.ticksSinceAutosave = 0;
+
+        if (this.pendingArrivalColor != null) {
+            DoorColor arrivedThrough = this.pendingArrivalColor;
+            this.pendingArrivalColor = null;
+            DoorTravel.arrive(getLevel(), getPlayer(), arrivedThrough);
+        }
+
         closeScreen();
         Mouse.setGrabbed(true);
     }
 
     public void loadWorld(String worldName) {
+        saveWorldTime();
+        this.chatLog.reset(worldName);
+
+        // Each world keeps its own clock; worlds saved before this existed start at noon.
+        if (!WorldManager.loadWorldTime(worldName, this.dayNightCycle)) {
+            this.dayNightCycle.applyCreationSettings(
+                    DayNightCycle.TimeMode.NORMAL,
+                    DayNightCycle.DEFAULT_START_TIME
+            );
+        }
+
         this.session.loadWorld(worldName);
     }
 
     public void startNewWorld(String worldName, LevelGenerator.WorldType type, LevelGenerator.WorldSize size) {
+        startNewWorld(worldName, type, size, DayNightCycle.TimeMode.NORMAL, DayNightCycle.DEFAULT_START_TIME);
+    }
+
+    public void startNewWorld(
+            String worldName,
+            LevelGenerator.WorldType type,
+            LevelGenerator.WorldSize size,
+            DayNightCycle.TimeMode timeMode,
+            float startTime
+    ) {
+        beginWorldClock(worldName, timeMode, startTime);
+        this.chatLog.reset(worldName);
         this.session.startNewWorld(worldName, type, size);
     }
 
-    public void startNewWorld(String worldName, LevelGenerator.WorldType type, long seed, LevelGenerator.WorldSize size) {
+    public void startNewWorld(
+            String worldName,
+            LevelGenerator.WorldType type,
+            long seed,
+            LevelGenerator.WorldSize size
+    ) {
+        startNewWorld(
+                worldName,
+                type,
+                seed,
+                size,
+                DayNightCycle.TimeMode.NORMAL,
+                DayNightCycle.DEFAULT_START_TIME
+        );
+    }
+
+    public void startNewWorld(
+            String worldName,
+            LevelGenerator.WorldType type,
+            long seed,
+            LevelGenerator.WorldSize size,
+            DayNightCycle.TimeMode timeMode,
+            float startTime
+    ) {
+        beginWorldClock(worldName, timeMode, startTime);
+        this.chatLog.reset(worldName);
         this.session.startNewWorld(worldName, type, seed, size);
     }
 
-    public void regenerateLevel(Long customSeed, LevelGenerator.WorldType overrideType, LevelGenerator.WorldSize overrideSize) {
+    /**
+     * Applies the chosen time settings for a new world and saves them straight away.
+     */
+    private void beginWorldClock(String worldName, DayNightCycle.TimeMode timeMode, float startTime) {
+        saveWorldTime();
+        this.dayNightCycle.applyCreationSettings(timeMode, startTime);
+        WorldManager.saveWorldTime(worldName, this.dayNightCycle);
+    }
+
+    /**
+     * Writes the current world's clock to its save folder (no-op without a world).
+     */
+    private void saveWorldTime() {
+        if (hasWorld()) {
+            WorldManager.saveWorldTime(getLevel().getWorldName(), this.dayNightCycle);
+        }
+    }
+
+    public void regenerateLevel(
+            Long customSeed,
+            LevelGenerator.WorldType overrideType,
+            LevelGenerator.WorldSize overrideSize
+    ) {
         this.session.regenerateLevel(customSeed, overrideType, overrideSize);
     }
 
     public void saveLevel() {
         this.session.saveLevel();
+        saveWorldTime();
+
+        // Any save (manual, travelling through a door, ...) restarts the autosave countdown.
+        this.ticksSinceAutosave = 0;
+    }
+
+    /** Saves the world on a timer and tells the player. */
+    private void autosave() {
+        saveLevel();
+        this.centerIndicator.showMessage("Saved!");
     }
 
     public void quit() {
@@ -193,7 +342,10 @@ public class RubyDung implements Runnable {
         saveLevel();
         GameSettings.save();
         KeyBinding.save();
+        JTalkSettings.save();
+        AutosaveSettings.save();
         this.session.dispose();
+        this.speaker.stop();
         this.musicPlayer.stop();
 
         Mouse.destroy();
@@ -206,7 +358,12 @@ public class RubyDung implements Runnable {
         try {
             init();
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, e, "Failed to start Strata 0.0.1", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(
+                    null,
+                    e,
+                    "Failed to start " + GAME_TITLE,
+                    JOptionPane.ERROR_MESSAGE
+            );
             System.exit(0);
         }
 
@@ -239,10 +396,25 @@ public class RubyDung implements Runnable {
     }
 
     private void tick() {
+        // Autosave the clock so a crash or a quit path that skips saveLevel() loses at most ~10 s.
+        if (hasWorld() && ++this.ticksSinceTimeSave >= TIME_SAVE_INTERVAL_TICKS) {
+            this.ticksSinceTimeSave = 0;
+            saveWorldTime();
+        }
+
         if (!hasWorld() || this.currentScreen != null || this.console.isOpen() || !Display.isActive()) {
             return;
         }
+
+        // The world clock only runs while the game does, so it pauses with menus, the console and loading.
+        this.dayNightCycle.tick(this.timer.partialTicks);
         this.session.tick();
+
+        // Counts play time only: menus, the console and loading pause it, like the world clock.
+        if (AutosaveSettings.isEnabled()
+                && ++this.ticksSinceAutosave >= AutosaveSettings.getIntervalMinutes() * 60 * TICKS_PER_SECOND) {
+            autosave();
+        }
     }
 
     public void openScreen(Screen screen) {
@@ -257,7 +429,7 @@ public class RubyDung implements Runnable {
             Mouse.setGrabbed(false);
 
             if (hasWorld()) {
-                Display.setTitle("Strata - Paused");
+                Display.setTitle(PAUSED_TITLE);
             }
         }
     }
@@ -266,12 +438,14 @@ public class RubyDung implements Runnable {
         if (this.currentScreen != null) {
             this.currentScreen.onClose();
         }
+
         this.currentScreen = null;
 
         if (!this.console.isOpen()) {
             Mouse.setGrabbed(true);
         }
-        Display.setTitle("Strata 0.0.1");
+
+        Display.setTitle(GAME_TITLE);
     }
 
     public void takeScreenshot(int scale) {

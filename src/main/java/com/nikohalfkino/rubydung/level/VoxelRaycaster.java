@@ -56,9 +56,17 @@ public final class VoxelRaycaster {
 
         while (traveled <= maxDistance) {
             if (enteredFace != -1) {
+                // Any cell of a multi-tile object selects the whole object, reported at its origin.
+                MultiTileInstance object = level.getMultiTile(x, y, z);
+                if (object != null) {
+                    return new HitResult(object.x, object.y, object.z, 0, enteredFace, x, y, z);
+                }
+
+                // Tall single-cell tiles that aren't multi-tile objects: target the root, but report the
+                // cell that was actually entered so placing lands next to the part that was clicked.
                 int[] target = resolveTarget(level, x, y, z);
                 if (target != null) {
-                    return new HitResult(target[0], target[1], target[2], 0, enteredFace);
+                    return new HitResult(target[0], target[1], target[2], 0, enteredFace, x, y, z);
                 }
             }
 
@@ -87,6 +95,12 @@ public final class VoxelRaycaster {
         for (int rootY = y; rootY > y - MAX_PICK_HEIGHT; rootY--) {
             Tile tile = Tile.byId(level.getTile(x, rootY, z));
             if (tile == null || tile == Tile.AIR) {
+                continue;
+            }
+
+            // Cells of registered multi-tile objects are handled by the caller. Their tall pick box
+            // would otherwise select the empty air above the object.
+            if (level.getMultiTile(x, rootY, z) != null) {
                 continue;
             }
 

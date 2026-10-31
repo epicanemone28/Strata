@@ -1,9 +1,14 @@
 package com.nikohalfkino.rubydung.render;
 
+import com.nikohalfkino.rubydung.DayNightCycle;
 import com.nikohalfkino.rubydung.HitResult;
 import com.nikohalfkino.rubydung.RubyDung;
+import com.nikohalfkino.rubydung.interfaces.FrameScreen;
+import com.nikohalfkino.rubydung.interfaces.GameFrame;
+import com.nikohalfkino.rubydung.interfaces.Screen;
 import com.nikohalfkino.rubydung.interfaces.hud.FpsHud;
 import com.nikohalfkino.rubydung.interfaces.screen.ConsoleScreen;
+import com.nikohalfkino.rubydung.level.Chunk;
 import com.nikohalfkino.rubydung.level.LevelRenderer;
 import com.nikohalfkino.rubydung.level.VoxelRaycaster;
 import com.nikohalfkino.rubydung.player.Player;
@@ -26,6 +31,7 @@ public class GameRenderer {
 
     private final CloudRenderer cloudRenderer = new CloudRenderer();
     private final SkyboxRenderer skyboxRenderer = new SkyboxRenderer();
+    private final GameFrame frame = new GameFrame();
 
     private static final float FOG_START = -10.0F;
     private static final float FOG_END = 120.0F;
@@ -36,13 +42,6 @@ public class GameRenderer {
 
     public GameRenderer(RubyDung game) {
         this.game = game;
-
-        this.fogColor.put(new float[]{
-                14 / 255.0F,
-                11 / 255.0F,
-                10 / 255.0F,
-                255 / 255.0F
-        }).flip();
     }
 
     public CloudRenderer getCloudRenderer() {
@@ -65,7 +64,6 @@ public class GameRenderer {
         return FOG_END;
     }
 
-
     public float getCloudY() {
         return CloudRenderer.HEIGHT_OFFSET;
     }
@@ -73,6 +71,12 @@ public class GameRenderer {
     public void render(float partialTicks) {
         boolean playing = this.game.hasWorld() && this.game.getCurrentScreen() == null
                 && !this.game.getConsole().isOpen() && Display.isActive();
+
+        // The frame opens while a FrameScreen (inventory, pause menu) is current and animates closed otherwise.
+        Screen screen = this.game.getCurrentScreen();
+        FrameScreen frameScreen = screen instanceof FrameScreen ? (FrameScreen) screen : null;
+        this.frame.setTarget(frameScreen != null, frameScreen);
+        this.frame.update();
 
         if (playing) {
             float motionX = Mouse.getDX();
@@ -96,16 +100,48 @@ public class GameRenderer {
         if (this.game.hasWorld()) {
             Player player = this.game.getPlayer();
             LevelRenderer levelRenderer = this.game.getLevelRenderer();
+            DayNightCycle cycle = this.game.getDayNightCycle();
+
+            // Push current ambient brightness into the level so terrain dims at night.
+            this.game.getLevel().setSkyAmbient(cycle.getAmbient());
+
+            // The world is drawn into the frame's viewport; without a frame (closed, or window
+            // too small) it fills the whole window.
+            int viewWidth = width;
+            int viewHeight = height;
+
+            GameFrame.Layout layout = this.frame.layout(width, height);
+            if (layout != null) {
+                this.frame.render(layout, width, height, this.game.getFont());
+
+                viewWidth = layout.viewWidth;
+                viewHeight = layout.viewHeight;
+                glViewport(layout.viewX, height - layout.viewY - layout.viewHeight, viewWidth, viewHeight);
+
+                // Let the screen know where the panel is right now (it slides in).
+                if (frameScreen != null) {
+                    frameScreen.setLayout(layout);
+                }
+            }
 
             float cameraPartialTicks = playing ? partialTicks : 1.0F;
-            setupCamera(cameraPartialTicks, width, height);
+            setupCamera(cameraPartialTicks, viewWidth, viewHeight);
+
+            // Bring chunks outside the view up to date with the current sky light, so turning
+            // around never reveals chunks lit for an earlier time of day.
+            Chunk.refreshStaleOffscreen(Frustum.getFrustum());
 
             double eyeX = player.prevX + (player.x - player.prevX) * cameraPartialTicks;
             double eyeY = player.prevY + (player.y - player.prevY) * cameraPartialTicks;
             double eyeZ = player.prevZ + (player.z - player.prevZ) * cameraPartialTicks;
 
-            this.skyboxRenderer.render(eyeX, eyeY, eyeZ);
-            this.cloudRenderer.render(eyeX, eyeY, eyeZ);
+            // Update fog color from the day-night cycle.
+            float[] fc = cycle.getFogColor();
+            this.fogColor.clear();
+            this.fogColor.put(new float[]{fc[0], fc[1], fc[2], 1.0F}).flip();
+
+            this.skyboxRenderer.render(eyeX, eyeY, eyeZ, cycle);
+            this.cloudRenderer.render(eyeX, eyeY, eyeZ, cycle);
 
             glEnable(GL_FOG);
             glFogi(GL_FOG_MODE, GL_LINEAR);
@@ -116,7 +152,6 @@ public class GameRenderer {
 
             levelRenderer.render(0);
 
-            glEnable(GL_FOG);
             glEnable(GL_TEXTURE_2D);
             levelRenderer.render(1);
 
@@ -131,7 +166,15 @@ public class GameRenderer {
 
             glDisable(GL_FOG);
 
-            this.game.getHud().render(this.game.getFont(), width, height);
+            // Dither the world while the frame is open (checkerboard of black pixels).
+            if (layout != null) {
+                this.frame.renderDarken(viewWidth, viewHeight);
+            }
+
+            // The HUD lays itself out inside the viewport (crosshair centred on the world view).
+            this.game.getHud().render(this.game.getFont(), viewWidth, viewHeight);
+
+            glViewport(0, 0, width, height);
         }
 
         if (this.game.getCurrentScreen() != null) {

@@ -2,6 +2,9 @@ package com.nikohalfkino.rubydung.player.input;
 
 import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.console.Console;
+import com.nikohalfkino.rubydung.interfaces.screen.ChatScreen;
+import com.nikohalfkino.rubydung.interfaces.screen.DimensionalDoorScreen;
+import com.nikohalfkino.rubydung.interfaces.screen.InventoryScreen;
 import com.nikohalfkino.rubydung.interfaces.screen.PauseScreen;
 import com.nikohalfkino.rubydung.interfaces.Screen;
 import com.nikohalfkino.rubydung.level.Tiles.Tile;
@@ -34,7 +37,20 @@ public class InputHandler {
 
     private void handleScrollWheel(boolean playing) {
         int wheel = Mouse.getDWheel();
-        if (!playing || wheel == 0) {
+        if (wheel == 0) {
+            return;
+        }
+
+        if (!playing) {
+            Screen currentScreen = this.game.getCurrentScreen();
+            if (currentScreen instanceof InventoryScreen) {
+                ((InventoryScreen) currentScreen).scroll(wheel > 0 ? -1 : 1);
+            } else if (currentScreen instanceof ChatScreen) {
+                // Wheel up = back in time.
+                ((ChatScreen) currentScreen).scroll(wheel > 0 ? 3 : -3);
+            } else if (currentScreen instanceof DimensionalDoorScreen) {
+                ((DimensionalDoorScreen) currentScreen).scroll(wheel > 0 ? -1 : 1);
+            }
             return;
         }
 
@@ -104,6 +120,15 @@ public class InputHandler {
             this.game.saveLevel();
         } else if (key == KeyMap.ESC) {
             this.game.openScreen(new PauseScreen(this.game, this.game.getFont()));
+        } else if (key == KeyBinding.INVENTORY.getKey()) {
+            this.game.openScreen(new InventoryScreen(this.game));
+        } else if (key == KeyBinding.CHAT.getKey() && this.game.hasWorld()) {
+            this.game.openScreen(new ChatScreen(this.game));
+        } else if (key == KeyBinding.INTERACT.getKey()) {
+            int[] door = this.game.getPlayerInteraction().getTargetedDoorOrigin();
+            if (door != null) {
+                this.game.openScreen(new DimensionalDoorScreen(this.game, door[0], door[1], door[2]));
+            }
         } else if (key == KeyBinding.DEBUG_HUD.getKey()) {
             this.game.getDebugHud().toggle();
         } else if (key == KeyBinding.PICK_BLOCK.getKey() || key == Keyboard.KEY_RMENU) {

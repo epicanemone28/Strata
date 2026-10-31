@@ -14,7 +14,7 @@ final class NaturalLevelGenerator {
     private NaturalLevelGenerator() {
     }
 
-    static byte[] generate(int width, int height, int depth, long seed) {
+    static LevelGenerator.Result generate(int width, int height, int depth, long seed) {
         byte[] blocks = new byte[width * height * depth];
 
         Random random = new Random(seed);
@@ -35,9 +35,10 @@ final class NaturalLevelGenerator {
             }
         }
 
-        scatterTrees(random, blocks, heightMap, monolithMask, width, height, depth);
+        List<int[]> multiTileOrigins = new ArrayList<>();
+        scatterTrees(random, blocks, heightMap, monolithMask, width, height, depth, multiTileOrigins);
 
-        return blocks;
+        return new LevelGenerator.Result(blocks, multiTileOrigins);
     }
 
     private static void generateChunk(byte[] blocks, int[][] heightMap, int width, int height, int chunkSize,
@@ -413,7 +414,7 @@ final class NaturalLevelGenerator {
     }
 
     private static void scatterTrees(Random random, byte[] blocks, int[][] heightMap, boolean[][] monolithMask,
-                                     int width, int height, int depth) {
+                                     int width, int height, int depth, List<int[]> multiTileOrigins) {
         int cellSize = 6;
         float treeChance = 0.35f;
         float largeChance = 0.35f;
@@ -441,8 +442,50 @@ final class NaturalLevelGenerator {
                 }
 
                 Tile tree = random.nextFloat() < largeChance ? Tile.TREE_LARGE : Tile.TREE_MEDIUM;
-                int treeIndex = (treeY * height + z) * width + x;
-                blocks[treeIndex] = (byte) tree.id;
+
+                // Trees occupy their whole height, so skip the spot if the tree doesn't fit.
+                if (!footprintIsFree(blocks, tree, x, treeY, z, width, height, depth)) {
+                    continue;
+                }
+
+                stampTile(blocks, tree, x, treeY, z, width, height);
+                if (tree.isMultiTile()) {
+                    multiTileOrigins.add(new int[]{x, treeY, z});
+                }
+            }
+        }
+    }
+
+    /** Whether the tile's whole footprint (unrotated, from its minimum corner) is in bounds and empty. */
+    private static boolean footprintIsFree(byte[] blocks, Tile tile, int x, int y, int z,
+                                           int width, int height, int depth) {
+        int sizeX = tile.getSizeX(0);
+        int sizeY = tile.getSizeY();
+        int sizeZ = tile.getSizeZ(0);
+
+        if (x + sizeX > width || y + sizeY > depth || z + sizeZ > height) {
+            return false;
+        }
+
+        for (int cy = y; cy < y + sizeY; cy++) {
+            for (int cz = z; cz < z + sizeZ; cz++) {
+                for (int cx = x; cx < x + sizeX; cx++) {
+                    if (blocks[(cy * height + cz) * width + cx] != 0) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    /** Writes the tile id into every cell of its footprint (rotation 0, which is what the data array defaults to). */
+    private static void stampTile(byte[] blocks, Tile tile, int x, int y, int z, int width, int height) {
+        for (int cy = y; cy < y + tile.getSizeY(); cy++) {
+            for (int cz = z; cz < z + tile.getSizeZ(0); cz++) {
+                for (int cx = x; cx < x + tile.getSizeX(0); cx++) {
+                    blocks[(cy * height + cz) * width + cx] = (byte) tile.id;
+                }
             }
         }
     }

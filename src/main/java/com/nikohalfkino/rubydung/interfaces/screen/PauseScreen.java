@@ -1,112 +1,116 @@
 package com.nikohalfkino.rubydung.interfaces.screen;
 
 import com.nikohalfkino.rubydung.RubyDung;
-import com.nikohalfkino.rubydung.interfaces.Gui2D;
-import com.nikohalfkino.rubydung.interfaces.Screen;
+import com.nikohalfkino.rubydung.interfaces.FramePanelScreen;
+import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.Button;
+import com.nikohalfkino.rubydung.interfaces.widget.Column;
+import com.nikohalfkino.rubydung.interfaces.widget.Label;
 import com.nikohalfkino.rubydung.render.Font;
-import org.lwjgl.input.Keyboard;
 
-import static org.lwjgl.opengl.GL11.*;
+/**
+ * Pause menu, shown inside the game frame: the portrait stays at the top of the right-hand panel
+ * and the buttons sit in the dark panel below it, with the (frozen) world still visible on the left.
+ * <p>
+ * Everything on screen is a widget pinned to the frame every frame (see {@link FramePanelScreen}):
+ * the button column is centred in the panel section, the big "Paused" in the world view and the
+ * "Level Saved!" note in the bottom bar.
+ */
+public class PauseScreen extends FramePanelScreen {
 
-public class PauseScreen extends Screen {
-
-    private static final float PANEL_WIDTH = 300.0f;
-    private static final float PANEL_HEIGHT = 240.0f;
-
-    private static final float BUTTON_WIDTH = 260.0f;
+    private static final float BUTTON_WIDTH = 140.0f;
     private static final float BUTTON_HEIGHT = 28.0f;
+    private static final float BUTTON_GAP = 8.0f;
 
-    private final RubyDung game;
-    private final Font font;
+    private static final float PAUSED_SCALE = 4.0F;
+    private static final int PAUSED_SHADOW = 4;
 
-    private final Button resumeButton = new Button("Resume Game", BUTTON_WIDTH, BUTTON_HEIGHT, true);
-    private final Button optionsButton = new Button("Options", BUTTON_WIDTH, BUTTON_HEIGHT, true);
-    private final Button saveButton = new Button("Save Game", BUTTON_WIDTH, BUTTON_HEIGHT, true);
-    private final Button quitButton = new Button("Quit to Title", BUTTON_WIDTH, BUTTON_HEIGHT, true);
+    private static final int SAVED_MESSAGE_TICKS = 120;
+    private static final int SAVED_FADE_TICKS = 30;
+    private static final int SAVED_Y_OFFSET = 20;
+
+    private final Column menu;
+    private final Label pausedText;
+    private final Label savedText;
 
     private long saveMessageTicksRemaining = 0;
 
+    /** Kept so existing callers {@code new PauseScreen(game, font)} still compile; the font is the game's own. */
     public PauseScreen(RubyDung game, Font font) {
-        this.game = game;
-        this.font = font;
+        this(game);
+    }
+
+    public PauseScreen(RubyDung game) {
+        super(game);
+
+        onEscape(this.game::closeScreen);
+
+        this.menu = add(new Column(BUTTON_GAP), Anchor.TOP_LEFT, 0, 0);
+
+        this.menu.add(new Button("Resume", BUTTON_WIDTH, BUTTON_HEIGHT, true)
+                .onClick(this.game::closeScreen));
+        this.menu.add(new Button("Options", BUTTON_WIDTH, BUTTON_HEIGHT, true)
+                .onClick(() -> this.game.openScreen(new OptionsScreen(this.game))));
+        this.menu.add(new Button("Save", BUTTON_WIDTH, BUTTON_HEIGHT, true)
+                .onClick(() -> {
+                    this.game.saveLevel();
+                    this.saveMessageTicksRemaining = SAVED_MESSAGE_TICKS;
+                }));
+        this.menu.add(new Button("Quit", BUTTON_WIDTH, BUTTON_HEIGHT, true)
+                .onClick(() -> this.game.openScreen(new TitleScreen(this.game))));
+
+        // Big "Paused" over the world view, once the frame has finished opening.
+        this.pausedText = add(new Label("Paused")
+                .setScale(PAUSED_SCALE)
+                .setColor(0xFFFFFF), Anchor.TOP_LEFT, 0, 0);
+        this.pausedText.setVisibleWhen(this::isFrameOpen);
+
+        // "Level Saved!" goes in the bottom bar, under the world view, and fades out.
+        this.savedText = add(new Label("Level Saved!")
+                .setColor(0xFFFF00)
+                .setAlpha(() -> this.saveMessageTicksRemaining < SAVED_FADE_TICKS
+                        ? this.saveMessageTicksRemaining / (float) SAVED_FADE_TICKS
+                        : 1.0F), Anchor.TOP_LEFT, 0, 0);
+        this.savedText.setVisibleWhen(() -> this.saveMessageTicksRemaining > 0);
+    }
+
+    @Override
+    public boolean showsSlots() {
+        return false;
+    }
+
+    @Override
+    public String getPanelTitle() {
+        return "Game Menu";
+    }
+
+    @Override
+    public int getFrameTint() {
+        return 0xA8C0FF;
+    }
+
+    @Override
+    protected void placeWidgets() {
+        // Buttons centred in the panel under the portrait, so they slide in with it.
+        placeCenteredInSection(this.menu, 0);
+
+        this.pausedText.measure(this.font);
+        this.pausedText.setAnchor(Anchor.TOP_LEFT,
+                this.layout.viewX + (this.layout.viewWidth - this.pausedText.getWidth()) / 2.0F,
+                this.layout.viewY + this.layout.viewHeight / 2.0F - (int) (6 * PAUSED_SCALE));
+
+        this.savedText.measure(this.font);
+        this.savedText.setAnchor(Anchor.TOP_LEFT,
+                this.layout.viewX + (this.layout.viewWidth - this.savedText.getWidth()) / 2.0F,
+                this.layout.viewY + this.layout.viewHeight + SAVED_Y_OFFSET);
     }
 
     @Override
     public void render(int mouseX, int mouseY) {
-        Gui2D.begin(this.width, this.height);
+        super.render(mouseX, mouseY);
 
-        glDisable(GL_TEXTURE_2D);
-        glBegin(GL_QUADS);
-        glColor4f(0.0f, 0.0f, 0.0f, 0.7f);
-        glVertex2f(0, 0);
-        glColor4f(0.0f, 0.0f, 0.0f, 0.7f);
-        glVertex2f(this.width, 0);
-        glColor4f(0.15f, 0.15f, 0.5f, 0.85f);
-        glVertex2f(this.width, this.height);
-        glColor4f(0.15f, 0.15f, 0.5f, 0.85f);
-        glVertex2f(0, this.height);
-        glEnd();
-        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-
-        float panelX = (this.width - PANEL_WIDTH) / 2.0f;
-        float panelY = (this.height - PANEL_HEIGHT) / 2.0f;
-
-        if (this.saveMessageTicksRemaining > 0) {
-            String savedMsg = "Level Saved!";
-            int msgX = (int) (this.width - this.font.width(savedMsg)) / 2;
-            int msgY = (int) panelY - 30;
-
-            float alpha = 1.0F;
-            if (this.saveMessageTicksRemaining < 30) {
-                alpha = this.saveMessageTicksRemaining / 30.0F;
-            }
-
-            this.font.drawString(savedMsg, msgX, msgY, 0xFFFF00, alpha);
+        if (this.layout != null && this.saveMessageTicksRemaining > 0) {
             this.saveMessageTicksRemaining--;
         }
-
-        Gui2D.fillRect(panelX, panelY, PANEL_WIDTH, PANEL_HEIGHT, 0.2f, 0.2f, 0.2f, 0.85f);
-
-        String title = "Game Paused";
-        this.font.drawString(title, (int) (this.width - this.font.width(title)) / 2,
-                (int) panelY + 16, 0xFFFFFF);
-
-        float buttonX = panelX + (PANEL_WIDTH - BUTTON_WIDTH) / 2.0f;
-
-        this.resumeButton.setPosition(buttonX, panelY + 50);
-        this.optionsButton.setPosition(buttonX, panelY + 90);
-        this.saveButton.setPosition(buttonX, panelY + 130);
-        this.quitButton.setPosition(buttonX, panelY + 170);
-
-        this.resumeButton.render(this.font, mouseX, mouseY);
-        this.optionsButton.render(this.font, mouseX, mouseY);
-        this.saveButton.render(this.font, mouseX, mouseY);
-        this.quitButton.render(this.font, mouseX, mouseY);
-
-        Gui2D.end();
-    }
-
-    @Override
-    public void mouseClicked(int mouseX, int mouseY) {
-        if (this.resumeButton.isHovered(mouseX, mouseY)) {
-            this.game.closeScreen();
-        } else if (this.optionsButton.isHovered(mouseX, mouseY)) {
-            this.game.openScreen(new OptionsScreen(this.game));
-        } else if (this.saveButton.isHovered(mouseX, mouseY)) {
-            this.game.saveLevel();
-            this.saveMessageTicksRemaining = 120;
-        } else if (this.quitButton.isHovered(mouseX, mouseY)) {
-            this.game.openScreen(new TitleScreen(this.game));
-        }
-    }
-
-    @Override
-    public boolean keyPressed(int key, char character) {
-        if (key == Keyboard.KEY_ESCAPE) {
-            this.game.closeScreen();
-            return true;
-        }
-        return false;
     }
 }

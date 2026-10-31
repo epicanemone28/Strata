@@ -1,0 +1,251 @@
+# Katakana dictionary for the chat voice (see Katakana.java).
+#
+# [words]    word = katakana    spoken exactly like that instead of using the letter rules.
+#                               Lowercase, no apostrophes ("don't" -> dont).
+# [spelled]  words that are read letter by letter even though they contain a vowel (omg, usb).
+# [short]    short real words that stay words when SHOUTED (YES, AND) instead of becoming acronyms.
+#
+# Lines starting with # and blank lines are ignored. Add as many entries as you like;
+# an optional copy next to the game (jtalk/dictionary.txt) is loaded after this one and wins.
+
+[words]
+# function words / irregular spellings
+the       = ザ
+of        = アヴ
+to        = トゥ
+you       = ユー
+your      = ユア
+youre     = ユア
+yours     = ユアズ
+youve     = ユーヴ
+are       = アー
+is        = イズ
+was       = ワズ
+were      = ワー
+be        = ビー
+been      = ビン
+has       = ハズ
+had       = ハド
+does      = ダズ
+done      = ダン
+did       = ディド
+said      = セド
+says      = セズ
+one       = ワン
+once      = ワンス
+two       = トゥー
+who       = フー
+what      = ワット
+why       = ワイ
+where     = ウェア
+when      = ウェン
+which     = ウィッチ
+there     = ゼア
+their     = ゼア
+theres    = ゼアズ
+they      = ゼイ
+theyre    = ゼア
+here      = ヒア
+heres     = ヒアズ
+this      = ディス
+that      = ザット
+these     = ディーズ
+those     = ドーズ
+then      = ゼン
+them      = ゼム
+than      = ザン
+would     = ウド
+could     = クド
+should    = シュド
+through   = スルー
+though    = ゾウ
+thought   = ソート
+enough    = イナフ
+people    = ピープル
+because   = ビコーズ
+only      = オンリー
+other     = アザー
+another   = アナザー
+some      = サム
+come      = カム
+love      = ラヴ
+give      = ギヴ
+live      = リヴ
+want      = ウォント
+any       = エニー
+many      = メニー
+very      = ヴェリー
+every     = エヴリー
+water     = ウォーター
+friend    = フレンド
+with      = ウィズ
+without   = ウィズアウト
+about     = アバウト
+know      = ノウ
+now       = ナウ
+how       = ハウ
+down      = ダウン
+out       = アウト
+me        = ミー
+we        = ウィー
+he        = ヒー
+she       = シー
+my        = マイ
+by        = バイ
+its       = イッツ
+it        = イット
+see       = シー
+go        = ゴー
+so        = ソー
+no        = ノー
+yes       = イェス
+
+# greetings / chat
+hello     = ハロー
+hi        = ハイ
+hey       = ヘイ
+bye       = バイ
+yeah      = イェー
+ok        = オーケー
+okay      = オーケー
+please    = プリーズ
+thanks    = サンクス
+thank     = サンク
+sorry     = ソーリー
+good      = グッド
+great     = グレイト
+nice      = ナイス
+cool      = クール
+game      = ゲーム
+play      = プレイ
+make      = メイク
+take      = テイク
+like      = ライク
+time      = タイム
+lol       = ロル
+rofl      = ロフル
+pog       = ポグ
+poggers   = ポガーズ
+noob      = ヌーブ
+bruh      = ブロ
+bro       = ブロ
+sus       = サス
+yeet      = イート
+meme      = ミーム
+memes     = ミームズ
+gonna     = ガナ
+wanna     = ワナ
+gotta     = ガタ
+kinda     = カインダ
+ya        = ヤ
+yo        = ヨー
+nah       = ナー
+nope      = ノープ
+yep       = イェップ
+yup       = ヤップ
+pls       = プリーズ
+plz       = プリーズ
+thx       = サンクス
+ty        = サンキュー
+tho       = ゾウ
+ur        = ユア
+ez        = イージー
+haha      = ハハ
+hehe      = ヘヘ
+wow       = ワオ
+ooh       = ウー
+uh        = アー
+um        = アム
+oh        = オー
+ah        = アー
+hmm       = ンー
+hm        = ンー
+mm        = ンー
+mmm       = ンー
+shh       = シー
+sh        = シー
+psst      = プスト
+brr       = ブルル
+grr       = グルル
+zzz       = ズズズ
+pfft      = プフッ
+tsk       = チッ
+
+# contractions (apostrophes are dropped before lookup)
+im        = アイム
+ive       = アイヴ
+thats     = ザッツ
+whats     = ワッツ
+whos      = フーズ
+lets      = レッツ
+dont      = ドント
+doesnt    = ダズント
+didnt     = ディドント
+cant      = キャント
+wont      = ウォント
+isnt      = イズント
+wasnt     = ワズント
+arent     = アーント
+werent    = ワーント
+havent    = ハヴント
+hasnt     = ハズント
+couldnt   = クドゥント
+wouldnt   = ウドゥント
+shouldnt  = シュドゥント
+hes       = ヒーズ
+shes      = シーズ
+weve      = ウィーヴ
+aint      = エイント
+
+# titles / abbreviations that are read as words
+mr        = ミスター
+mrs       = ミセス
+ms        = ミズ
+dr        = ドクター
+vs        = ヴァーサス
+etc       = エトセトラ
+ctrl      = コントロール
+asap      = エイサップ
+ram       = ラム
+rom       = ロム
+laser     = レーザー
+radar     = レーダー
+nato      = ナトー
+nasa      = ナサ
+lego      = レゴ
+scuba     = スキューバ
+
+# brands / tech
+youtube   = ユーチューブ
+minecraft = マインクラフト
+google    = グーグル
+discord   = ディスコード
+twitch    = トゥイッチ
+roblox    = ロブロックス
+wifi      = ワイファイ
+internet  = インターネット
+online    = オンライン
+offline   = オフライン
+server    = サーバー
+player    = プレイヤー
+mod       = モッド
+
+[spelled]
+# read letter by letter, e.g. omg -> オーエムジー
+omg afk idk imo fyi irl cpu gpu
+usb hdmi url faq diy ceo vip usa
+uk eu ui ux ai os ar vr
+ios mmo ip lmao
+
+[short]
+ah all am an and are as at bad ban
+be bed big boy bro but by bye can cat
+dad day did do dog fan for fun get go
+ha had has he her hey hi him his hit
+hot how if in is it its kid let man
+map me mod mom mum my nah new no not
+now of oh ok old on one or our out
+ow put red run sad say see she sir so
+sun the to too two uh um up use war
+was way we who why win wow yay yep yes
+yo you yup

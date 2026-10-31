@@ -1,0 +1,141 @@
+package com.nikohalfkino.rubydung.interfaces.widget;
+
+import com.nikohalfkino.rubydung.interfaces.Gui2D;
+import com.nikohalfkino.rubydung.interfaces.UiStyle;
+import com.nikohalfkino.rubydung.render.Font;
+import com.nikohalfkino.rubydung.util.KeyMap;
+
+/**
+ * A single-line text box: translucent dark background, a fixed prefix ("Name: ") and the typed
+ * text, with a blinking cursor and mouse selection while it has focus. Wraps {@link TextField},
+ * which does the actual editing.
+ * <p>
+ * Focus is handled by the Screen: clicking the box focuses it, Tab moves between boxes, and the
+ * focused box gets the keyboard before anything else.
+ * <pre>
+ *     TextInput name = column.add(new TextInput("Name: ", 420, 28, 32));
+ *     screen.setFocus(name);                          // start with the cursor in it
+ *     name.getText();
+ * </pre>
+ */
+public class TextInput extends Widget {
+
+    private static final float PADDING = 8.0f;
+
+    private final TextField field;
+    private String prefix;
+
+    private boolean commitOnKeys = false;
+    private Runnable onCommit;
+
+    private Font lastFont;
+
+    public TextInput(String prefix, float width, float height, int maxLength) {
+        this.prefix = prefix;
+        this.field = new TextField(maxLength);
+        setSize(width, height);
+    }
+
+    public String getText() {
+        return this.field.getText();
+    }
+
+    public void setText(String text) {
+        this.field.setText(text);
+    }
+
+    public void setPrefix(String prefix) {
+        this.prefix = prefix;
+    }
+
+    public TextField getField() {
+        return this.field;
+    }
+
+    /**
+     * When on, Enter and Escape finish editing: the box drops focus and {@code onCommit} runs.
+     * When off (the default) they are passed on to the screen (e.g. Enter = "Create").
+     */
+    public TextInput setCommitOnKeys(boolean commitOnKeys) {
+        this.commitOnKeys = commitOnKeys;
+        return this;
+    }
+
+    /** Runs whenever the box loses focus - after a click elsewhere, or Enter/Escape if commit-on-keys is on. */
+    public TextInput onCommit(Runnable onCommit) {
+        this.onCommit = onCommit;
+        return this;
+    }
+
+    @Override
+    public void measure(Font font) {
+        this.lastFont = font;
+        super.measure(font);
+    }
+
+    private int textX() {
+        return (int) (this.x + PADDING);
+    }
+
+    private int textY() {
+        return (int) (this.y + PADDING);
+    }
+
+    @Override
+    protected boolean isInteractive() {
+        return true;
+    }
+
+    @Override
+    public boolean isFocusable() {
+        return true;
+    }
+
+    @Override
+    public void onMouseClicked(int mouseX, int mouseY) {
+        if (this.lastFont != null) {
+            this.field.mouseClicked(mouseX, mouseY, textX(), textY(), this.lastFont, this.prefix);
+        }
+    }
+
+    @Override
+    protected void onBlur() {
+        if (this.onCommit != null) {
+            this.onCommit.run();
+        }
+    }
+
+    @Override
+    public boolean keyPressed(int key, char character) {
+        boolean enter = key == KeyMap.ENTER || key == KeyMap.NUMPAD_ENTER;
+
+        if (key == KeyMap.ESC || enter) {
+            if (this.commitOnKeys) {
+                requestBlur();
+                return true;
+            }
+            return false;
+        }
+        if (key == KeyMap.TAB) {
+            return false;
+        }
+
+        this.field.keyTyped(key, character);
+        return true;
+    }
+
+    @Override
+    protected void draw(Font font, int mouseX, int mouseY) {
+        Gui2D.fillRect(this.x, this.y, this.width, this.height, 0.0f, 0.0f, 0.0f, 0.45f);
+
+        int textX = textX();
+        int textY = textY();
+
+        if (isFocused()) {
+            this.field.updateMouse(mouseX, mouseY, textX, textY, font, this.prefix);
+            this.field.render(font, textX, textY, UiStyle.TEXT, this.prefix);
+        } else {
+            font.drawString(this.prefix + this.field.getText(), textX, textY, UiStyle.TEXT);
+        }
+    }
+}

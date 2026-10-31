@@ -1,5 +1,14 @@
 package com.nikohalfkino.rubydung.render;
 
+import com.nikohalfkino.rubydung.DayNightCycle;
+import org.lwjgl.BufferUtils;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+
 import static org.lwjgl.opengl.GL11.*;
 
 public class SkyboxRenderer {
@@ -9,42 +18,174 @@ public class SkyboxRenderer {
     private static final int LATITUDE_SEGMENTS = 48;
     private static final int LONGITUDE_SEGMENTS = 96;
 
-    private static final float ZENITH_R = 0.2F;
-    private static final float ZENITH_G = 0.5F;
-    private static final float ZENITH_B = 0.8F;
+    private static final String SUN_TEXTURE = "/assets/rubydung/textures/enviroment/sun.png";
+    private static final String MOON_TEXTURE = "/assets/rubydung/textures/enviroment/moon.png";
 
-    private static final float HORIZON_R = 0.4F;
-    private static final float HORIZON_G = 0.7F;
-    private static final float HORIZON_B = 1F;
+    /** Distance of the sun/moon quads from the eye (inside SKY_RADIUS). */
+    private static final float BODY_DISTANCE = 1500.0F;
+    private static final float SUN_HALF_SIZE = 140.0F;
+    private static final float MOON_HALF_SIZE = 100.0F;
 
-    private static final float NADIR_R = 0.70F;
-    private static final float NADIR_G = 0.87F;
-    private static final float NADIR_B = 1.00F;;
+    /** Tilt of the sun/moon orbit away from the east-west plane (radians), so noon isn't exactly overhead. */
+    private static final float ORBIT_TILT = 0.4F;
 
     private final Tessellator tessellator = new Tessellator();
 
-    private int displayList = -1;
+    private boolean bodyTexturesLoaded = false;
+    private int sunTexture = 0;
+    private int moonTexture = 0;
 
-    public void render(double eyeX, double eyeY, double eyeZ) {
-        if (displayList == -1) {
-            displayList = buildMesh();
-        }
+    // The current cycle reference, updated each frame before rendering.
+    private DayNightCycle cycle;
+
+    /**
+     * Renders the skybox for this frame. Sky colors are driven by the day-night cycle,
+     * so we render the mesh directly every frame instead of caching a display list.
+     */
+    public void render(double eyeX, double eyeY, double eyeZ, DayNightCycle cycle) {
+        this.cycle = cycle;
 
         setupRenderState();
 
         glPushMatrix();
         glTranslated(eyeX, eyeY, eyeZ);
-        glCallList(displayList);
+        renderMesh();
+        renderSunAndMoon();
         glPopMatrix();
 
         cleanupRenderState();
     }
 
-    private int buildMesh() {
-        int list = glGenLists(1);
+    // ── Sun and moon ──────────────────────────────────────────────────────
 
-        glNewList(list, GL_COMPILE);
+    /**
+     * Draws the sun and moon as camera-facing quads on a tilted circular orbit driven by the
+     * cycle's time (0.25 = sunrise, 0.5 = sun at its highest, 0.75 = sunset; the moon is opposite).
+     * The textures have a black background, so they are blended additively and the black vanishes.
+     */
+    private void renderSunAndMoon() {
+        if (!this.bodyTexturesLoaded) {
+            this.bodyTexturesLoaded = true;
+            this.sunTexture = loadTexture(SUN_TEXTURE);
+            this.moonTexture = loadTexture(MOON_TEXTURE);
+        }
 
+        float angle = (this.cycle.getTime() - 0.25F) * (float) (2.0 * Math.PI);
+        float sunX = (float) Math.cos(angle);
+        float sunY = (float) (Math.sin(angle) * Math.cos(ORBIT_TILT));
+        float sunZ = (float) (Math.sin(angle) * Math.sin(ORBIT_TILT));
+
+        glEnable(GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
+
+        if (this.sunTexture != 0) {
+            // Fade out as it drops below the horizon, and turn warm while it is low.
+            float visibility = clamp01((sunY + 0.1F) / 0.25F);
+            float warm = clamp01(1.0F - sunY / 0.45F);
+            drawBody(this.sunTexture, sunX, sunY, sunZ, SUN_HALF_SIZE,
+                    lerp(1.0F, 1.0F, warm) * visibility,
+                    lerp(1.0F, 0.6F, warm) * visibility,
+                    lerp(1.0F, 0.3F, warm) * visibility);
+        }
+
+        if (this.moonTexture != 0) {
+            float moonY = -sunY;
+            float visibility = clamp01((moonY + 0.1F) / 0.25F);
+            // A bright daytime sky washes the moon out, but it stays faintly visible.
+            float dim = 1.0F - 0.65F * this.cycle.getAmbient();
+            float v = visibility * dim;
+            drawBody(this.moonTexture, -sunX, moonY, -sunZ, MOON_HALF_SIZE, 0.85F * v, 0.9F * v, 1.0F * v);
+        }
+
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_BLEND);
+    }
+
+    private void drawBody(int texture, float dx, float dy, float dz, float halfSize, float r, float g, float b) {
+        if (r <= 0.0F && g <= 0.0F && b <= 0.0F) {
+            return;
+        }
+
+        // Camera-facing basis: right = dir x worldUp, up = right x dir.
+        float rx = -dz;
+        float rz = dx;
+        float len = (float) Math.sqrt(rx * rx + rz * rz);
+        if (len < 1.0E-4F) {
+            rx = 1.0F;
+            rz = 0.0F;
+        } else {
+            rx /= len;
+            rz /= len;
+        }
+        float ux = -rz * dy;
+        float uy = rz * dx - rx * dz;
+        float uz = rx * dy;
+
+        float cx = dx * BODY_DISTANCE;
+        float cy = dy * BODY_DISTANCE;
+        float cz = dz * BODY_DISTANCE;
+
+        Textures.bind(texture);
+
+        this.tessellator.init(GL_QUADS);
+        this.tessellator.color(r, g, b, 1.0F);
+
+        this.tessellator.texture(0.0F, 0.0F);
+        this.tessellator.vertex(cx - rx * halfSize + ux * halfSize, cy + uy * halfSize, cz - rz * halfSize + uz * halfSize);
+        this.tessellator.texture(1.0F, 0.0F);
+        this.tessellator.vertex(cx + rx * halfSize + ux * halfSize, cy + uy * halfSize, cz + rz * halfSize + uz * halfSize);
+        this.tessellator.texture(1.0F, 1.0F);
+        this.tessellator.vertex(cx + rx * halfSize - ux * halfSize, cy - uy * halfSize, cz + rz * halfSize - uz * halfSize);
+        this.tessellator.texture(0.0F, 1.0F);
+        this.tessellator.vertex(cx - rx * halfSize - ux * halfSize, cy - uy * halfSize, cz - rz * halfSize - uz * halfSize);
+
+        this.tessellator.flush();
+    }
+
+    /** Loads a PNG from the classpath into a clamped, nearest-filtered RGBA texture. Returns 0 on failure. */
+    private static int loadTexture(String path) {
+        try (InputStream in = SkyboxRenderer.class.getResourceAsStream(path)) {
+            if (in == null) {
+                System.out.println("Missing sky texture: " + path);
+                return 0;
+            }
+
+            BufferedImage image = ImageIO.read(in);
+            int width = image.getWidth();
+            int height = image.getHeight();
+            int[] pixels = image.getRGB(0, 0, width, height, null, 0, width);
+
+            // Premultiply by alpha so any transparent pixels contribute nothing when added.
+            ByteBuffer buffer = BufferUtils.createByteBuffer(width * height * 4);
+            for (int pixel : pixels) {
+                int a = pixel >>> 24;
+                buffer.put((byte) (((pixel >> 16) & 0xFF) * a / 255));
+                buffer.put((byte) (((pixel >> 8) & 0xFF) * a / 255));
+                buffer.put((byte) ((pixel & 0xFF) * a / 255));
+                buffer.put((byte) a);
+            }
+            buffer.flip();
+
+            int id = glGenTextures();
+            Textures.bind(id);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+            return id;
+        } catch (IOException e) {
+            System.out.println("Failed to load sky texture " + path + ": " + e.getMessage());
+            return 0;
+        }
+    }
+
+    private static float clamp01(float value) {
+        return Math.max(0.0F, Math.min(1.0F, value));
+    }
+
+    private void renderMesh() {
         for (int lat = 0; lat < LATITUDE_SEGMENTS; lat++) {
 
             float theta0 = (float) (-Math.PI / 2.0 + Math.PI * lat / LATITUDE_SEGMENTS);
@@ -62,10 +203,6 @@ public class SkyboxRenderer {
 
             tessellator.flush();
         }
-
-        glEndList();
-
-        return list;
     }
 
     private void addVertex(float theta, float phi) {
@@ -80,6 +217,10 @@ public class SkyboxRenderer {
         float y = sinTheta * SKY_RADIUS;
         float z = cosTheta * sinPhi * SKY_RADIUS;
 
+        float[] zenith  = cycle.getZenithColor();
+        float[] horizon = cycle.getHorizonColor();
+        float[] nadir   = cycle.getNadirColor();
+
         float r;
         float g;
         float b;
@@ -92,9 +233,9 @@ public class SkyboxRenderer {
 
             t = t * t * (3.0F - 2.0F * t);
 
-            r = lerp(HORIZON_R, ZENITH_R, t);
-            g = lerp(HORIZON_G, ZENITH_G, t);
-            b = lerp(HORIZON_B, ZENITH_B, t);
+            r = lerp(horizon[0], zenith[0], t);
+            g = lerp(horizon[1], zenith[1], t);
+            b = lerp(horizon[2], zenith[2], t);
 
         } else {
 
@@ -102,9 +243,9 @@ public class SkyboxRenderer {
 
             t = (float) Math.pow(t, 0.75);
 
-            r = lerp(HORIZON_R, NADIR_R, t);
-            g = lerp(HORIZON_G, NADIR_G, t);
-            b = lerp(HORIZON_B, NADIR_B, t);
+            r = lerp(horizon[0], nadir[0], t);
+            g = lerp(horizon[1], nadir[1], t);
+            b = lerp(horizon[2], nadir[2], t);
         }
 
         tessellator.color(r, g, b);

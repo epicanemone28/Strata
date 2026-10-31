@@ -2,8 +2,12 @@ package com.nikohalfkino.rubydung.interfaces.screen;
 
 import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
-import com.nikohalfkino.rubydung.interfaces.Screen;
+import com.nikohalfkino.rubydung.interfaces.UiStyle;
+import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.Button;
+import com.nikohalfkino.rubydung.interfaces.widget.Column;
+import com.nikohalfkino.rubydung.interfaces.widget.Group;
+import com.nikohalfkino.rubydung.interfaces.widget.Label;
 import com.nikohalfkino.rubydung.render.Font;
 import com.nikohalfkino.rubydung.util.KeyBinding;
 import com.nikohalfkino.rubydung.util.KeyMap;
@@ -11,32 +15,22 @@ import com.nikohalfkino.rubydung.util.KeyMap;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ControlsScreen extends Screen {
+public class ControlsScreen extends MenuScreen {
 
-    private static final float PANEL_WIDTH = 420.0f;
+    private static final float PANEL_WIDTH = UiStyle.PANEL_WIDTH;
     private static final float ROW_HEIGHT = 30.0f;
     private static final float ROW_SPACING = 6.0f;
     private static final float REBIND_BUTTON_WIDTH = 120.0f;
     private static final float REBIND_BUTTON_HEIGHT = 26.0f;
     private static final float RESET_ZONE_WIDTH = 55.0f;
-
-    private static final float BUTTON_WIDTH = 200.0f;
-    private static final float BUTTON_HEIGHT = 30.0f;
+    private static final float ROW_INNER_GAP = 6.0f;
 
     private static final int ROWS_PER_PAGE = 7;
 
     private static final float PAGE_BUTTON_WIDTH = 90.0f;
     private static final float PAGE_BUTTON_HEIGHT = 26.0f;
 
-    private final RubyDung game;
-    private final Font font;
-
     private final List<KeyBinding> bindings = new ArrayList<>(KeyBinding.all());
-    private final List<Button> rebindButtons = new ArrayList<>();
-
-    private final Button doneButton = new Button("Done", BUTTON_WIDTH, BUTTON_HEIGHT, true);
-    private final Button prevPageButton = new Button("< Prev", PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, true);
-    private final Button nextPageButton = new Button("Next >", PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, true);
 
     private KeyBinding listeningFor = null;
 
@@ -46,152 +40,99 @@ public class ControlsScreen extends Screen {
     private int currentPage = 0;
     private final int totalPages;
 
-    private float panelX;
-    private float listY;
-
     public ControlsScreen(RubyDung game) {
-        this.game = game;
-        this.font = game.getFont();
+        super(game);
+
+        setSwallowKeys(true);
+        onEscape(() -> game.openScreen(new OptionsScreen(game)));
 
         this.totalPages = Math.max(1, (this.bindings.size() + ROWS_PER_PAGE - 1) / ROWS_PER_PAGE);
 
-        for (KeyBinding binding : this.bindings) {
-            this.rebindButtons.add(new Button(binding.getKeyName(), REBIND_BUTTON_WIDTH, REBIND_BUTTON_HEIGHT, true));
+        addTitle("Controls");
+
+        Column menu = addColumn(0.0f, 90.0f);
+
+        // One page of binding rows. The column is always as tall as a full page, so the page
+        // buttons below don't jump around on a short last page.
+        Column rows = menu.add(new Column(ROW_SPACING), 22.0f);
+        rows.setSize(PANEL_WIDTH, ROWS_PER_PAGE * ROW_HEIGHT + (ROWS_PER_PAGE - 1) * ROW_SPACING);
+        for (int i = 0; i < this.bindings.size(); i++) {
+            final int page = i / ROWS_PER_PAGE;
+            BindingRow row = rows.add(new BindingRow(this.bindings.get(i)));
+            row.setVisibleWhen(() -> this.currentPage == page);
         }
+
+        // Page buttons: "< Prev" on the left edge, "Next >" on the right edge, the page number between.
+        Group pager = menu.add(new Group(PANEL_WIDTH, PAGE_BUTTON_HEIGHT), 16.0f);
+        pager.add(new Button("< Prev", PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, true).onClick(this::previousPage),
+                Anchor.TOP_LEFT, 0, 0);
+        pager.add(new Label(() -> "Page " + (this.currentPage + 1) + " / " + this.totalPages),
+                Anchor.CENTER, 0, 4);
+        pager.add(new Button("Next >", PAGE_BUTTON_WIDTH, PAGE_BUTTON_HEIGHT, true).onClick(this::nextPage),
+                Anchor.TOP_RIGHT, 0, 0);
+
+        menu.add(new Button("Done").onClick(() -> game.openScreen(new OptionsScreen(game))));
     }
 
-    private int pageStartIndex() {
-        return this.currentPage * ROWS_PER_PAGE;
+    private void previousPage() {
+        this.currentPage = this.currentPage > 0 ? this.currentPage - 1 : this.totalPages - 1;
     }
 
-    private int pageEndIndex() {
-        return Math.min(pageStartIndex() + ROWS_PER_PAGE, this.bindings.size());
+    private void nextPage() {
+        this.currentPage = this.currentPage < this.totalPages - 1 ? this.currentPage + 1 : 0;
     }
 
-    @Override
-    public void render(int mouseX, int mouseY) {
-        Gui2D.begin(this.width, this.height);
-        MenuBackground.render(this.width, this.height);
+    private String rebindLabel(KeyBinding binding) {
+        if (this.listeningFor == binding) {
+            return this.pendingModifierDevice != null
+                    ? KeyBinding.describeBinding(this.pendingModifierDevice, this.pendingModifierCode) + " + ..."
+                    : "> Press <";
+        }
+        return binding.getKeyName();
+    }
 
-        String title = "Controls";
-        int titleWidth = this.font.width(title);
-        this.font.drawString(title, (this.width - titleWidth) / 2, 40, 0xFFFFFF);
+    /** One key binding: its name, a button showing the current key (click to rebind) and a "Reset" link. */
+    private final class BindingRow extends Group {
 
-        this.panelX = (this.width - PANEL_WIDTH) / 2.0f;
-        this.listY = 90.0f;
+        private final KeyBinding binding;
+        private final Button rebindButton;
+        private final Label resetLabel;
 
-        int start = pageStartIndex();
-        int end = pageEndIndex();
+        BindingRow(KeyBinding binding) {
+            super(PANEL_WIDTH, ROW_HEIGHT);
+            this.binding = binding;
 
-        for (int i = start; i < end; i++) {
-            KeyBinding binding = this.bindings.get(i);
-            Button rebindButton = this.rebindButtons.get(i);
+            Label name = new Label(binding.getDisplayName());
+            add(name, Anchor.CENTER_LEFT, 10.0f, 0.0f);
 
-            float rowY = this.listY + (i - start) * (ROW_HEIGHT + ROW_SPACING);
+            this.resetLabel = new Label("Reset")
+                    .setColor(UiStyle.TEXT_DANGER)
+                    .setHoverColor(UiStyle.TEXT_HOVER)
+                    .onClick(() -> {
+                        binding.resetToDefault();
+                        KeyBinding.save();
+                    });
+            this.resetLabel.setSize(RESET_ZONE_WIDTH, ROW_HEIGHT);
+            add(this.resetLabel, Anchor.CENTER_RIGHT, -ROW_INNER_GAP, 0.0f);
 
-            float resetZoneX = this.panelX + PANEL_WIDTH - RESET_ZONE_WIDTH - 6.0f;
-            boolean resetHovered = isInside(resetZoneX, rowY, RESET_ZONE_WIDTH, ROW_HEIGHT, mouseX, mouseY);
-            float rebindButtonX = resetZoneX - REBIND_BUTTON_WIDTH - 6.0f;
-            boolean rebindHovered = isInside(rebindButtonX, rowY, REBIND_BUTTON_WIDTH, ROW_HEIGHT, mouseX, mouseY);
-            boolean rowHovered = !resetHovered && !rebindHovered && isInside(this.panelX, rowY, PANEL_WIDTH, ROW_HEIGHT, mouseX, mouseY);
+            this.rebindButton = new Button(() -> rebindLabel(binding), REBIND_BUTTON_WIDTH, REBIND_BUTTON_HEIGHT, true)
+                    .onClick(() -> {
+                        listeningFor = binding;
+                        pendingModifierDevice = null;
+                    });
+            add(this.rebindButton, Anchor.CENTER_RIGHT, -(RESET_ZONE_WIDTH + ROW_INNER_GAP * 2), 0.0f);
+        }
+
+        @Override
+        protected void drawSelf(Font font, int mouseX, int mouseY) {
+            boolean resetHovered = this.resetLabel.isHovered(mouseX, mouseY);
+            boolean rebindHovered = this.rebindButton.isHovered(mouseX, mouseY);
+            boolean rowHovered = !resetHovered && !rebindHovered && contains(mouseX, mouseY);
 
             float alpha = (rowHovered || resetHovered) ? 0.45f : 0.3f;
-            Gui2D.fillRect(this.panelX, rowY, PANEL_WIDTH, ROW_HEIGHT, 0.0f, 0.0f, 0.0f, alpha);
+            Gui2D.fillRect(this.x, this.y, this.width, this.height, 0.0f, 0.0f, 0.0f, alpha);
 
-            int labelY = (int) (rowY + (ROW_HEIGHT - 16) / 2.0f);
-            this.font.drawString(binding.getDisplayName(), (int) (this.panelX + 10.0f), labelY, 0xFFFFFF);
-
-            String rebindLabel;
-            if (this.listeningFor == binding) {
-                rebindLabel = this.pendingModifierDevice != null
-                        ? KeyBinding.describeBinding(this.pendingModifierDevice, this.pendingModifierCode) + " + ..."
-                        : "> Press <";
-            } else {
-                rebindLabel = binding.getKeyName();
-            }
-
-            rebindButton.setPosition(rebindButtonX, rowY + (ROW_HEIGHT - REBIND_BUTTON_HEIGHT) / 2.0f);
-            rebindButton.setLabel(rebindLabel);
-            rebindButton.setSelected(this.listeningFor == binding);
-            rebindButton.render(this.font, mouseX, mouseY);
-
-            String resetLabel = "Reset";
-            int resetWidth = this.font.width(resetLabel);
-            int resetColor = resetHovered ? 0xFFFF00 : 0xFF8888;
-            this.font.drawString(resetLabel, (int) (resetZoneX + (RESET_ZONE_WIDTH - resetWidth) / 2.0f), labelY, resetColor);
-        }
-
-        float paginationY = this.listY + ROWS_PER_PAGE * (ROW_HEIGHT + ROW_SPACING) + 16.0f;
-
-        this.prevPageButton.setPosition(this.panelX, paginationY);
-        this.prevPageButton.render(this.font, mouseX, mouseY);
-
-        String pageLabel = "Page " + (this.currentPage + 1) + " / " + this.totalPages;
-        int pageLabelWidth = this.font.width(pageLabel);
-        this.font.drawString(pageLabel,
-                (int) (this.panelX + PANEL_WIDTH / 2.0f - pageLabelWidth / 2.0f),
-                (int) (paginationY + (PAGE_BUTTON_HEIGHT - 8) / 2.0f), 0xFFFFFF);
-
-        this.nextPageButton.setPosition(this.panelX + PANEL_WIDTH - PAGE_BUTTON_WIDTH, paginationY);
-        this.nextPageButton.render(this.font, mouseX, mouseY);
-
-        float doneY = paginationY + PAGE_BUTTON_HEIGHT + 16.0f;
-        this.doneButton.setPosition((this.width - BUTTON_WIDTH) / 2.0f, doneY);
-        this.doneButton.render(this.font, mouseX, mouseY);
-
-        Gui2D.end();
-    }
-
-    private boolean isInside(float x, float y, float w, float h, int mouseX, int mouseY) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
-    }
-
-    @Override
-    public void mouseClicked(int mouseX, int mouseY) {
-        int start = pageStartIndex();
-        int end = pageEndIndex();
-
-        for (int i = start; i < end; i++) {
-            KeyBinding binding = this.bindings.get(i);
-            float rowY = this.listY + (i - start) * (ROW_HEIGHT + ROW_SPACING);
-
-            if (!isInside(this.panelX, rowY, PANEL_WIDTH, ROW_HEIGHT, mouseX, mouseY)) {
-                continue;
-            }
-
-            float resetZoneX = this.panelX + PANEL_WIDTH - RESET_ZONE_WIDTH - 6.0f;
-            float rebindButtonX = resetZoneX - REBIND_BUTTON_WIDTH - 6.0f;
-
-            if (isInside(resetZoneX, rowY, RESET_ZONE_WIDTH, ROW_HEIGHT, mouseX, mouseY)) {
-                binding.resetToDefault();
-                KeyBinding.save();
-            } else if (isInside(rebindButtonX, rowY, REBIND_BUTTON_WIDTH, ROW_HEIGHT, mouseX, mouseY)) {
-                this.listeningFor = binding;
-                this.pendingModifierDevice = null;
-            }
-            return;
-        }
-
-        if (this.prevPageButton.isHovered(mouseX, mouseY)) {
-            if (this.currentPage > 0) {
-                this.currentPage--;
-            } else {
-                this.currentPage = Math.min(2, this.totalPages - 1);
-            }
-            return;
-        }
-
-        if (this.nextPageButton.isHovered(mouseX, mouseY)) {
-            if (this.currentPage < this.totalPages - 1) {
-                this.currentPage++;
-            } else {
-                this.currentPage = 0;
-            }
-            return;
-        }
-
-        if (this.doneButton.isHovered(mouseX, mouseY)) {
-            this.game.openScreen(new OptionsScreen(this.game));
+            this.rebindButton.setSelected(listeningFor == this.binding);
         }
     }
 
@@ -210,9 +151,7 @@ public class ControlsScreen extends Screen {
             return;
         }
 
-        if (button == 0) {
-            mouseClicked(mouseX, mouseY);
-        }
+        super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
@@ -243,12 +182,7 @@ public class ControlsScreen extends Screen {
             return true;
         }
 
-        if (key == KeyMap.ESC) {
-            this.game.openScreen(new OptionsScreen(this.game));
-            return true;
-        }
-
-        return true;
+        return super.keyPressed(key, character);
     }
 
     private static boolean isModifierKey(int key) {

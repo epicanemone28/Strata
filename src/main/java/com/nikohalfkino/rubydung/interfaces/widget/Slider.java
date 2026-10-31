@@ -1,8 +1,12 @@
 package com.nikohalfkino.rubydung.interfaces.widget;
 
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
+import com.nikohalfkino.rubydung.interfaces.UiStyle;
 import com.nikohalfkino.rubydung.render.Font;
 import org.lwjgl.input.Mouse;
+
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * A horizontal slider for picking a value in a range. Drawn as a 9-slice track ({@code
@@ -10,14 +14,16 @@ import org.lwjgl.input.Mouse;
  * with a small square thumb ({@code slider_thumb.png}, 8x8 source art, drawn 2x like everything
  * else in this UI) riding along it.
  * <p>
- * Dragging follows the same self-polling pattern {@code TextField} uses for click-and-drag
- * selection: since {@link com.nikohalfkino.rubydung.interfaces.Screen} has no {@code
- * mouseDragged}/{@code mouseReleased} callback to hook, {@link #updateMouse} checks {@link
- * Mouse#isButtonDown} itself and is expected to be called every frame from {@code render}, the
- * same way {@code CreateWorldScreen} calls {@code nameField.updateMouse(...)} before {@code
- * nameField.render(...)}.
+ * Dragging is self-polling: the slider checks {@link Mouse#isButtonDown} itself every frame while
+ * it is being drawn, so screens need no drag callbacks.
+ * <pre>
+ *     column.add(new Slider("FOV", 300, 28, 30, 110, GameSettings.getFov(), true)
+ *             .onChange(v -> GameSettings.setFov(v))      // live, while dragging
+ *             .onCommit(GameSettings::save));              // once, when the drag ends with a new value
+ * </pre>
+ * By default the value is shown as a number; {@link #setFormatter} changes that (e.g. "Off" for 0).
  */
-public class Slider {
+public class Slider extends Widget {
 
     private static final String TRACK_TEXTURE = "/assets/rubydung/textures/gui/slider_track.png";
     private static final String THUMB_TEXTURE = "/assets/rubydung/textures/gui/slider_thumb.png";
@@ -31,32 +37,45 @@ public class Slider {
     private static final int LABEL_HEIGHT = 16;
 
     private final String label;
-    private final float width;
-    private final float height;
     private final float minValue;
     private final float maxValue;
 
     /** Snap dragged/clicked values to whole numbers - for things like an integer FOV or FPS cap. */
     private final boolean wholeNumbers;
 
-    private float x;
-    private float y;
     private float value;
+    private float valueAtPress;
     private boolean dragging = false;
+
+    private Consumer<Float> onChange;
+    private Runnable onCommit;
+    private Function<Float, String> formatter;
 
     public Slider(String label, float width, float height, float minValue, float maxValue, float initialValue, boolean wholeNumbers) {
         this.label = label;
-        this.width = width;
-        this.height = height;
         this.minValue = minValue;
         this.maxValue = maxValue;
         this.wholeNumbers = wholeNumbers;
         this.value = clamp(initialValue);
+        setSize(width, height);
     }
 
-    public void setPosition(float x, float y) {
-        this.x = x;
-        this.y = y;
+    /** Called with the new value every time dragging changes it. */
+    public Slider onChange(Consumer<Float> onChange) {
+        this.onChange = onChange;
+        return this;
+    }
+
+    /** Called once when a drag ends and the value is different from when it started. */
+    public Slider onCommit(Runnable onCommit) {
+        this.onCommit = onCommit;
+        return this;
+    }
+
+    /** How the value is written next to the label, e.g. {@code v -> v == 0 ? "Off" : v + " min"}. */
+    public Slider setFormatter(Function<Float, String> formatter) {
+        this.formatter = formatter;
+        return this;
     }
 
     public float getValue() {
@@ -67,38 +86,36 @@ public class Slider {
         this.value = clamp(value);
     }
 
-    /**
-     * Whether a drag is currently in progress (mouse held down since a {@link #mouseClicked}
-     * that landed on the track). Exposed so callers that apply this slider's value live on every
-     * frame - see {@code OptionsScreen}'s FOV slider - can tell a mid-drag frame from the frame
-     * a drag actually ends, and only persist the new value then rather than on every frame of
-     * the drag.
-     */
+    /** Whether a drag is currently in progress. */
     public boolean isDragging() {
         return this.dragging;
     }
 
-    public boolean isHovered(int mouseX, int mouseY) {
-        return mouseX >= this.x && mouseX <= this.x + this.width
-                && mouseY >= this.y && mouseY <= this.y + this.height;
+    @Override
+    protected boolean isInteractive() {
+        return true;
     }
 
     /**
-     * Starts a drag if the click landed on the track, immediately snapping the thumb under the
-     * cursor rather than waiting for the first drag movement - clicking anywhere on the track
-     * jumps the value there, same as most slider widgets.
+     * Starts a drag, immediately snapping the thumb under the cursor rather than waiting for the
+     * first drag movement - clicking anywhere on the track jumps the value there.
      */
+    @Override
+    public void onMouseClicked(int mouseX, int mouseY) {
+        mouseClicked(mouseX, mouseY);
+    }
+
     public void mouseClicked(int mouseX, int mouseY) {
         if (isHovered(mouseX, mouseY)) {
             this.dragging = true;
+            this.valueAtPress = this.value;
             setValueFromMouseX(mouseX);
         }
     }
 
     /**
-     * Call every frame with fresh mouse coordinates (see class javadoc). Only does anything
-     * once a drag has started via {@link #mouseClicked}, and releases the moment the mouse
-     * button comes back up.
+     * Follows the mouse while a drag is in progress and ends it when the button comes back up.
+     * Called automatically while drawing.
      */
     public void updateMouse(int mouseX, int mouseY) {
         if (!this.dragging) {
@@ -106,6 +123,9 @@ public class Slider {
         }
         if (!Mouse.isButtonDown(0)) {
             this.dragging = false;
+            if (this.value != this.valueAtPress && this.onCommit != null) {
+                this.onCommit.run();
+            }
             return;
         }
         setValueFromMouseX(mouseX);
@@ -117,14 +137,24 @@ public class Slider {
         t = Math.max(0.0f, Math.min(1.0f, t));
 
         float newValue = this.minValue + t * (this.maxValue - this.minValue);
-        this.value = clamp(this.wholeNumbers ? Math.round(newValue) : newValue);
+        newValue = clamp(this.wholeNumbers ? Math.round(newValue) : newValue);
+
+        if (newValue != this.value) {
+            this.value = newValue;
+            if (this.onChange != null) {
+                this.onChange.accept(newValue);
+            }
+        }
     }
 
     private float clamp(float v) {
         return Math.max(this.minValue, Math.min(this.maxValue, v));
     }
 
-    public void render(Font font, int mouseX, int mouseY) {
+    @Override
+    protected void draw(Font font, int mouseX, int mouseY) {
+        updateMouse(mouseX, mouseY);
+
         Gui2D.drawNineSlice(TRACK_TEXTURE, this.x, this.y, this.width, this.height, TRACK_TEX_SIZE, TRACK_TEX_SIZE, TRACK_BORDER);
 
         float t = (this.value - this.minValue) / (this.maxValue - this.minValue);
@@ -138,11 +168,14 @@ public class Slider {
         int drawY = (int) (this.y + (this.height - LABEL_HEIGHT) / 2.0f);
 
         boolean hovered = isHovered(mouseX, mouseY);
-        int color = (hovered || this.dragging) ? 0xFFFF00 : 0xFFFFFF;
+        int color = (hovered || this.dragging) ? UiStyle.TEXT_HOVER : UiStyle.TEXT;
         font.drawString(text, drawX, drawY, color);
     }
 
     private String formatValue() {
+        if (this.formatter != null) {
+            return this.formatter.apply(this.value);
+        }
         return this.wholeNumbers ? String.valueOf(Math.round(this.value)) : String.format("%.2f", this.value);
     }
 }

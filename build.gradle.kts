@@ -25,8 +25,10 @@ dependencies {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    // JTalk code uses Java 9-11 APIs (String.strip/isBlank, InputStream.transferTo, ...), and jpackage
+    // needs JDK 14+ anyway, so 8 was only ever nominal.
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
 }
 
 val appName = "Strata"
@@ -54,7 +56,7 @@ tasks.register<JavaExec>("run") {
     mainClass.set(mainClassName)
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = file("${project.projectDir}/run")
-    dependsOn("extractNatives")
+    dependsOn("extractNatives", "stageJTalk")
 }
 
 val osName = System.getProperty("os.name").lowercase()
@@ -77,6 +79,29 @@ val iconExtension = when (targetOs) {
     else -> "png"
 }
 
+// ── Open JTalk (external native engine, not a Gradle dependency) ─────────────
+//
+//   jtalk/common/open_jtalk_dic_utf_8/   dictionary (same for every OS)
+//   jtalk/common/<anything>.htsvoice     voice model
+//   jtalk/windows/open_jtalk.exe (+ DLLs)
+//   jtalk/linux/open_jtalk
+//   jtalk/macos/open_jtalk
+//
+// Everything lands in <app>/jtalk/ with the binary (and its DLLs) in jtalk/bin/.
+fun jtalkFiles(os: String) = copySpec {
+    from("jtalk/common")
+    from("jtalk/$os") {
+        into("bin")
+        filePermissions { unix("rwxr-xr-x") }   // Gradle 8.3+; keeps the binary executable
+    }
+}
+
+// For `gradlew run`: the game's working dir is run/, so run/jtalk is found by the default relative path.
+tasks.register<Sync>("stageJTalk") {
+    into("${project.projectDir}/run/jtalk")
+    with(jtalkFiles(targetOs))
+}
+
 val jpackageVersion: String = run {
     val numeric = Regex("""^\d+(\.\d+){0,2}""").find(project.version.toString())?.value ?: "1.0.0"
     if (targetOs == "macos" && numeric.startsWith("0")) "1" + numeric.substring(1) else numeric
@@ -94,6 +119,10 @@ tasks.register<Sync>("preparePackageInput") {
     from(Callable { natives.filter { it.name.contains(nativesClassifier) }.map { zipTree(it) } }) {
         exclude("META-INF/**")
         into("natives")
+    }
+
+    into("jtalk") {
+        with(jtalkFiles(targetOs))
     }
 }
 
@@ -116,6 +145,7 @@ tasks.register<Exec>("packageApp") {
             "--main-class", mainClassName,
             "--dest", outputDir.absolutePath,
             "--java-options", "-Dorg.lwjgl.librarypath=\$APPDIR/natives",
+            "--java-options", "-Djtalk.home=\$APPDIR/jtalk",
         )
 
         val iconFile = file("src/main/resources/icon.$iconExtension")

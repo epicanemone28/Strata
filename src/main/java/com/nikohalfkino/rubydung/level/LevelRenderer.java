@@ -243,11 +243,53 @@ public class LevelRenderer implements LevelListener {
 
         this.tessellator.init();
 
-        tile.renderFace(this.tessellator, hitResult.x, hitResult.y, hitResult.z, hitResult.face);
+        // A multi-tile object is outlined as a whole: the hit face of its full bounds, not of one cell.
+        MultiTileInstance object = this.level.getMultiTile(hitResult.x, hitResult.y, hitResult.z);
+        if (object != null) {
+            renderBoxFace(object.x, object.y, object.z,
+                    object.x + object.sizeX, object.y + object.sizeY, object.z + object.sizeZ, hitResult.face);
+        } else {
+            tile.renderFace(this.tessellator, hitResult.x, hitResult.y, hitResult.z, hitResult.face);
+        }
 
         this.tessellator.flush();
 
         glDisable(GL_BLEND);
+    }
+
+    /** One face of an axis-aligned box, wound the same way as Tile.renderFace. */
+    private void renderBoxFace(float minX, float minY, float minZ, float maxX, float maxY, float maxZ, int face) {
+        if (face == Tile.FACE_BOTTOM) {
+            this.tessellator.vertex(minX, minY, maxZ);
+            this.tessellator.vertex(minX, minY, minZ);
+            this.tessellator.vertex(maxX, minY, minZ);
+            this.tessellator.vertex(maxX, minY, maxZ);
+        } else if (face == Tile.FACE_TOP) {
+            this.tessellator.vertex(maxX, maxY, maxZ);
+            this.tessellator.vertex(maxX, maxY, minZ);
+            this.tessellator.vertex(minX, maxY, minZ);
+            this.tessellator.vertex(minX, maxY, maxZ);
+        } else if (face == Tile.FACE_NORTH) {
+            this.tessellator.vertex(minX, maxY, minZ);
+            this.tessellator.vertex(maxX, maxY, minZ);
+            this.tessellator.vertex(maxX, minY, minZ);
+            this.tessellator.vertex(minX, minY, minZ);
+        } else if (face == Tile.FACE_SOUTH) {
+            this.tessellator.vertex(minX, maxY, maxZ);
+            this.tessellator.vertex(minX, minY, maxZ);
+            this.tessellator.vertex(maxX, minY, maxZ);
+            this.tessellator.vertex(maxX, maxY, maxZ);
+        } else if (face == Tile.FACE_WEST) {
+            this.tessellator.vertex(minX, maxY, maxZ);
+            this.tessellator.vertex(minX, maxY, minZ);
+            this.tessellator.vertex(minX, minY, minZ);
+            this.tessellator.vertex(minX, minY, maxZ);
+        } else if (face == Tile.FACE_EAST) {
+            this.tessellator.vertex(maxX, minY, maxZ);
+            this.tessellator.vertex(maxX, minY, minZ);
+            this.tessellator.vertex(maxX, maxY, minZ);
+            this.tessellator.vertex(maxX, maxY, maxZ);
+        }
     }
 
     public void dispose() {

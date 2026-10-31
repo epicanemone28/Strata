@@ -43,6 +43,14 @@ public abstract class BillboardTile extends Tile {
         }
     }
 
+    /**
+     * Makes this billboard really occupy ceil(height) cells vertically instead of one cell that
+     * draws something taller than itself. Call it from the subclass constructor.
+     */
+    protected void occupyHeight() {
+        setFootprint(1, (int) Math.ceil(this.height), 1);
+    }
+
     @Override
     public AABB getPickAABB(int x, int y, int z) {
         return new AABB(x, y, z, x + 1.0F, y + this.height, z + 1.0F);
@@ -62,7 +70,8 @@ public abstract class BillboardTile extends Tile {
 
     @Override
     public void renderBillboard(Tessellator tessellator, Level level, int x, int y, int z, int totalAtlasSlots) {
-        float brightness = level.getBrightness(x, y, z);
+        // Light-emitting billboards (e.g. lampposts) are fullbright.
+        float brightness = emitsLight() ? 1.0F : level.getBrightness(x, y, z);
         tessellator.color(brightness, brightness, brightness, 1.0F);
 
         int slot = getAtlasSlot(FACE_NORTH);
@@ -101,9 +110,10 @@ public abstract class BillboardTile extends Tile {
     }
 
     public void renderBillboardBatched(Tessellator tessellator, Level level, int x, int y, int z, int totalAtlasSlots,
-                                        float worldX, float worldY, float worldZ,
-                                        float cosYaw, float sinYaw, float scale) {
-        float brightness = level.getBrightness(x, y, z);
+                                       float worldX, float worldY, float worldZ,
+                                       float cosYaw, float sinYaw, float scale) {
+        // Light-emitting billboards (e.g. lampposts) are fullbright.
+        float brightness = emitsLight() ? 1.0F : level.getBrightness(x, y, z);
 
         int slot = getAtlasSlot(FACE_NORTH);
         float minU = slot / (float) totalAtlasSlots;
@@ -133,8 +143,8 @@ public abstract class BillboardTile extends Tile {
     }
 
     private static void putVertex(Tessellator tessellator, float localX, float localY, float u, float v,
-                                   float brightness, float worldX, float worldY, float worldZ,
-                                   float cosYaw, float sinYaw, float scale) {
+                                  float brightness, float worldX, float worldY, float worldZ,
+                                  float cosYaw, float sinYaw, float scale) {
         tessellator.color(brightness, brightness, brightness, 1.0F);
         tessellator.texture(u, v);
 

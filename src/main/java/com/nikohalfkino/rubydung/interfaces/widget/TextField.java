@@ -1,10 +1,15 @@
+
 package com.nikohalfkino.rubydung.interfaces.widget;
 
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
 import com.nikohalfkino.rubydung.render.Font;
 import com.nikohalfkino.rubydung.util.KeyMap;
+import org.lwjgl.Sys;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
+
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 
 public class TextField {
 
@@ -13,7 +18,8 @@ public class TextField {
 
     private int cursorPosition = 0;
     private int selectionAnchor = 0;
-    private boolean isDragging = false;
+    private int scrollPosition = 0;
+    private boolean isPressed = false;
 
     public TextField() {
     }
@@ -23,64 +29,164 @@ public class TextField {
     }
 
     public void mouseClicked(int mouseX, int mouseY, int fieldX, int fieldY, Font font, String prefix) {
-        int charIndex = getCharIndexAt(mouseX, fieldX, font, prefix);
+        mouseClicked(mouseX, mouseY, fieldX, fieldY, Integer.MAX_VALUE, font, prefix);
+    }
+
+    public void mouseClicked(int mouseX, int mouseY, int fieldX, int fieldY,
+                             int availableWidth, Font font, String prefix) {
+        ensureCursorVisible(font, availableWidth, prefix);
+
+        int charIndex = getCharIndexAt(mouseX, fieldX, availableWidth, font, prefix);
         this.cursorPosition = charIndex;
         this.selectionAnchor = charIndex;
-        this.isPressed = true; // Track drag start
+        this.isPressed = true;
     }
-
-    private boolean isPressed = false;
 
     public void updateMouse(int mouseX, int mouseY, int fieldX, int fieldY, Font font, String prefix) {
-        if (!isPressed) return;
+        updateMouse(mouseX, mouseY, fieldX, fieldY, Integer.MAX_VALUE, font, prefix);
+    }
+
+    public void updateMouse(int mouseX, int mouseY, int fieldX, int fieldY,
+                            int availableWidth, Font font, String prefix) {
+        if (!this.isPressed) {
+            return;
+        }
 
         if (Mouse.isButtonDown(0)) {
-            int charIndex = getCharIndexAt(mouseX, fieldX, font, prefix);
-            this.cursorPosition = charIndex;
+            this.cursorPosition = getCharIndexAt(mouseX, fieldX, availableWidth, font, prefix);
+            ensureCursorVisible(font, availableWidth, prefix);
         } else {
-            isPressed = false;
+            this.isPressed = false;
         }
     }
 
-    private int getCharIndexAt(int mouseX, int fieldX, Font font, String prefix) {
+    private int getCharIndexAt(int mouseX, int fieldX, int availableWidth, Font font, String prefix) {
         int prefixWidth = font.width(prefix);
-        if (mouseX <= fieldX + prefixWidth) {
-            return 0;
+        int textX = fieldX + prefixWidth;
+
+        if (mouseX <= textX) {
+            return this.scrollPosition;
         }
 
-        int currentWidth = fieldX + prefixWidth;
-        for (int i = 0; i < this.text.length(); i++) {
-            String sub = this.text.substring(0, i + 1);
-            int nextWidth = fieldX + prefixWidth + font.width(sub);
+        int visibleEnd = getVisibleEnd(font, availableWidth, prefix);
+        int currentWidth = textX;
+
+        for (int i = this.scrollPosition; i < visibleEnd; i++) {
+            String sub = this.text.substring(this.scrollPosition, i + 1);
+            int nextWidth = textX + font.width(sub);
+
             if (mouseX < (currentWidth + nextWidth) / 2) {
                 return i;
             }
+
             currentWidth = nextWidth;
         }
-        return this.text.length();
+
+        return visibleEnd;
+    }
+
+    private void ensureCursorVisible(Font font, int availableWidth, String prefix) {
+        int prefixWidth = font.width(prefix);
+        int textWidth = Math.max(0, availableWidth - prefixWidth);
+
+        this.scrollPosition = Math.max(0, Math.min(this.scrollPosition, this.text.length()));
+
+        while (this.scrollPosition < this.cursorPosition) {
+            String visible = this.text.substring(this.scrollPosition, this.cursorPosition);
+
+            if (font.width(visible) <= textWidth) {
+                break;
+            }
+
+            this.scrollPosition++;
+        }
+
+        while (this.scrollPosition > this.cursorPosition) {
+            this.scrollPosition--;
+        }
+    }
+
+    private int getVisibleEnd(Font font, int availableWidth, String prefix) {
+        int textWidth = Math.max(0, availableWidth - font.width(prefix));
+        int end = this.scrollPosition;
+
+        while (end < this.text.length()) {
+            String visible = this.text.substring(this.scrollPosition, end + 1);
+
+            if (font.width(visible) > textWidth) {
+                break;
+            }
+
+            end++;
+        }
+
+        return end;
     }
 
     public boolean keyTyped(int key, char character) {
-        boolean ctrlPressed = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)
-                || Keyboard.isKeyDown(Keyboard.KEY_LMETA) || Keyboard.isKeyDown(Keyboard.KEY_RMETA);
+        boolean ctrl = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL)
+                || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)
+                || Keyboard.isKeyDown(Keyboard.KEY_LMETA)
+                || Keyboard.isKeyDown(Keyboard.KEY_RMETA);
 
-        if (ctrlPressed && (key == Keyboard.KEY_A || character == 'a' || character == 'A')) {
-            selectAll();
-            return true;
-        }
+        boolean shift = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)
+                || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
 
-        if (hasSelection()) {
-            if (key == KeyMap.BACKSPACE || key == Keyboard.KEY_DELETE) {
+        if (ctrl) {
+            if (key == Keyboard.KEY_A || character == 'a' || character == 'A') {
+                selectAll();
+                return true;
+            }
+
+            if (key == Keyboard.KEY_C) {
+                copySelection();
+                return true;
+            }
+
+            if (key == Keyboard.KEY_X) {
+                copySelection();
                 deleteSelection();
                 return true;
             }
-            if (character >= 32 && character != 127) {
-                deleteSelection();
+
+            if (key == Keyboard.KEY_V) {
+                paste();
+                return true;
             }
         }
 
+        if (key == Keyboard.KEY_LEFT) {
+            if (!shift && hasSelection()) {
+                moveTo(Math.min(this.cursorPosition, this.selectionAnchor), false);
+            } else {
+                moveTo(this.cursorPosition - 1, shift);
+            }
+            return true;
+        }
+
+        if (key == Keyboard.KEY_RIGHT) {
+            if (!shift && hasSelection()) {
+                moveTo(Math.max(this.cursorPosition, this.selectionAnchor), false);
+            } else {
+                moveTo(this.cursorPosition + 1, shift);
+            }
+            return true;
+        }
+
+        if (key == Keyboard.KEY_HOME) {
+            moveTo(0, shift);
+            return true;
+        }
+
+        if (key == Keyboard.KEY_END) {
+            moveTo(this.text.length(), shift);
+            return true;
+        }
+
         if (key == KeyMap.BACKSPACE) {
-            if (this.cursorPosition > 0 && this.text.length() > 0) {
+            if (hasSelection()) {
+                deleteSelection();
+            } else if (this.cursorPosition > 0) {
                 this.text.deleteCharAt(this.cursorPosition - 1);
                 this.cursorPosition--;
                 this.selectionAnchor = this.cursorPosition;
@@ -88,14 +194,93 @@ public class TextField {
             return true;
         }
 
-        if (character >= 32 && character != 127 && this.text.length() < this.maxLength) {
-            this.text.insert(this.cursorPosition, character);
-            this.cursorPosition++;
-            this.selectionAnchor = this.cursorPosition;
+        if (key == Keyboard.KEY_DELETE) {
+            if (hasSelection()) {
+                deleteSelection();
+            } else if (this.cursorPosition < this.text.length()) {
+                this.text.deleteCharAt(this.cursorPosition);
+            }
+            return true;
+        }
+
+        if (character >= 32 && character != 127) {
+            if (hasSelection()) {
+                deleteSelection();
+            }
+
+            if (this.text.length() < this.maxLength) {
+                this.text.insert(this.cursorPosition, character);
+                this.cursorPosition++;
+                this.selectionAnchor = this.cursorPosition;
+            }
             return true;
         }
 
         return false;
+    }
+
+    private void moveTo(int position, boolean extendSelection) {
+        this.cursorPosition = Math.max(0, Math.min(this.text.length(), position));
+
+        if (!extendSelection) {
+            this.selectionAnchor = this.cursorPosition;
+        }
+    }
+
+    private void copySelection() {
+        if (!hasSelection()) {
+            return;
+        }
+
+        int start = Math.min(this.cursorPosition, this.selectionAnchor);
+        int end = Math.max(this.cursorPosition, this.selectionAnchor);
+
+        try {
+            Toolkit.getDefaultToolkit().getSystemClipboard()
+                    .setContents(new StringSelection(this.text.substring(start, end)), null);
+        } catch (Throwable ignored) {
+            // Clipboard unavailable.
+        }
+    }
+
+    private void paste() {
+        String clip = Sys.getClipboard();
+
+        if (clip == null) {
+            return;
+        }
+
+        StringBuilder clean = new StringBuilder();
+
+        for (int i = 0; i < clip.length(); i++) {
+            char c = clip.charAt(i);
+
+            if (c >= 32 && c != 127) {
+                clean.append(c);
+            }
+        }
+
+        if (clean.length() == 0) {
+            return;
+        }
+
+        if (hasSelection()) {
+            deleteSelection();
+        }
+
+        int room = this.maxLength - this.text.length();
+
+        if (room <= 0) {
+            return;
+        }
+
+        if (clean.length() > room) {
+            clean.setLength(room);
+        }
+
+        this.text.insert(this.cursorPosition, clean);
+        this.cursorPosition += clean.length();
+        this.selectionAnchor = this.cursorPosition;
     }
 
     public boolean hasSelection() {
@@ -110,9 +295,18 @@ public class TextField {
     public void deleteSelection() {
         int start = Math.min(this.cursorPosition, this.selectionAnchor);
         int end = Math.max(this.cursorPosition, this.selectionAnchor);
+
         this.text.delete(start, end);
         this.cursorPosition = start;
         this.selectionAnchor = start;
+    }
+
+    public int getCursorPosition() {
+        return this.cursorPosition;
+    }
+
+    public void setCursorPosition(int position) {
+        moveTo(position, false);
     }
 
     public String getText() {
@@ -121,15 +315,22 @@ public class TextField {
 
     public void setText(String value) {
         this.text.setLength(0);
+
+        if (value.length() > this.maxLength) {
+            value = value.substring(0, this.maxLength);
+        }
+
         this.text.append(value);
         this.cursorPosition = this.text.length();
         this.selectionAnchor = this.cursorPosition;
+        this.scrollPosition = 0;
     }
 
     public void clear() {
         this.text.setLength(0);
         this.cursorPosition = 0;
         this.selectionAnchor = 0;
+        this.scrollPosition = 0;
     }
 
     public boolean isEmpty() {
@@ -137,23 +338,51 @@ public class TextField {
     }
 
     public void render(Font font, int x, int y, int color, String prefix) {
-        int prefixWidth = font.width(prefix);
+        render(font, x, y, color, prefix, Integer.MAX_VALUE);
+    }
 
-        if (hasSelection()) {
-            int startIdx = Math.min(this.cursorPosition, this.selectionAnchor);
-            int endIdx = Math.max(this.cursorPosition, this.selectionAnchor);
+    public void render(Font font, int x, int y, int color, String prefix, int availableWidth) {
+        ensureCursorVisible(font, availableWidth, prefix);
 
-            String subBefore = this.text.substring(0, startIdx);
-            String subSelected = this.text.substring(startIdx, endIdx);
+        int visibleEnd = getVisibleEnd(font, availableWidth, prefix);
+        String visibleText = this.text.substring(this.scrollPosition, visibleEnd);
 
-            int selectXOffset = font.width(prefix + subBefore);
-            int selectWidth = font.width(subSelected);
+        int visibleSelectionStart = Math.max(
+                Math.min(this.cursorPosition, this.selectionAnchor),
+                this.scrollPosition
+        );
 
-            Gui2D.fillRect(x + selectXOffset, y - 1, selectWidth, 18, 0.2f, 0.4f, 0.8f, 0.6f);
+        int visibleSelectionEnd = Math.min(
+                Math.max(this.cursorPosition, this.selectionAnchor),
+                visibleEnd
+        );
+
+        if (visibleSelectionStart < visibleSelectionEnd) {
+            String beforeSelection = this.text.substring(this.scrollPosition, visibleSelectionStart);
+            String selected = this.text.substring(visibleSelectionStart, visibleSelectionEnd);
+
+            int selectXOffset = font.width(prefix + beforeSelection);
+            int selectWidth = font.width(selected);
+
+            Gui2D.fillRect(
+                    x + selectXOffset,
+                    y - 1,
+                    selectWidth,
+                    18,
+                    0.2f, 0.4f, 0.8f, 0.6f
+            );
         }
 
+        font.drawString(prefix + visibleText, x, y, color);
+
         boolean showCursor = (System.currentTimeMillis() / 400L) % 2 == 0;
-        String line = prefix + this.text + (showCursor && !hasSelection() ? "_" : "");
-        font.drawString(line, x, y, color);
+
+        if (showCursor && !hasSelection()) {
+            int cursorX = x + font.width(
+                    prefix + this.text.substring(this.scrollPosition, this.cursorPosition)
+            );
+
+            font.drawString("_", cursorX, y, color);
+        }
     }
 }

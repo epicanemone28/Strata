@@ -1,48 +1,64 @@
 package com.nikohalfkino.rubydung.interfaces.hud;
 
 import com.nikohalfkino.rubydung.RubyDung;
-import com.nikohalfkino.rubydung.interfaces.HudElement;
-import com.nikohalfkino.rubydung.level.Chunk;
-import com.nikohalfkino.rubydung.level.Level;
+import com.nikohalfkino.rubydung.interfaces.TileIconRenderer;
+import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
+import com.nikohalfkino.rubydung.interfaces.widget.Widget;
 import com.nikohalfkino.rubydung.level.Tiles.Tile;
 import com.nikohalfkino.rubydung.level.Tiles.TreeTile;
 import com.nikohalfkino.rubydung.render.Font;
-import com.nikohalfkino.rubydung.render.Tessellator;
-import com.nikohalfkino.rubydung.render.Textures;
 
-import static org.lwjgl.opengl.GL11.*;
-
-public class SelectedTileHud implements HudElement {
+public class SelectedTileHud extends Widget {
 
     private static final float ICON_SIZE = 32.0F;
-
     private static final float ICON_TOP_MARGIN = 24.0F;
-
-    private static final float BILLBOARD_ICON_SIZE = 44.0F;
+    private static final float SCALE = 2.0F;
+    private static final float LINE_STEP = 12 * SCALE;
 
     private final RubyDung game;
-    private final Tessellator iconTessellator = new Tessellator();
 
     public SelectedTileHud(RubyDung game) {
         this.game = game;
+        setAnchor(Anchor.TOP_LEFT, 10, 10);
+    }
+
+    private static String tileName(Tile tile) {
+        return (tile instanceof TreeTile) ? "Tree" : formatTileName(tile.name);
+    }
+
+    private static float iconTop(Tile tile) {
+        float lastLineY = (tile instanceof TreeTile) ? LINE_STEP : 0.0f;
+        return lastLineY + LINE_STEP + ICON_TOP_MARGIN;
     }
 
     @Override
-    public void render(Font font, int width, int height) {
+    protected float naturalWidth(Font font) {
+        Tile tile = this.game.getSelectedTile();
+        float widest = font.getWidth("Selected: " + tileName(tile)) * SCALE;
+        if (tile instanceof TreeTile) {
+            widest = Math.max(widest, font.getWidth("Type: " + ((TreeTile) tile).getType().displayName) * SCALE);
+        }
+        return Math.max(widest, ICON_SIZE);
+    }
+
+    @Override
+    protected float naturalHeight(Font font) {
+        return iconTop(this.game.getSelectedTile()) + ICON_SIZE;
+    }
+
+    @Override
+    protected void draw(Font font, int mouseX, int mouseY) {
         Tile tile = this.game.getSelectedTile();
 
-        String name = (tile instanceof TreeTile) ? "Tree" : formatTileName(tile.name);
-
         String prefix = "Selected: ";
-        float scale = 2.0F;
+        int left = (int) this.x;
+        int top = (int) this.y;
 
-        font.drawStringScaled(prefix, 10, 10, 0xFFFFFF, scale);
+        font.drawStringScaled(prefix, left, top, 0xFFFFFF, SCALE);
 
-        int prefixWidth = (int) (font.getWidth(prefix) * scale);
+        int prefixWidth = (int) (font.getWidth(prefix) * SCALE);
 
-        font.drawStringScaled(name, 10 + prefixWidth, 10, 0xFFFF00, scale);
-
-        int lastLineY = 10;
+        font.drawStringScaled(tileName(tile), left + prefixWidth, top, 0xFFFF00, SCALE);
 
         if (tile instanceof TreeTile) {
             TreeTile treeTile = (TreeTile) tile;
@@ -50,90 +66,23 @@ public class SelectedTileHud implements HudElement {
             String typePrefix = "Type: ";
             String typeValue = treeTile.getType().displayName;
 
-            int secondLineY = 10 + (int) (12 * scale);
+            int secondLineY = top + (int) LINE_STEP;
 
-            font.drawStringScaled(typePrefix, 10, secondLineY, 0xFFFFFF, scale);
+            font.drawStringScaled(typePrefix, left, secondLineY, 0xFFFFFF, SCALE);
 
-            int typePrefixWidth = (int) (font.getWidth(typePrefix) * scale);
+            int typePrefixWidth = (int) (font.getWidth(typePrefix) * SCALE);
 
-            font.drawStringScaled(typeValue, 10 + typePrefixWidth, secondLineY, 0xFFFF00, scale);
-
-            lastLineY = secondLineY;
+            font.drawStringScaled(typeValue, left + typePrefixWidth, secondLineY, 0xFFFF00, SCALE);
         }
 
-        int iconTopY = (int) (lastLineY + 12 * scale + ICON_TOP_MARGIN);
-        renderSelectedTileIcon(tile, iconTopY, width, height);
+        int iconTopY = (int) (top + iconTop(tile));
+
+        TileIconRenderer.draw(tile, this.game.getLevel(),
+                left + ICON_SIZE / 2.0F, iconTopY + ICON_SIZE / 2.0F, ICON_SIZE,
+                (int) getRootWidth(), (int) getRootHeight());
     }
 
-    private void renderSelectedTileIcon(Tile tile, int iconTopY, int screenWidth, int screenHeight) {
-        Level level = this.game.getLevel();
-
-        float iconCenterX = 10.0F + ICON_SIZE / 2.0F;
-        float iconCenterY = iconTopY + ICON_SIZE / 2.0F;
-
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-        glOrtho(0.0, screenWidth, screenHeight, 0.0, 100.0, 300.0);
-
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
-        glTranslatef(0.0F, 0.0F, -200.0F);
-
-        glEnable(GL_DEPTH_TEST);
-        glClear(GL_DEPTH_BUFFER_BIT);
-
-        glEnable(GL_TEXTURE_2D);
-        Textures.bind(Chunk.getAtlasTexture());
-
-        Textures.enableAlphaTest();
-        Textures.enableAlphaBlending();
-
-        this.iconTessellator.init();
-
-        if (tile.isBillboard()) {
-            glTranslatef(iconCenterX, iconCenterY, 0.0F);
-            buildSpriteQuad(this.iconTessellator, tile, BILLBOARD_ICON_SIZE);
-        } else {
-            glTranslatef(iconCenterX, iconCenterY, 0.0F);
-            glScalef(ICON_SIZE, -ICON_SIZE, ICON_SIZE);
-            glRotatef(30.0F, 1.0F, 0.0F, 0.0F);
-            glRotatef(-45.0F, 0.0F, 1.0F, 0.0F);
-            glTranslatef(0.5F, 0.5F, 0.5F);
-            tile.render(this.iconTessellator, level, 0, -1, -1, -1, Chunk.getTotalAtlasSlots());
-        }
-
-        this.iconTessellator.flush();
-
-        glDisable(GL_BLEND);
-        glDisable(GL_TEXTURE_2D);
-        glDisable(GL_DEPTH_TEST);
-
-        glPopMatrix();
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-        glMatrixMode(GL_MODELVIEW);
-    }
-
-    private static void buildSpriteQuad(Tessellator t, Tile tile, float size) {
-        int slots = Chunk.getTotalAtlasSlots();
-        float u0 = tile.getAtlasSlot(Tile.FACE_NORTH) / (float) slots;
-        float u1 = u0 + 1.0F / slots;
-        float half = size / 2.0F;
-
-        t.color(1.0F, 1.0F, 1.0F, 1.0F);
-        t.texture(u0, 0.0F);
-        t.vertex(-half, -half, 0.0F);
-        t.texture(u1, 0.0F);
-        t.vertex(half, -half, 0.0F);
-        t.texture(u1, 1.0F);
-        t.vertex(half, half, 0.0F);
-        t.texture(u0, 1.0F);
-        t.vertex(-half, half, 0.0F);
-    }
-
-    private String formatTileName(String rawName) {
+    private static String formatTileName(String rawName) {
         if (rawName == null || rawName.isEmpty()) {
             return "";
         }

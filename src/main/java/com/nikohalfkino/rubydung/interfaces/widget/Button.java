@@ -1,52 +1,65 @@
 package com.nikohalfkino.rubydung.interfaces.widget;
 
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
+import com.nikohalfkino.rubydung.interfaces.UiStyle;
 import com.nikohalfkino.rubydung.render.Font;
 
-public class Button {
+import java.util.function.Supplier;
+
+/**
+ * A clickable button. Give it its action with {@link #onClick}; there is no click handling to
+ * write in the screen.
+ * <pre>
+ *     column.add(new Button("Play", 200, 30, true).onClick(() -> game.openScreen(...)));
+ *     Button cap = column.add(new Button(() -> "FPS Cap: " + cap(), 200, 30, true));
+ *     cap.setEnabledWhen(() -> !vsyncOn);      // greyed out and unclickable while the condition fails
+ * </pre>
+ */
+public class Button extends Widget {
 
     private static final String DEFAULT_9SLICE_TEXTURE = "/assets/rubydung/textures/gui/button.png";
     private static final int TEXT_HEIGHT = 8;
 
-    private final float width;
-    private final float height;
-
-    private String label;
-    private float x;
-    private float y;
+    private Supplier<String> label;
+    private Runnable onClick;
     private boolean selected = false;
-
-    /**
-     * Whether this button responds to clicks and renders at full strength. False dims both the
-     * button texture/background and its label - see {@code VideoSettingsScreen}'s FPS Cap
-     * button, disabled while VSync is on since VSync already caps the frame rate to the
-     * display's refresh rate. Callers are responsible for actually skipping the click action
-     * too (see {@link #isEnabled()}) - this flag only controls rendering and hover styling.
-     */
-    private boolean enabled = true;
 
     private boolean useNineSlice = false;
     private String texturePath = DEFAULT_9SLICE_TEXTURE;
 
     public Button(String label, float width, float height) {
-        this.label = label;
-        this.width = width;
-        this.height = height;
+        this(label, width, height, false);
     }
 
     public Button(String label, float width, float height, boolean useNineSlice) {
-        this.label = label;
-        this.width = width;
-        this.height = height;
+        setLabel(label);
+        setSize(width, height);
         this.useNineSlice = useNineSlice;
     }
 
-    public void setPosition(float x, float y) {
-        this.x = x;
-        this.y = y;
+    /** Standard menu button (see {@link UiStyle}). */
+    public Button(String label) {
+        this(label, UiStyle.BUTTON_WIDTH, UiStyle.BUTTON_HEIGHT, true);
+    }
+
+    /** A button whose label is looked up again every frame. */
+    public Button(Supplier<String> label, float width, float height, boolean useNineSlice) {
+        this.label = label;
+        setSize(width, height);
+        this.useNineSlice = useNineSlice;
+    }
+
+    /** What happens when the button is clicked. Not called while the button is disabled. */
+    public Button onClick(Runnable onClick) {
+        this.onClick = onClick;
+        return this;
     }
 
     public void setLabel(String label) {
+        this.label = () -> label;
+    }
+
+    public void setLabel(Supplier<String> label) {
         this.label = label;
     }
 
@@ -58,30 +71,31 @@ public class Button {
         return this.selected;
     }
 
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public boolean isEnabled() {
-        return this.enabled;
-    }
-
     public void setUseNineSlice(boolean useNineSlice) {
         this.useNineSlice = useNineSlice;
     }
 
-    public boolean isHovered(int mouseX, int mouseY) {
-        return mouseX >= this.x && mouseX <= this.x + this.width
-                && mouseY >= this.y && mouseY <= this.y + this.height;
+    @Override
+    protected boolean isInteractive() {
+        return true;
     }
 
-    public void render(Font font, int mouseX, int mouseY) {
-        boolean hovered = this.enabled && isHovered(mouseX, mouseY);
+    @Override
+    public void onMouseClicked(int mouseX, int mouseY) {
+        if (this.onClick != null) {
+            this.onClick.run();
+        }
+    }
 
-        // Dims the texture/background when disabled - see #enabled's javadoc. Doesn't affect
-        // the outline below, which is its own always-full-strength draw either way, since a
-        // disabled button is never meant to look "selected" in the first place.
-        float buttonBrightness = this.enabled ? 1.0f : 0.35f;
+    @Override
+    protected void draw(Font font, int mouseX, int mouseY) {
+        boolean enabled = isEnabled();
+        boolean hovered = enabled && isHovered(mouseX, mouseY);
+
+        // Dims the texture/background when disabled. Doesn't affect the outline below, which is
+        // its own always-full-strength draw either way, since a disabled button is never meant to
+        // look "selected" in the first place.
+        float buttonBrightness = enabled ? 1.0f : 0.35f;
 
         if (this.useNineSlice) {
             Gui2D.drawNineSlice(this.texturePath, this.x, this.y, this.width, this.height, 20, 20, 6, buttonBrightness);
@@ -92,7 +106,7 @@ public class Button {
             }
         } else {
             float alpha = this.selected ? 0.55f : (hovered ? 0.45f : 0.3f);
-            if (!this.enabled) {
+            if (!enabled) {
                 // This path is a flat black fill rather than a texture, so there's no RGB to
                 // darken - fall back to fading it out instead.
                 alpha *= 0.5f;
@@ -100,23 +114,27 @@ public class Button {
             Gui2D.fillRect(this.x, this.y, this.width, this.height, 0.0f, 0.0f, 0.0f, alpha);
 
             if (this.selected) {
-                // 2px thick outline only on the bottom face
                 Gui2D.fillRect(this.x, this.y + this.height - 2.0f, this.width, 2.0f, 1.0f, 1.0f, 0.4f, 1.0f);
             }
         }
 
-        int textWidth = font.width(this.label);
+        String text = this.label.get();
+        if (text == null) {
+            text = "";
+        }
+
+        int textWidth = font.width(text);
         int scaledTextHeight = TEXT_HEIGHT * 2;
 
         int drawX = (int) (this.x + (this.width - textWidth) / 2.0f);
         int drawY = (int) (this.y + (this.height - scaledTextHeight) / 2.0f);
 
         int color;
-        if (!this.enabled) {
-            color = 0x888888; // dimmed grey, distinct from the normal white/hover-yellow
+        if (!enabled) {
+            color = UiStyle.TEXT_DISABLED; // dimmed grey, distinct from the normal white/hover-yellow
         } else {
-            color = (hovered || this.selected) ? 0xFFFF00 : 0xFFFFFF;
+            color = (hovered || this.selected) ? UiStyle.TEXT_HOVER : UiStyle.TEXT;
         }
-        font.drawString(this.label, drawX, drawY, color);
+        font.drawString(text, drawX, drawY, color);
     }
 }

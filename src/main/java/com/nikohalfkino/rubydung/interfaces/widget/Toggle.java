@@ -1,14 +1,28 @@
 package com.nikohalfkino.rubydung.interfaces.widget;
 
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
+import com.nikohalfkino.rubydung.interfaces.UiStyle;
 import com.nikohalfkino.rubydung.render.Font;
+
+import java.util.function.Consumer;
 
 /**
  * An on/off switch drawn as one of two whole-sprite textures ({@code toggle_on.png} / {@code
  * toggle_off.png}, both native 16x16 - no 9-slice needed since, unlike a {@link Button}, a
  * toggle is never stretched to an arbitrary size) with a text label beside it.
+ * <p>
+ * Two looks:
+ * <ul>
+ *   <li>No fixed width: sprite and label sit side by side, as wide as they need to be.</li>
+ *   <li>Fixed width ({@link #setSize} / {@link #setRowWidth}) with the label on the left: a
+ *       settings-row look - label at the left edge, sprite at the right edge, a grey line between.</li>
+ * </ul>
+ * <pre>
+ *     column.add(new Toggle("VSync", GameSettings.isVsyncEnabled(), Toggle.LabelSide.LEFT)
+ *             .setRowWidth(200).onChange(on -> GameSettings.setVsyncEnabled(on)));
+ * </pre>
  */
-public class Toggle {
+public class Toggle extends Widget {
 
     private static final String ON_TEXTURE = "/assets/rubydung/textures/gui/toggle_on.png";
     private static final String OFF_TEXTURE = "/assets/rubydung/textures/gui/toggle_off.png";
@@ -23,11 +37,8 @@ public class Toggle {
     private final String label;
     private final LabelSide labelSide;
 
-    private float x;
-    private float y;
-    private float customTotalWidth = -1.0f;
-    private float customMaxLabelWidth = -1.0f;
     private boolean value;
+    private Consumer<Boolean> onChange;
 
     public Toggle(String label, boolean initialValue, LabelSide labelSide) {
         this.label = label;
@@ -35,18 +46,16 @@ public class Toggle {
         this.value = initialValue;
     }
 
-    public void setPosition(float x, float y) {
-        this.x = x;
-        this.y = y;
-        this.customTotalWidth = -1.0f;
-        this.customMaxLabelWidth = -1.0f;
+    /** Switches to the fixed-width settings-row look (see class doc). */
+    public Toggle setRowWidth(float rowWidth) {
+        setSize(rowWidth, SPRITE_SIZE);
+        return this;
     }
 
-    public void setPosition(float centerX, float y, float maxLabelWidth, float totalWidth) {
-        this.y = y;
-        this.customMaxLabelWidth = maxLabelWidth;
-        this.customTotalWidth = totalWidth;
-        this.x = centerX - totalWidth / 2.0f;
+    /** Called with the new state after the toggle is clicked. */
+    public Toggle onChange(Consumer<Boolean> onChange) {
+        this.onChange = onChange;
+        return this;
     }
 
     public boolean getValue() {
@@ -65,27 +74,43 @@ public class Toggle {
         return SPRITE_SIZE + LABEL_GAP + font.width(this.label);
     }
 
-    /** Hit test covers the sprite and the label both, so clicking the text also toggles it. */
-    public boolean isHovered(Font font, int mouseX, int mouseY) {
-        float totalWidth = customTotalWidth >= 0 ? customTotalWidth : getWidth(font);
-        return mouseX >= this.x && mouseX <= this.x + totalWidth
-                && mouseY >= this.y && mouseY <= this.y + SPRITE_SIZE;
+    @Override
+    protected float naturalWidth(Font font) {
+        return getWidth(font);
     }
 
-    public void mouseClicked(Font font, int mouseX, int mouseY) {
-        if (isHovered(font, mouseX, mouseY)) {
-            this.value = !this.value;
+    @Override
+    protected float naturalHeight(Font font) {
+        return SPRITE_SIZE;
+    }
+
+    private boolean isRowStyle() {
+        return getPrefWidth() >= 0.0f && this.labelSide == LabelSide.LEFT;
+    }
+
+    @Override
+    protected boolean isInteractive() {
+        return true;
+    }
+
+    /** The hit area covers the sprite and the label both, so clicking the text also toggles it. */
+    @Override
+    public void onMouseClicked(int mouseX, int mouseY) {
+        this.value = !this.value;
+        if (this.onChange != null) {
+            this.onChange.accept(this.value);
         }
     }
 
-    public void render(Font font, int mouseX, int mouseY) {
+    @Override
+    protected void draw(Font font, int mouseX, int mouseY) {
         float spriteX;
         float labelX;
 
-        if (customMaxLabelWidth >= 0 && this.labelSide == LabelSide.LEFT) {
+        if (isRowStyle()) {
             // Text left-aligned at the start of the row, toggle button aligned to the right edge
             labelX = this.x;
-            spriteX = this.x + customTotalWidth - SPRITE_SIZE;
+            spriteX = this.x + this.width - SPRITE_SIZE;
         } else {
             spriteX = this.labelSide == LabelSide.LEFT
                     ? this.x + font.width(this.label) + LABEL_GAP
@@ -99,7 +124,7 @@ public class Toggle {
         Gui2D.drawTexture(texture, spriteX, this.y, SPRITE_SIZE, SPRITE_SIZE);
 
         // Draw a 2px thick grey horizontal line between the label and the toggle button
-        if (customMaxLabelWidth >= 0 && this.labelSide == LabelSide.LEFT) {
+        if (isRowStyle()) {
             float lineStartX = labelX + font.width(this.label) + 6.0f;
             float lineEndX = spriteX - 6.0f;
             if (lineEndX > lineStartX) {
@@ -109,8 +134,8 @@ public class Toggle {
             }
         }
 
-        boolean hovered = isHovered(font, mouseX, mouseY);
-        int color = hovered ? 0xFFFF00 : 0xFFFFFF;
+        boolean hovered = isEnabled() && isHovered(mouseX, mouseY);
+        int color = hovered ? UiStyle.TEXT_HOVER : UiStyle.TEXT;
         int labelY = (int) (this.y + (SPRITE_SIZE - LABEL_HEIGHT) / 2.0f);
         font.drawString(this.label, (int) labelX, labelY, color);
     }
