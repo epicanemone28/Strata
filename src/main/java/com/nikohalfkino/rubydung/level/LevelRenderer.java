@@ -108,6 +108,11 @@ public class LevelRenderer implements LevelListener {
     }
 
     public void setDirty(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
+        setDirty(minX, minY, minZ, maxX, maxY, maxZ, false);
+    }
+
+    /** @param urgent rebuild these chunks at the next draw instead of waiting for the per-frame budget */
+    private void setDirty(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, boolean urgent) {
         minX /= CHUNK_SIZE;
         minY /= CHUNK_SIZE;
         minZ /= CHUNK_SIZE;
@@ -128,7 +133,11 @@ public class LevelRenderer implements LevelListener {
                 for (int z = minZ; z <= maxZ; z++) {
                     Chunk chunk = this.chunks[(x + y * this.chunkAmountX) * this.chunkAmountZ + z];
 
-                    chunk.setDirty();
+                    if (urgent) {
+                        chunk.setDirtyNow();
+                    } else {
+                        chunk.setDirty();
+                    }
                 }
             }
         }
@@ -270,6 +279,17 @@ public class LevelRenderer implements LevelListener {
         glBlendFunc(GL_SRC_ALPHA, GL_CURRENT_BIT);
         glColor4f(1.0f, 1.0f, 1.0f, (float) Math.sin(System.currentTimeMillis() / 100.0) * 0.2f + 0.4f);
 
+        // The overlay lies exactly in the plane of the block's own face. Pull it slightly towards the
+        // camera (polygon offset, plus a tiny nudge along the face normal) and don't let it write
+        // depth, so the two surfaces never fight, whatever path the chunk mesh took to the screen.
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-2.0F, -4.0F);
+        glDepthMask(false);
+
+        int[] normal = HIT_FACE_NORMALS[hitResult.face];
+        glPushMatrix();
+        glTranslatef(normal[0] * HIT_FACE_NUDGE, normal[1] * HIT_FACE_NUDGE, normal[2] * HIT_FACE_NUDGE);
+
         this.tessellator.init();
 
         // A multi-tile object is outlined as a whole: the hit face of its full bounds, not of one cell.
@@ -283,8 +303,20 @@ public class LevelRenderer implements LevelListener {
 
         this.tessellator.flush();
 
+        glPopMatrix();
+        glDepthMask(true);
+        glDisable(GL_POLYGON_OFFSET_FILL);
+
         glDisable(GL_BLEND);
     }
+
+    /** Outward normal per face, numbered like the Tile.FACE_* constants. */
+    private static final int[][] HIT_FACE_NORMALS = {
+            {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}
+    };
+
+    /** How far (in blocks) the selection overlay floats off the face it highlights. */
+    private static final float HIT_FACE_NUDGE = 0.002F;
 
     /** One face of an axis-aligned box, wound the same way as Tile.renderFace. */
     private void renderBoxFace(float minX, float minY, float minZ, float maxX, float maxY, float maxZ, int face) {
@@ -338,7 +370,8 @@ public class LevelRenderer implements LevelListener {
 
     @Override
     public void tileChanged(int x, int y, int z) {
-        setDirty(x - 1, y - 1, z - 1, x + 1, y + 1, z + 1);
+        // The block itself and the faces next to it change right now; only light is allowed to lag.
+        setDirty(x - 1, y - 1, z - 1, x + 1, y + 1, z + 1, true);
     }
 
     @Override

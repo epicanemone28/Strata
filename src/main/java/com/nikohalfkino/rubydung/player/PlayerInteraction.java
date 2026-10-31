@@ -8,34 +8,45 @@ import com.nikohalfkino.rubydung.level.Tiles.Tile;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.util.KeyBinding;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+/**
+ * placing and breaking logic from <a href="https://mojang.github.io/bedrock-protocol-docs/guides/build-action-simulation-rate/">mojang docs</a>
+ */
 public class PlayerInteraction {
 
     private final Level level;
     private final Player player;
 
-    /** Ticks between repeated breaks / placements while a button is held. */
+    private static final double TICKS_PER_SECOND = 20.0;
+    private static final double TICK_MS = 1000.0 / TICKS_PER_SECOND;
+
+    private static final double BUILD_DELAY_STILL_MS = 200.0;
+    private static final double BUILD_DELAY_SNEAK_MS = 300.0;
+    private static final double BUILD_DELAY_MOVING_MAX_MS = 180.0;
+    private static final double BUILD_DELAY_MOVING_FACTOR = 900.0;
+
+    private static final int BREAK_DELAY_TICKS = 5;
+
     private static final int REPEAT_INTERVAL_TICKS = 8;
 
-    /**
-     * After the first press, wait this many ticks so the other mouse button can join in.
-     * Pressing both buttons replaces the targeted block. Set to 0 to remove the delay.
-     */
     private static final int CHORD_GRACE_TICKS = 3;
 
-    /** How far (to the cell centre) a held build chain may reach before it pauses. */
-    private static final double CHAIN_REACH = 6.0;
+    private static final double MOVING_EPSILON = 1.0E-3;
 
-    /**
-     * Blocks per tick the player must be moving along a surface for a held build to follow them
-     * sideways instead of stacking outwards. Walking covers about 0.07 blocks per tick along an
-     * axis and flying 0.2, so this is a bit under half of walking speed; it also lets the chain
-     * stop following a few ticks after the player stops (walking friction decays 0.73x per tick).
-     */
-    private static final double STRAFE_MIN_SPEED = 0.03;
+    private static final double MAX_BREAKS_PER_TICK = 32.0;
 
-    /** Direction offsets per face, matching the face numbering in Tile (0=-Y, 1=+Y, 2=-Z, 3=+Z, 4=-X, 5=+X). */
+    private static final int MAX_PENDING_HITS = 64;
+
+    /** How many ticks a break click that found nothing to break is kept alive and retried. */
+    private static final int BREAK_CLICK_BUFFER_TICKS = 3;
+
+    /** Prints to stderr why a click did nothing (no hit, hit already air). Turn off when done. */
+    private static final boolean DEBUG_CLICKS = false;
+
     private static final int[][] FACE_NORMALS = {
             {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}
     };
@@ -45,18 +56,25 @@ public class PlayerInteraction {
     private boolean acted = false;
     private boolean chordActive = false;
 
+    /** Break was pressed and is still waiting out the chord grace period without having acted. */
+    private boolean tapPending = false;
+
+    /** Ticks left to retry a break click that had no valid target when it was pressed. */
+    private int bufferedBreakTicks = 0;
+
     private boolean breakSuppressedUntilRelease = false;
     private boolean placeSuppressedUntilRelease = false;
 
-    // Hold-to-build chain: the last block placed and the face it was placed against.
-    private boolean chainActive = false;
-    private int chainX, chainY, chainZ;
-    private int chainFace;
+    private final List<HitResult> pendingHits = new ArrayList<>();
 
-    // Hold-to-break chain: the last block broken and the face it was hit on.
-    private boolean breakChainActive = false;
-    private int breakChainX, breakChainY, breakChainZ;
-    private int breakChainFace;
+    private double buildBudget = 1.0;
+
+    private boolean buildActive = false;
+    private int buildFace;
+    private int buildPlane;
+    private final Set<Long> placedCells = new HashSet<>();
+
+    private double breakBank = 0.0;
 
     private HitResult hitResult;
 
@@ -73,6 +91,34 @@ public class PlayerInteraction {
 
     public void setHitResult(HitResult hitResult) {
         this.hitResult = hitResult;
+
+        if (hitResult == null) {
+            return;
+        }
+        if (!this.pendingHits.isEmpty() && sameHit(this.pendingHits.get(this.pendingHits.size() - 1), hitResult)) {
+            return;
+        }
+
+        this.pendingHits.add(hitResult);
+        if (this.pendingHits.size() > MAX_PENDING_HITS) {
+            this.pendingHits.remove(0);
+        }
+    }
+
+    private static boolean sameHit(HitResult a, HitResult b) {
+        return a.x == b.x && a.y == b.y && a.z == b.z
+                && a.cellX == b.cellX && a.cellY == b.cellY && a.cellZ == b.cellZ
+                && a.face == b.face;
+    }
+
+    private List<HitResult> drainHits() {
+        List<HitResult> hits = new ArrayList<>(this.pendingHits);
+        this.pendingHits.clear();
+
+        if (this.hitResult != null && (hits.isEmpty() || !sameHit(hits.get(hits.size() - 1), this.hitResult))) {
+            hits.add(this.hitResult);
+        }
+        return hits;
     }
 
     public Tile getSelectedTile() {
@@ -89,71 +135,131 @@ public class PlayerInteraction {
     }
 
     public void handleClick(int button, boolean pressed) {
-        if (!pressed || this.hitResult == null) {
+        if (!pressed) {
+            return;
+        }
+        if (button == 0) {
+            // The hit result can be null or stale (already-broken cell) at the instant of the press,
+            // e.g. on rapid clicks or right after a block was broken. Fall back to the hits seen
+            // since the last tick, and if there is still nothing, keep the click alive for a few
+            // ticks instead of dropping it.
+            if (breakTargetedOrRecent()) {
+                startBreakCooldown();
+            } else {
+                this.bufferedBreakTicks = BREAK_CLICK_BUFFER_TICKS;
+                if (DEBUG_CLICKS) {
+                    System.err.println("[click] break: nothing to break yet, buffering click");
+                }
+            }
             return;
         }
 
-        if (button == 0) {
-            // Start the repeat timer so tick() doesn't break a second block a few ticks later.
-            if (breakTargetedTile()) {
-                this.acted = true;
-                this.actionCooldown = REPEAT_INTERVAL_TICKS - 1;
+        if (this.hitResult == null) {
+            if (DEBUG_CLICKS) {
+                System.err.println("[click] button " + button + ": no hit result at click time");
             }
-        } else if (button == 1) {
-            placeOrContinueBuild();
+            return;
+        }
+
+        if (button == 1) {
+            this.buildBudget = 1.0;
+            clearBuildLine();
+            placeAgainst(this.hitResult);
         }
     }
 
-    /**
-     * Breaks the targeted block. Mirrors the build chain: if the player is aiming at nothing
-     * (or at the cell that was just cleared), holding the button keeps digging in the same
-     * direction, so tunnels are gap-free.
-     */
+    // Movement
+
+    private double[] playerVelocity() {
+        return new double[]{
+                this.player.x - this.player.prevX,
+                this.player.y - this.player.prevY,
+                this.player.z - this.player.prevZ
+        };
+    }
+
+    private static double length(double[] v) {
+        return Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    }
+
+    // Breaking
+
+    private void breakAt(HitResult hit) {
+        this.level.setTile(hit.x, hit.y, hit.z, 0);
+    }
+
     private boolean breakTargetedTile() {
-        this.chainActive = false;
-
         HitResult hit = this.hitResult;
-
         if (hit != null && this.level.getTile(hit.x, hit.y, hit.z) != 0) {
-            this.level.setTile(hit.x, hit.y, hit.z, 0);
-
-            // Continue from the cell that was actually hit (for a multi-tile object, hit.x/y/z is its origin).
-            this.breakChainActive = true;
-            this.breakChainX = hit.cellX;
-            this.breakChainY = hit.cellY;
-            this.breakChainZ = hit.cellZ;
-            this.breakChainFace = hit.face;
+            breakAt(hit);
             return true;
         }
+        return false;
+    }
 
-        if (!this.breakChainActive) {
-            return false;
+    /** Breaks the newest hit in the list that still has a block in it. */
+    private boolean breakNewest(List<HitResult> hits) {
+        for (int i = hits.size() - 1; i >= 0; i--) {
+            if (breakCells(hits.subList(i, i + 1), 1) == 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean breakTargetedOrRecent() {
+        return breakTargetedTile() || breakNewest(this.pendingHits);
+    }
+
+    /** Starts the repeat timer so tick() doesn't break a second block a few ticks later. */
+    private void startBreakCooldown() {
+        this.bufferedBreakTicks = 0;
+        this.acted = true;
+        this.actionCooldown = BREAK_DELAY_TICKS - 1;
+        this.breakBank = 0.0;
+    }
+
+    private int breakCells(List<HitResult> hits, int allowance) {
+        int broken = 0;
+        for (HitResult hit : hits) {
+            if (broken >= allowance) {
+                break;
+            }
+            if (this.level.getTile(hit.x, hit.y, hit.z) == 0) {
+                continue; // already gone
+            }
+            breakAt(hit);
+            broken++;
+        }
+        return broken;
+    }
+
+    private void tickBreak(List<HitResult> hits, double speed) {
+        boolean moving = speed > MOVING_EPSILON;
+
+        // The normal hold-to-break rate. Moving must never be slower than standing still.
+        int allowance = this.actionCooldown <= 0 ? 1 : 0;
+        if (moving) {
+            // Moving: distance travelled can pay for extra blocks, and the remainder is kept.
+            this.breakBank = Math.min(this.breakBank + speed, MAX_BREAKS_PER_TICK);
+            allowance = Math.max(allowance, (int) this.breakBank);
         }
 
-        // Continue "into" the block, opposite to the face that was hit.
-        int[] normal = FACE_NORMALS[this.breakChainFace];
-        int x = this.breakChainX - normal[0];
-        int y = this.breakChainY - normal[1];
-        int z = this.breakChainZ - normal[2];
-
-        if (x < 0 || y < 0 || z < 0 || x >= this.level.width || y >= this.level.depth || z >= this.level.height
-                || this.level.getTile(x, y, z) == 0) {
-            this.breakChainActive = false;
-            return false;
+        if (this.actionCooldown > 0) {
+            this.actionCooldown--;
+        }
+        if (allowance <= 0) {
+            return;
         }
 
-        double dx = x + 0.5 - this.player.x;
-        double dy = y + 0.5 - this.player.y;
-        double dz = z + 0.5 - this.player.z;
-        if (dx * dx + dy * dy + dz * dz > CHAIN_REACH * CHAIN_REACH) {
-            return false;
+        int broken = breakCells(hits, allowance);
+        if (broken > 0) {
+            this.acted = true;
+            this.actionCooldown = BREAK_DELAY_TICKS - 1;
+            if (moving) {
+                this.breakBank = Math.max(0.0, this.breakBank - broken);
+            }
         }
-
-        this.level.setTile(x, y, z, 0);
-        this.breakChainX = x;
-        this.breakChainY = y;
-        this.breakChainZ = z;
-        return true;
     }
 
     public void pickTargetedTile() {
@@ -200,7 +306,9 @@ public class PlayerInteraction {
         return tile instanceof DimensionalDoorTile ? new int[]{hit.x, hit.y, hit.z} : null;
     }
 
-    /** Axis data for rotatable tiles, based on the face they were placed against. */
+    // Placing
+
+    /** Axis data for rotatable tiles, based on the face they were placed against (0 = Y, 1 = Z, 2 = X). */
     private int axisForFace(int face) {
         if (!(this.selectedTile instanceof RotatableTile)) {
             return 0;
@@ -258,151 +366,113 @@ public class PlayerInteraction {
         return true;
     }
 
-    /**
-     * Places a block against the targeted face. If the player is aiming at the end of the
-     * chain they are already building, continues the chain instead, so holding the button builds
-     * a gap-free line. Which way the chain grows depends on how the player is moving:
-     * <ul>
-     *   <li>walking along the surface being built on (e.g. facing a wall and strafing along it, or
-     *       walking over a floor being laid): the chain follows them sideways, filling the row;</li>
-     *   <li>standing still, or moving towards / away from the surface: the chain grows straight out
-     *       of the face it was placed against (bridging, pillars).</li>
-     * </ul>
-     */
-    private boolean placeOrContinueBuild() {
-        HitResult hit = this.hitResult;
-
-        // The sideways step while the player walks along the surface; null when they don't.
-        int[] strafe = this.chainActive ? strafeStep() : null;
-
-        boolean aimingAtChainEnd = this.chainActive && hit != null
-                && hit.x == this.chainX && hit.y == this.chainY && hit.z == this.chainZ;
-
-        // While strafing, aiming anywhere on the surface the chain is built on keeps the chain going
-        // (the crosshair sweeps along the surface, it isn't a new target).
-        boolean followingChain = aimingAtChainEnd || (strafe != null && hit != null && isOnChainSurface(hit));
-
-        if (hit != null && !followingChain) {
-            // Relative to the cell that was actually hit, not the origin of a multi-tile object.
-            int[] normal = FACE_NORMALS[hit.face];
-            int x = hit.cellX + normal[0];
-            int y = hit.cellY + normal[1];
-            int z = hit.cellZ + normal[2];
-
-            if (!placeTile(x, y, z, hit.face)) {
-                return false;
-            }
-
-            // Multi-tile objects don't chain: a one-cell step would overlap the object just placed.
-            this.chainActive = !this.selectedTile.isMultiTile();
-            this.chainX = x;
-            this.chainY = y;
-            this.chainZ = z;
-            this.chainFace = hit.face;
-            return true;
+    /** The delay before the next block may be placed, in milliseconds */
+    private double placeDelayMs(double speed) {
+        boolean sneaking = KeyBinding.SNEAK.isDown() && !this.player.flying && !this.player.noClip;
+        if (sneaking) {
+            return BUILD_DELAY_SNEAK_MS; // while flying, sneak is the descend key, not a slow-down
         }
+        if (speed > MOVING_EPSILON) {
+            double blocksPerSecond = speed * TICKS_PER_SECOND;
+            return Math.min(BUILD_DELAY_MOVING_MAX_MS, BUILD_DELAY_MOVING_FACTOR / blocksPerSecond);
+        }
+        return BUILD_DELAY_STILL_MS;
+    }
 
-        if (!this.chainActive) {
+    /** Places a block against the hit face (on the cell next to the cell that was hit). Costs one block of the budget. */
+    private boolean placeAgainst(HitResult hit) {
+        // Relative to the cell that was actually hit, not the origin of a multi-tile object.
+        int[] normal = FACE_NORMALS[hit.face];
+        int x = hit.cellX + normal[0];
+        int y = hit.cellY + normal[1];
+        int z = hit.cellZ + normal[2];
+
+        if (!inWorld(x, y, z) || this.level.getTile(x, y, z) != 0) {
+            return false;
+        }
+        if (!placeTile(x, y, z, hit.face)) {
             return false;
         }
 
-        int[] step = strafe != null ? strafe : FACE_NORMALS[this.chainFace];
-        int x = this.chainX + step[0];
-        int y = this.chainY + step[1];
-        int z = this.chainZ + step[2];
+        this.buildBudget = Math.max(0.0, this.buildBudget - 1.0);
+        this.acted = true;
 
-        // The world ends here, or something is already in the way: the chain is finished.
-        if (x < 0 || y < 0 || z < 0 || x >= this.level.width || y >= this.level.depth || z >= this.level.height
-                || this.level.getTile(x, y, z) != 0) {
-            this.chainActive = false;
-            return false;
-        }
-
-        // Too far away for now: wait until the player is back in reach.
-        double dx = x + 0.5 - this.player.x;
-        double dy = y + 0.5 - this.player.y;
-        double dz = z + 0.5 - this.player.z;
-        if (dx * dx + dy * dy + dz * dz > CHAIN_REACH * CHAIN_REACH) {
-            return false;
-        }
-
-        // chainFace stays the same when stepping sideways, so the whole row lies in one plane.
-        if (!placeTile(x, y, z, this.chainFace)) {
-            return false;
-        }
-
-        this.chainX = x;
-        this.chainY = y;
-        this.chainZ = z;
+        this.buildActive = true;
+        this.buildFace = hit.face;
+        this.buildPlane = axisValue(x, y, z, hit.face);
+        this.placedCells.add(cellKey(x, y, z));
         return true;
     }
 
-    /** Axis (0 = X, 1 = Y, 2 = Z) a face's normal points along. */
-    private static int axisOfFace(int face) {
+    private void clearBuildLine() {
+        this.buildActive = false;
+        this.placedCells.clear();
+    }
+
+    private static long cellKey(int x, int y, int z) {
+        return (x & 0xFFFFFL) | ((z & 0xFFFFFL) << 20) | ((y & 0xFFFFFL) << 40);
+    }
+
+    private static int axisValue(int x, int y, int z, int face) {
         int[] normal = FACE_NORMALS[face];
-        return normal[0] != 0 ? 0 : normal[1] != 0 ? 1 : 2;
+        return normal[0] != 0 ? x : normal[1] != 0 ? y : z;
     }
 
-    /**
-     * The one-cell step {dx, dy, dz} along the surface the chain is built on, in the direction the
-     * player is walking, or null if they aren't walking along it (standing still, or moving mostly
-     * towards / away from the surface). Up and down only count while flying, so jumping doesn't
-     * make the chain climb.
-     */
-    private int[] strafeStep() {
-        int normalAxis = axisOfFace(this.chainFace);
-        // How far the player moved last tick (prev* is set at the start of Player.tick, and teleports reset it).
-        double[] velocity = {
-                this.player.x - this.player.prevX,
-                this.player.y - this.player.prevY,
-                this.player.z - this.player.prevZ
-        };
-        boolean verticalAllowed = this.player.flying || this.player.noClip;
-
-        int bestAxis = -1;
-        double bestSpeed = STRAFE_MIN_SPEED;
-
-        for (int axis = 0; axis < 3; axis++) {
-            if (axis == normalAxis || (axis == 1 && !verticalAllowed)) {
-                continue;
-            }
-
-            double speed = Math.abs(velocity[axis]);
-            // Must beat the threshold and the movement towards / away from the surface.
-            if (speed > bestSpeed && speed >= Math.abs(velocity[normalAxis])) {
-                bestSpeed = speed;
-                bestAxis = axis;
-            }
-        }
-
-        if (bestAxis < 0) {
-            return null;
-        }
-
-        int[] step = new int[3];
-        step[bestAxis] = velocity[bestAxis] > 0 ? 1 : -1;
-        return step;
-    }
-
-    /** Whether placing against this hit would land in the same plane, on the same side, as the chain being built. */
-    private boolean isOnChainSurface(HitResult hit) {
-        if (hit.face != this.chainFace) {
+    private boolean isStrayHitOnOwnRow(HitResult hit) {
+        if (!this.buildActive || !this.placedCells.contains(cellKey(hit.cellX, hit.cellY, hit.cellZ))) {
             return false;
         }
 
         int[] normal = FACE_NORMALS[hit.face];
-        int axis = axisOfFace(hit.face);
-
-        int[] cell = {hit.cellX + normal[0], hit.cellY + normal[1], hit.cellZ + normal[2]};
-        int[] chain = {this.chainX, this.chainY, this.chainZ};
-
-        return cell[axis] == chain[axis];
+        int[] target = {hit.cellX + normal[0], hit.cellY + normal[1], hit.cellZ + normal[2]};
+        int plane = axisValue(target[0], target[1], target[2], hit.face);
+        if (hit.face == this.buildFace && plane == this.buildPlane) {
+            return false;
+        }
+        return !(hit.face == this.buildFace && inPlayerColumn(target, hit.face));
     }
+
+    private boolean inPlayerColumn(int[] cell, int face) {
+        AABB box = this.player.boundingBox;
+        double[] min = {box.minX, box.minY, box.minZ};
+        double[] max = {box.maxX, box.maxY, box.maxZ};
+        int skip = axisValue(0, 1, 2, face);
+
+        for (int axis = 0; axis < 3; axis++) {
+            if (axis == skip) {
+                continue;
+            }
+            if (cell[axis] < (int) Math.floor(min[axis]) || cell[axis] > (int) Math.floor(max[axis] - 1.0E-6)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+    private void tickBuild(List<HitResult> hits, double speed) {
+        double perTick = TICK_MS / placeDelayMs(speed);
+        this.buildBudget = Math.min(this.buildBudget + perTick, 1.0 + perTick);
+
+        for (HitResult hit : hits) {
+            if (this.buildBudget < 1.0) {
+                break;
+            }
+            if (isStrayHitOnOwnRow(hit)) {
+                continue;
+            }
+            placeAgainst(hit);
+        }
+    }
+
+    private boolean inWorld(int x, int y, int z) {
+        return x >= 0 && y >= 0 && z >= 0 && x < this.level.width && y < this.level.depth && z < this.level.height;
+    }
+
+    // Replacing
 
     /** Replaces the targeted block with the selected tile (both mouse buttons). */
     private boolean replaceTargetedTile() {
-        this.chainActive = false;
-
         HitResult hit = this.hitResult;
         if (hit == null) {
             return false;
@@ -450,6 +520,8 @@ public class PlayerInteraction {
         return true;
     }
 
+    // Held buttons
+
     public void suppressHeldButtonsUntilReleased() {
         if (KeyBinding.BREAK_BLOCK.isDown()) {
             this.breakSuppressedUntilRelease = true;
@@ -463,13 +535,29 @@ public class PlayerInteraction {
         this.actionCooldown = 0;
         this.heldTicks = 0;
         this.acted = false;
-        this.chainActive = false;
-        this.breakChainActive = false;
+        this.buildBudget = 1.0;
+        this.breakBank = 0.0;
+        this.tapPending = false;
+        clearBuildLine();
     }
 
     public void tick() {
+        // Always drained, so a stale queue never builds up while no button is held.
+        List<HitResult> hits = drainHits();
+        double speed = length(playerVelocity());
+
         boolean breakHeld = KeyBinding.BREAK_BLOCK.isDown();
         boolean placeHeld = KeyBinding.PLACE_BLOCK.isDown();
+
+        // Retry a break click that had nothing to break when it was pressed. This runs before the
+        // held-button logic, so it works even if the button was already released.
+        if (this.bufferedBreakTicks > 0) {
+            if (breakTargetedTile() || breakNewest(hits)) {
+                startBreakCooldown();
+            } else {
+                this.bufferedBreakTicks--;
+            }
+        }
 
         if (!breakHeld) {
             this.breakSuppressedUntilRelease = false;
@@ -495,7 +583,16 @@ public class PlayerInteraction {
         boolean placing = placeHeld && !this.placeSuppressedUntilRelease;
 
         if (!breaking && !placing) {
+            // A tap that ended inside the chord grace period never got to act: do it now, on release.
+            boolean tap = this.tapPending && !this.acted;
             resetHold();
+            if (tap && !breakTargetedTile()) {
+                for (int i = hits.size() - 1; i >= 0; i--) {
+                    if (breakCells(hits.subList(i, i + 1), 1) == 1) {
+                        break;
+                    }
+                }
+            }
             return;
         }
 
@@ -503,30 +600,34 @@ public class PlayerInteraction {
 
         if (replacing) {
             this.chordActive = true;
+            this.tapPending = false;
         }
 
         // Give the second button a moment to arrive before acting on the first.
         if (!this.acted && !replacing && this.heldTicks < CHORD_GRACE_TICKS) {
+            this.tapPending = breaking && !placing;
             this.heldTicks++;
             return;
         }
+        this.tapPending = false;
 
+        if (placing && !breaking) {
+            tickBuild(hits, speed);
+            return;
+        }
+
+        if (breaking && !placing) {
+            tickBreak(hits, speed);
+            return;
+        }
+
+        // Both buttons: replace the targeted block.
         if (this.actionCooldown > 0) {
             this.actionCooldown--;
             return;
         }
 
-        boolean done;
-
-        if (replacing) {
-            done = replaceTargetedTile();
-        } else if (breaking) {
-            done = breakTargetedTile();
-        } else {
-            done = placeOrContinueBuild();
-        }
-
-        if (done) {
+        if (replaceTargetedTile()) {
             this.acted = true;
             this.actionCooldown = REPEAT_INTERVAL_TICKS - 1;
         }
