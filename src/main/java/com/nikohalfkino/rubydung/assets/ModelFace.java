@@ -10,6 +10,8 @@ public class ModelFace {
     public float minV = 0;
     public float maxU = 1.0f;
     public float maxV = 1.0f;
+    //measured in count of 90-degree steps
+    public int rotation = 0;
 
     public ModelFace(String texturePath, Direction direction){
 

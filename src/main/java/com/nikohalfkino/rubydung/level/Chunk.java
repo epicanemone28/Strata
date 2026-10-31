@@ -1,19 +1,22 @@
 package com.nikohalfkino.rubydung.level;
 
+import com.nikohalfkino.rubydung.assets.TextureAtlas;
 import com.nikohalfkino.rubydung.level.Tiles.Tile;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Tessellator;
 import com.nikohalfkino.rubydung.render.Textures;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.lwjgl.opengl.GL11.*;
 
 public class Chunk {
+
+    static {
+        TextureAtlas.BLOCK_ATLAS.atlasLookup.get("x");
+    }
+
 
     public static final int SIZE = 16;
 
@@ -22,6 +25,8 @@ public class Chunk {
     private static final Tessellator TESSELLATOR = new Tessellator();
 
     static {
+
+
         List<String> textureList = new ArrayList<>();
         Map<String, Integer> textureToSlotMap = new LinkedHashMap<>();
 
@@ -105,7 +110,7 @@ public class Chunk {
     private void buildList(int layer) {
         glNewList(this.lists + layer, GL_COMPILE);
         glEnable(GL_TEXTURE_2D);
-        Textures.bind(TEXTURE);
+        Textures.bind(TextureAtlas.BLOCK_ATLAS.texture);
         TESSELLATOR.init();
 
         if (layer == 0) {
@@ -126,7 +131,7 @@ public class Chunk {
                                 continue;
                             }
                             int direction = this.level.getData(x, y, z);
-                            tile.render(TESSELLATOR, this.level, layer, x, y, z, TOTAL_ATLAS_SLOTS, direction);
+                            tile.render(TESSELLATOR, this.level, layer, x, y, z, TextureAtlas.BLOCK_ATLAS, direction);
                         }
                     }
                 }

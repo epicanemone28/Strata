@@ -1,6 +1,7 @@
 package com.nikohalfkino.rubydung.interfaces.hud;
 
 import com.nikohalfkino.rubydung.RubyDung;
+import com.nikohalfkino.rubydung.assets.TextureAtlas;
 import com.nikohalfkino.rubydung.interfaces.HudElement;
 import com.nikohalfkino.rubydung.level.Chunk;
 import com.nikohalfkino.rubydung.level.Level;
@@ -101,7 +102,7 @@ public class SelectedTileHud implements HudElement {
             glRotatef(30.0F, 1.0F, 0.0F, 0.0F);
             glRotatef(-45.0F, 0.0F, 1.0F, 0.0F);
             glTranslatef(0.5F, 0.5F, 0.5F);
-            tile.render(this.iconTessellator, level, 0, -1, -1, -1, Chunk.getTotalAtlasSlots());
+            tile.render(this.iconTessellator, level, 0, -1, -1, -1, TextureAtlas.BLOCK_ATLAS);
         }
 
         this.iconTessellator.flush();

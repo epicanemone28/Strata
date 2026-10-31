@@ -63,6 +63,11 @@ public class Model {
                         newFace.maxU = textureUV[2] / 16.0f;
                         newFace.maxV = textureUV[3] / 16.0f;
                     }
+                    if(face.has("rotation")){
+                        int rotation = face.get("rotation").getAsInt();
+                        if(rotation % 90 != 0) throw new IllegalArgumentException("rotation must be a multiple of 90 degrees!");
+                        newFace.rotation = rotation/90;
+                    }
                     element.faces.add(newFace);
                 }
                 newModel.elements.add(element);
