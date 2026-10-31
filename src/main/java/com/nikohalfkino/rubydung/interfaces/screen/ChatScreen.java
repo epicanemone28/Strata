@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static com.nikohalfkino.rubydung.RubyDung.GAME_TITLE;
+
 public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
 
     /** Scale of every string this screen draws (the one knob for text size). */
@@ -278,7 +280,7 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
         );
 
         String topic = "Topic for " + this.chat.getChannel()
-                + ": Welcome to Strata 0.0.1"
+                + ": Welcome to " + GAME_TITLE
                 + (this.scrollLines > 0 ? "  [scrollback]" : "");
 
         drawText(
