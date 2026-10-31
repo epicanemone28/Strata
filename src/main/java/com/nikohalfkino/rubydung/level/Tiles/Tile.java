@@ -303,15 +303,21 @@ public class Tile {
             for(ModelFace face : e.faces){
                 Direction d = face.direction;
                 int slot = getAtlasSlot(FACE_TOP);
-                float minU = slot / (float) totalAtlasSlots;
-                float maxU = minU + 1.0F / totalAtlasSlots;
-                float minV = 0.0F;
-                float maxV = 1.0F;
+                float AminU = slot / (float) totalAtlasSlots;
+                float AmaxU = AminU + 1.0F / totalAtlasSlots;
+                float AminV = 0.0F;
+                float AmaxV = 1.0F;
+
+                float minU = AminU + (AmaxU-AminU) * face.minU;
+                float maxU = AminU + (AmaxU-AminU) * face.maxU;
+                float minV = AminV + (AmaxV-AminV) * face.minV;
+                float maxV = AminV + (AmaxV-AminV) * face.maxV;
+
+
 
                 if(face.cullDirection != null){
                     Direction cd = face.cullDirection;
                     if(!shouldRenderFace(level,x+cd.x,y+cd.y,z+cd.z)) continue;
-
                 }
 
                 float shade = 1.0f;

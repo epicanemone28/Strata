@@ -71,6 +71,12 @@ public class Tessellator {
         this.textureV = textureV;
     }
 
+    public void texture(float[] textureUV) {
+        this.hasTexture = true;
+        this.textureU = textureUV[0];
+        this.textureV = textureUV[1];
+    }
+
     public void color(float red, float green, float blue) {
         color(red, green, blue, 1.0f);
     }

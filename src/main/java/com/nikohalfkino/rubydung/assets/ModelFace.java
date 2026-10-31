@@ -6,8 +6,13 @@ public class ModelFace {
     public String texturePath;
     public Direction direction = Direction.UP;
     public Direction cullDirection = null;
+    public float minU = 0;
+    public float minV = 0;
+    public float maxU = 1.0f;
+    public float maxV = 1.0f;
 
     public ModelFace(String texturePath, Direction direction){
+
         this.texturePath = texturePath;
         this.direction = direction;
     }

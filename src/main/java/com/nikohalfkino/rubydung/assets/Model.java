@@ -45,8 +45,8 @@ public class Model {
 
                 JsonObject obj = elementJson.getAsJsonObject();
 
-                int[] from = gson.fromJson(obj.get("from").getAsJsonArray(),int[].class);
-                int[] to = gson.fromJson(obj.get("to").getAsJsonArray(),int[].class);
+                float[] from = gson.fromJson(obj.get("from").getAsJsonArray(),float[].class);
+                float[] to = gson.fromJson(obj.get("to").getAsJsonArray(),float[].class);
                 ModelElement element = new ModelElement(from[0], from[1], from[2], to[0], to[1], to[2]);
 
                 JsonObject faces = obj.getAsJsonObject("faces");
@@ -55,6 +55,13 @@ public class Model {
                     ModelFace newFace = new ModelFace("rubydung:block/gold",Direction.fromName(faceName));
                     if(face.has("cullface") && !face.get("cullface").isJsonNull()){
                         newFace.cullDirection = Direction.fromName((face.get("cullface").getAsString()));
+                    }
+                    if(face.has("uv")){
+                        float[] textureUV = gson.fromJson(face.get("uv").getAsJsonArray(),float[].class);
+                        newFace.minU = textureUV[0] / 16.0f;
+                        newFace.minV = textureUV[1] / 16.0f;
+                        newFace.maxU = textureUV[2] / 16.0f;
+                        newFace.maxV = textureUV[3] / 16.0f;
                     }
                     element.faces.add(newFace);
                 }
