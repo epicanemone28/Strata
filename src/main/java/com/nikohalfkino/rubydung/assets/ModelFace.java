@@ -6,8 +6,8 @@ public class ModelFace {
     public String texturePath;
     public Direction direction = Direction.UP;
     public Direction cullDirection = null;
-    public float minU = 0;
-    public float minV = 0;
+    public float minU = 0.0f;
+    public float minV = 0.0f;
     public float maxU = 1.0f;
     public float maxV = 1.0f;
     //measured in count of 90-degree steps

@@ -340,13 +340,13 @@ public class Tile {
                 if (layer == 1 ^ brightness == shade) {
                     tessellator.color(brightness,brightness,brightness);
                     float[][] verts = face.getQuadFromCube(e,minX,minY,minZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(verts[0]);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(verts[1]);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(verts[2]);
                     tessellator.texture(maxU, maxV);
+                    tessellator.vertex(verts[0]);
+                    tessellator.texture(maxU, minV);
+                    tessellator.vertex(verts[1]);
+                    tessellator.texture(minU, minV);
+                    tessellator.vertex(verts[2]);
+                    tessellator.texture(minU, maxV);
                     tessellator.vertex(verts[3]);
                 }
             }
