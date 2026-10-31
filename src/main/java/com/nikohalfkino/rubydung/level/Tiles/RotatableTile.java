@@ -1,5 +1,6 @@
 package com.nikohalfkino.rubydung.level.Tiles;
 
+import com.nikohalfkino.rubydung.assets.TextureAtlas;
 import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.render.Tessellator;
 
@@ -36,10 +37,11 @@ public class RotatableTile extends Tile {
     }
 
     @Override
-    public void render(Tessellator tessellator, Level level, int layer, int x, int y, int z, int totalAtlasSlots, int direction) {
+    public void render(Tessellator tessellator, Level level, int layer, int x, int y, int z, TextureAtlas blockAtlas, int direction) {
         if (!this.isDirectional()) {
             direction = 0;
         }
+        int totalAtlasSlots = blockAtlas.atlasLookup.size();
 
         float shadeX = 0.6f;
         float shadeY = 1.0f;

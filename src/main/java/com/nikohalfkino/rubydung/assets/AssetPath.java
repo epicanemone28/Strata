@@ -12,7 +12,7 @@ public class AssetPath {
 
     @Override
     public String toString() {
-        return this.namespace + "/" + this.path;
+        return this.namespace + ":" + this.path;
     }
 
     public AssetPath(String namespace, String path){

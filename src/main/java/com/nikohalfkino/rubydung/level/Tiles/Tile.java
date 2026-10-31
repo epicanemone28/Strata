@@ -97,6 +97,7 @@ public class Tile {
     public static final Tile STONE_BRICKS_LARGE = REGISTRY.register(new Tile("stone_bricks_large"));
 
     public static final Tile FUCKED_SLAB = REGISTRY.register(new Tile("fucked_slab").setModel("rubydung:block/fucked_slab"));
+    public static final Tile TABLE = REGISTRY.register(new Tile("table").setModel("rubydung:block/table"));
 
     // Rotatable like LOG: the default texture is the side, TOP/BOTTOM are the end caps
     // ("middle"), and RotatableTile swaps them around when the block is placed on its side.
@@ -131,7 +132,7 @@ public class Tile {
             // pillars & columns
             MARBLE, PILLAR_TOP, PILLAR, PILLAR_BOTTOM, COLUMN,
             // metal
-            METAL, METAL_GIRDER, METAL_GRATE, GOLD, FUCKED_SLAB,
+            METAL, METAL_GIRDER, METAL_GRATE, GOLD, FUCKED_SLAB, TABLE,
             // wood
             LOG, PLANKS,
             // glass & lighting
@@ -301,10 +302,10 @@ public class Tile {
                 Direction d = face.direction;
 
                 float[] textureUV = blockAtlas.atlasLookup.get(face.texturePath);
-                float minU = textureUV[0] + (textureUV[1]-textureUV[0]) * face.minU;
-                float maxU = textureUV[0] + (textureUV[1]-textureUV[0]) * face.maxU;
-                float minV = textureUV[2] + (textureUV[3]-textureUV[2]) * face.minV;
-                float maxV = textureUV[2] + (textureUV[3]-textureUV[2]) * face.maxV;
+                float minU = textureUV[0] + (textureUV[2]-textureUV[0]) * face.minU;
+                float maxU = textureUV[0] + (textureUV[2]-textureUV[0]) * face.maxU;
+                float minV = textureUV[1] + (textureUV[3]-textureUV[1]) * face.minV;
+                float maxV = textureUV[1] + (textureUV[3]-textureUV[1]) * face.maxV;
 
                 /*
                 int slot = getAtlasSlot(FACE_TOP);

@@ -7,11 +7,13 @@ import com.nikohalfkino.rubydung.util.Direction;
 import java.io.*;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class Model {
 
     String modelName;
 
+    public HashMap<String,String> textures = new HashMap<>();
     public ArrayList<ModelElement> elements = new ArrayList<>();
 
     public Model(String modelName) {
@@ -40,6 +42,12 @@ public class Model {
             JsonReader reader = new JsonReader(fileReader);
 
             JsonObject modelJson = ((JsonElement) gson.fromJson(fileReader,JsonElement.class)).getAsJsonObject();
+
+            JsonObject texturesJson = modelJson.getAsJsonObject("textures");
+            for(String texture : texturesJson.keySet()){
+                newModel.textures.put("#"+texture,texturesJson.get(texture).getAsString());
+            }
+
             JsonArray elements = modelJson.getAsJsonArray("elements");
             for(JsonElement elementJson : elements){
 
@@ -52,7 +60,8 @@ public class Model {
                 JsonObject faces = obj.getAsJsonObject("faces");
                 for(String faceName : faces.keySet()){
                     JsonObject face = faces.getAsJsonObject(faceName);
-                    ModelFace newFace = new ModelFace("rubydung:block/gold",Direction.fromName(faceName));
+                    String texture = face.get("texture").getAsString();
+                    ModelFace newFace = new ModelFace(newModel.textures.get(texture),Direction.fromName(faceName));
                     if(face.has("cullface") && !face.get("cullface").isJsonNull()){
                         newFace.cullDirection = Direction.fromName((face.get("cullface").getAsString()));
                     }

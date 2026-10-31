@@ -1,5 +1,6 @@
 package com.nikohalfkino.rubydung.level.Tiles;
 
+import com.nikohalfkino.rubydung.assets.TextureAtlas;
 import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Tessellator;
@@ -62,6 +63,7 @@ public abstract class BillboardTile extends Tile {
 
     @Override
     public void renderBillboard(Tessellator tessellator, Level level, int x, int y, int z, int totalAtlasSlots) {
+
         float brightness = level.getBrightness(x, y, z);
         tessellator.color(brightness, brightness, brightness, 1.0F);
 
@@ -103,6 +105,7 @@ public abstract class BillboardTile extends Tile {
     public void renderBillboardBatched(Tessellator tessellator, Level level, int x, int y, int z, int totalAtlasSlots,
                                         float worldX, float worldY, float worldZ,
                                         float cosYaw, float sinYaw, float scale) {
+        
         float brightness = level.getBrightness(x, y, z);
 
         int slot = getAtlasSlot(FACE_NORTH);
