@@ -61,6 +61,10 @@ public class Tessellator {
         }
     }
 
+    public void vertex(float[] vert){
+        this.vertex(vert[0], vert[1], vert[2]);
+    }
+
     public void texture(float textureU, float textureV) {
         this.hasTexture = true;
         this.textureU = textureU;

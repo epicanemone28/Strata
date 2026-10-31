@@ -1,32 +1,36 @@
 package com.nikohalfkino.rubydung.assets;
 
 import com.google.gson.*;
-import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.nikohalfkino.rubydung.util.Direction;
-import jdk.jfr.Category;
 
 import java.io.*;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.Scanner;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 public class Model {
 
-    ArrayList<ModelElement> elements = new ArrayList<>();
+    String modelName;
 
-    public Model() {
+    public ArrayList<ModelElement> elements = new ArrayList<>();
 
+    public Model(String modelName) {
+        this.modelName = modelName;
+    }
+
+    public void addSimplestCube(int x1, int y1, int z1, int x2, int y2, int z2, String texture){
+        ModelElement element = new ModelElement(x1,y1,z1,x2,y2,z2);
+        for(Direction d : Direction.allDirs.values()){
+            element.faces.add(new ModelFace(texture,d));
+        }
+        elements.add(element);
     }
 
 
     static Gson gson = new Gson();
 
     public static Model fromAsset(String modelPath) {
-        Model newModel = new Model();
+        Model newModel = new Model(modelPath);
         URL resource = Thread.currentThread().getContextClassLoader().getResource(modelPath);
 
         if (resource == null)
@@ -50,6 +54,7 @@ public class Model {
                     faces.getAsJsonObject(face);
                     element.faces.add(new ModelFace("rubydung:block/gold",Direction.fromName(face)));
                 }
+                newModel.elements.add(element);
 
             }
 

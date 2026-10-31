@@ -4,16 +4,16 @@ import java.util.Dictionary;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class Direction {
-    private static final LinkedHashMap<String,Direction> allDirs = new LinkedHashMap<>();
+public enum Direction {
 
-    static Direction NORTH = new Direction("north",1,0,0);
-    static Direction SOUTH = new Direction("south",-1,0,0);
-    static Direction EAST = new Direction("east",0,0,1);
-    static Direction WEST = new Direction("west",0,0,-1);
-    static Direction UP = new Direction("up",0,1,0);
-    static Direction DOWN = new Direction("down",0,-1,0);
+    NORTH("north",1,0,0),
+    SOUTH("south",-1,0,0),
+    EAST("east",0,0,1),
+    WEST("west",0,0,-1),
+    UP("up",0,1,0),
+    DOWN("down",0,-1,0);
 
+    public static final LinkedHashMap<String,Direction> allDirs = new LinkedHashMap<>();
 
     private final String name;
     public final int x;
@@ -34,8 +34,12 @@ public class Direction {
         this.x = x;
         this.y = y;
         this.z = z;
+    }
 
-        allDirs.put(name, this);
+    static {
+        for(Direction d : Direction.values()){
+            allDirs.put(d.name, d);
+        }
     }
 
 
