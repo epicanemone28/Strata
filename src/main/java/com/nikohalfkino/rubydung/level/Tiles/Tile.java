@@ -1,5 +1,7 @@
 package com.nikohalfkino.rubydung.level.Tiles;
 
+import com.nikohalfkino.rubydung.assets.AssetPath;
+import com.nikohalfkino.rubydung.assets.Model;
 import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Tessellator;
@@ -94,6 +96,8 @@ public class Tile {
     public static final Tile STONE_BRICKS = REGISTRY.register(new Tile("stone_bricks"));
     public static final Tile STONE_BRICKS_LARGE = REGISTRY.register(new Tile("stone_bricks_large"));
 
+    public static final Tile FUCKED_SLAB = REGISTRY.register(new Tile("fucked_slab").setModel("rubydung:block/fucked_slab"));
+
     // Rotatable like LOG: the default texture is the side, TOP/BOTTOM are the end caps
     // ("middle"), and RotatableTile swaps them around when the block is placed on its side.
     public static final Tile PILLAR = REGISTRY.register(
@@ -116,7 +120,6 @@ public class Tile {
 
     public static final Tile MARBLE = REGISTRY.register(new Tile("marble"));
 
-
     // separate registration for the placeable tiles cuz id shifts corrupt worlds
     // (this list only controls the order tiles are cycled through - reordering it is safe,
     // unlike reordering the registrations above)
@@ -128,7 +131,7 @@ public class Tile {
             // pillars & columns
             MARBLE, PILLAR_TOP, PILLAR, PILLAR_BOTTOM, COLUMN,
             // metal
-            METAL, METAL_GIRDER, METAL_GRATE, GOLD,
+            METAL, METAL_GIRDER, METAL_GRATE, GOLD, FUCKED_SLAB,
             // wood
             LOG, PLANKS,
             // glass & lighting
@@ -145,6 +148,8 @@ public class Tile {
 
     private boolean isSolid = true;
     private boolean isTransparent = false;
+
+    public Model model;
 
     public Tile(String name) {
         this(name, name);
@@ -191,6 +196,12 @@ public class Tile {
 
     public AABB getPickAABB(int x, int y, int z) {
         return getAABB(x, y, z);
+    }
+
+    public Tile setModel(String path){
+
+        this.model = Model.fromAsset(AssetPath.parse(path).asModelPath());
+        return this;
     }
 
     public Tile setTexture(String textureName) {
