@@ -37,10 +37,21 @@ public class Chunk {
                     tile.setAtlasSlot(face, slot);
                 }
             }
+
+            for (String texPath : tile.getExtraTextures()) {
+                if (!textureToSlotMap.containsKey(texPath)) {
+                    textureToSlotMap.put(texPath, textureList.size());
+                    textureList.add(texPath);
+                }
+            }
         }
 
         TOTAL_ATLAS_SLOTS = Math.max(1, textureList.size());
         TEXTURE = Textures.buildAtlas(textureList.toArray(new String[0]), GL_NEAREST);
+
+        for (Tile tile : Tile.getTiles()) {
+            tile.onAtlasBuilt(textureToSlotMap);
+        }
     }
 
     public static int rebuiltThisFrame;
@@ -54,6 +65,8 @@ public class Chunk {
 
     private final int lists;
     private boolean dirty = true;
+
+    private boolean priority = false;
 
     private final List<int[]> billboardPositions = new ArrayList<>();
 
@@ -81,7 +94,7 @@ public class Chunk {
     }
 
     public void rebuild(int layer) {
-        if (rebuiltThisFrame == 2) {
+        if (rebuiltThisFrame >= 2 && !this.priority) {
             return;
         }
 
@@ -121,8 +134,6 @@ public class Chunk {
                         Tile tile = Tile.byId(blockId);
                         if (tile != null) {
                             if (tile.isBillboard()) {
-                                // A multi-tile billboard is drawn once, from its origin cell; the
-                                // other cells it occupies exist for collision/picking/breaking only.
                                 if (layer == 0 && !this.level.isMultiTilePart(x, y, z)) {
                                     this.billboardPositions.add(new int[]{x, y, z});
                                 }
@@ -145,6 +156,9 @@ public class Chunk {
         if (this.dirty) {
             rebuild(0);
             rebuild(1);
+            if (!this.dirty) {
+                this.priority = false;
+            }
         }
 
         glCallList(this.lists + layer);
@@ -152,6 +166,11 @@ public class Chunk {
 
     public void setDirty() {
         this.dirty = true;
+    }
+
+    public void setDirtyNow() {
+        this.dirty = true;
+        this.priority = true;
     }
 
     public void dispose() {

@@ -1,0 +1,5 @@
+parent = "axis_column"
+
+[textures]
+side = "log_side"
+end  = "log_middle"

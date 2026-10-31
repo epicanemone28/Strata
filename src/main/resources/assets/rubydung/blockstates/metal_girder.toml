@@ -1,0 +1,5 @@
+parent = "axis_column"
+
+[textures]
+side = "metal_girder"
+end  = "metal_girder_middle"

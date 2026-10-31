@@ -6,7 +6,10 @@ import com.nikohalfkino.rubydung.render.Tessellator;
 import com.nikohalfkino.rubydung.render.Textures;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class Tile {
 
@@ -161,9 +164,14 @@ public class Tile {
     }
 
     public Tile setTexture(int face, String textureName) {
-        String path = BLOCK_TEXTURE_PATH + textureName + ".png";
-        this.faceTextures[face] = Textures.resourceExists(path) ? path : MISSING_TEXTURE;
+        this.faceTextures[face] = texturePath(textureName);
         return this;
+    }
+
+    /** Resource path of a block texture by name, or the missing-texture path if there is no such file. */
+    public static String texturePath(String textureName) {
+        String path = BLOCK_TEXTURE_PATH + textureName + ".png";
+        return Textures.resourceExists(path) ? path : MISSING_TEXTURE;
     }
 
     public Tile setTextures(String topBottomTextureName, String sideTextureName) {
@@ -186,6 +194,26 @@ public class Tile {
 
     public int getAtlasSlot(int face) {
         return this.faceAtlasSlots[face];
+    }
+
+    /**
+     * Texture resource paths this tile draws with beyond its six face textures (a model tile uses
+     * as many as its models name). The atlas includes them.
+     */
+    public Collection<String> getExtraTextures() {
+        return Collections.emptyList();
+    }
+
+    /** Called once the atlas is built, with the slot of every texture path in it. */
+    public void onAtlasBuilt(Map<String, Integer> slotsByPath) {
+    }
+
+    /**
+     * Whether this tile fills its whole cell, so that a solid neighbour may hide the faces that
+     * touch it. False for slabs, stairs and other partial shapes.
+     */
+    public boolean occludesNeighbours() {
+        return true;
     }
 
     public boolean isSolid() {
@@ -299,7 +327,7 @@ public class Tile {
             return true;
         }
 
-        if (neighbour.isSolid()) {
+        if (neighbour.isSolid() && neighbour.occludesNeighbours()) {
             return false;
         }
 
@@ -370,7 +398,8 @@ public class Tile {
         return uvs;
     }
 
-    // ---- Per-tile hooks: the ONLY things a subclass may change about how a cube is drawn. ----
+    // ---- Per-tile hooks for how a cube is drawn. (A tile that isn't a cube at all, like ModelTile,
+    //      overrides render itself.) ----
 
     /** Which of this tile's textures a world-space face uses (RotatableTile swaps them around). */
     protected int getTextureFace(int face, int direction) {
@@ -387,7 +416,7 @@ public class Tile {
         return BASE_UVS[face];
     }
 
-    public final void render(Tessellator tessellator, Level level, int layer, int x, int y, int z, int totalAtlasSlots, int direction) {
+    public void render(Tessellator tessellator, Level level, int layer, int x, int y, int z, int totalAtlasSlots, int direction) {
         boolean smooth    = level.hasLightSources();
         boolean fullBright = level.isFullBright(); // tile icons: plain shade, drawn without the shader
         boolean emissive  = emitsLight();

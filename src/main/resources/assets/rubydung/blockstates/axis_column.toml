@@ -1,0 +1,24 @@
+# Shared by pillar, pillar_top, pillar_bottom, ...: a column that can lie along any axis.
+# Children only set [textures] (side, end).
+
+[properties]
+axis = ["y", "z", "x"]
+
+# "&" = the model named like the tile (models/<tile>.json). The parent below is its default
+# definition; a resource pack can replace it just by shipping models/<tile>.json.
+[[state]]
+condition = { axis = "y" }
+model     = "&"
+parent    = "block/cube_column"
+
+[[state]]
+condition = { axis = "z" }
+model     = "&"
+parent    = "block/cube_column"
+transform = { rx = 90 }
+
+[[state]]
+condition = { axis = "x" }
+model     = "&"
+parent    = "block/cube_column"
+transform = { rz = 90 }

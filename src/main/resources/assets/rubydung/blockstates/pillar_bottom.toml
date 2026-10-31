@@ -1,0 +1,5 @@
+parent = "axis_column"
+
+[textures]
+side = "pillar_side_bottom"
+end  = "pillar_middle"

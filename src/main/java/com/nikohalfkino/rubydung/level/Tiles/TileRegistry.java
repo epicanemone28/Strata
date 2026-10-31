@@ -52,23 +52,11 @@ public final class TileRegistry {
     // pillars & columns
     public static final Tile MARBLE = register(new Tile("marble"));
 
-    // Rotatable like LOG: the default texture is the side, TOP/BOTTOM are the end caps
-    // ("middle"), and RotatableTile swaps them around when the block is placed on its side.
-    public static final Tile PILLAR_TOP = register(
-            new RotatableTile("pillar_top", "pillar_side_top")
-                    .setTexture(Tile.FACE_TOP,    "pillar_middle")
-                    .setTexture(Tile.FACE_BOTTOM, "pillar_middle")
-    );
-    public static final Tile PILLAR = register(
-            new RotatableTile("pillar", "pillar_side")
-                    .setTexture(Tile.FACE_TOP,    "pillar_middle")
-                    .setTexture(Tile.FACE_BOTTOM, "pillar_middle")
-    );
-    public static final Tile PILLAR_BOTTOM = register(
-            new RotatableTile("pillar_bottom", "pillar_side_bottom")
-                    .setTexture(Tile.FACE_TOP,    "pillar_middle")
-                    .setTexture(Tile.FACE_BOTTOM, "pillar_middle")
-    );
+    // Rotatable like LOG. Textures and the axis -> orientation table are data: see
+    // assets/rubydung/blockstates/<name>.toml (these all extend axis_column.toml).
+    public static final Tile PILLAR_TOP    = register(new RotatableTile("pillar_top"));
+    public static final Tile PILLAR        = register(new RotatableTile("pillar"));
+    public static final Tile PILLAR_BOTTOM = register(new RotatableTile("pillar_bottom"));
 
     public static final Tile COLUMN = register(new ColumnTile("column"));
 
@@ -81,11 +69,10 @@ public final class TileRegistry {
     // metal
     public static final Tile METAL = register(new Tile("metal"));
 
+    // Self-cull faces are the model's own faces (TOP/BOTTOM = the end caps), however it lies.
     public static final Tile METAL_GIRDER = register(
-            new RotatableTile("metal_girder", "metal_girder")
+            new RotatableTile("metal_girder")
                     .setTransparent(true)
-                    .setTexture(Tile.FACE_TOP,    "metal_girder_middle")
-                    .setTexture(Tile.FACE_BOTTOM, "metal_girder_middle")
                     .setSelfCull(Tile.FACE_TOP, Tile.FACE_BOTTOM)
     );
 
@@ -98,16 +85,14 @@ public final class TileRegistry {
                     .setTexture(Tile.FACE_SOUTH,  "metal_grate_side")
                     .setTexture(Tile.FACE_WEST,   "metal_grate_side")
                     .setTexture(Tile.FACE_EAST,   "metal_grate_side")
+                    .setSelfCull(Tile.FACE_NORTH, Tile.FACE_SOUTH, Tile.FACE_EAST, Tile.FACE_WEST)
     );
 
     public static final Tile GOLD = register(new Tile("gold"));
 
     // wood
     public static final Tile LOG = register(
-            new RotatableTile("log", "log_side")
-                    .setTransparent(true)
-                    .setTexture(Tile.FACE_TOP,    "log_middle")
-                    .setTexture(Tile.FACE_BOTTOM, "log_middle")
+            new RotatableTile("log").setTransparent(true)
     );
     public static final Tile PLANKS = register(new Tile("planks"));
     public static final Tile WOOD   = register(new Tile("wood"));
