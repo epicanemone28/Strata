@@ -21,7 +21,7 @@ public class Model {
     public void addSimplestCube(int x1, int y1, int z1, int x2, int y2, int z2, String texture){
         ModelElement element = new ModelElement(x1,y1,z1,x2,y2,z2);
         for(Direction d : Direction.allDirs.values()){
-            element.faces.add(new ModelFace(texture,d));
+            element.faces.add(new ModelFace(texture,d).cullFace());
         }
         elements.add(element);
     }
@@ -50,9 +50,13 @@ public class Model {
                 ModelElement element = new ModelElement(from[0], from[1], from[2], to[0], to[1], to[2]);
 
                 JsonObject faces = obj.getAsJsonObject("faces");
-                for(String face : faces.keySet()){
-                    faces.getAsJsonObject(face);
-                    element.faces.add(new ModelFace("rubydung:block/gold",Direction.fromName(face)));
+                for(String faceName : faces.keySet()){
+                    JsonObject face = faces.getAsJsonObject(faceName);
+                    ModelFace newFace = new ModelFace("rubydung:block/gold",Direction.fromName(faceName));
+                    if(face.has("cullface") && !face.get("cullface").isJsonNull()){
+                        newFace.cullDirection = Direction.fromName((face.get("cullface").getAsString()));
+                    }
+                    element.faces.add(newFace);
                 }
                 newModel.elements.add(element);
 

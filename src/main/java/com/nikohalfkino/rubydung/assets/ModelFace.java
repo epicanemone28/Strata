@@ -11,6 +11,23 @@ public class ModelFace {
         this.texturePath = texturePath;
         this.direction = direction;
     }
+
+
+    public ModelFace cullFace(Direction d){
+        this.cullDirection = d;
+        return this;
+    }
+
+    public ModelFace cullFace(){
+        this.cullDirection = this.direction;
+        return this;
+    }
+
+    public ModelFace clearCullFace(){
+        this.cullDirection = null;
+        return this;
+    }
+
     
     public float[][] getQuadFromCube(ModelElement elt,float x, float y, float z){
         float s = 16.0f;

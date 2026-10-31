@@ -26,8 +26,11 @@ public enum Direction {
     }
 
     public static Direction fromName(String name){
-        if(!allDirs.containsKey(name)) throw new IllegalArgumentException("no direction with this name!");
-        return allDirs.get(name);
+        try {
+            return Direction.valueOf(name.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private Direction(String name, int x, int y, int z, Axis axis) {
