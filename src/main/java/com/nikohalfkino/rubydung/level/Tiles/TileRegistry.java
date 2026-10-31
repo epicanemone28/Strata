@@ -74,6 +74,9 @@ public final class TileRegistry {
 
     // statues & large decorations
     public static final Tile STATUE = register(new StatueTile("statue"));
+    public static final Tile BOULDER = register(new BoulderTile("boulder"));
+    public static final Tile ROCK = register(new RockTile("rock"));
+    public static final Tile BARREL  = register(new BarrelTile("barrel"));
 
     // metal
     public static final Tile METAL = register(new Tile("metal"));

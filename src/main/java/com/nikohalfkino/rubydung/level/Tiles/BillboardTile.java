@@ -3,14 +3,30 @@ package com.nikohalfkino.rubydung.level.Tiles;
 import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Tessellator;
+import com.nikohalfkino.rubydung.render.Textures;
 
 public abstract class BillboardTile extends Tile {
 
     protected static final float BILLBOARD_DISTANCE_THRESHOLD = 2.0F;
     protected static final float MAX_CLAMP_ANGLE = 40.0F;
 
+    /** Height of the hitbox / pick box in blocks (NOT the size the sprite is drawn at). */
     private final float height;
 
+    /** Texture resolution the sprite is drawn at: pixels per block (matches the terrain textures). */
+    public static final int PIXELS_PER_BLOCK = 16;
+
+    /** Edge length in blocks of the square sprite quad; resolved from the texture on first use. */
+    private float spriteSize = -1.0F;
+
+    /** Fraction of the atlas cell the texture covers (resolved on first draw, once the atlas exists). */
+    private float atlasExtent = -1.0F;
+
+    /**
+     * @param height height of the hitbox / pick box in blocks. The sprite is NOT sized from this:
+     *               it is drawn at the texture's own size (see getSpriteSize), so it can be
+     *               larger or smaller than the hitbox.
+     */
     public BillboardTile(String name, String textureName, float height) {
         super(name, textureName);
         this.height = height;
@@ -21,9 +37,48 @@ public abstract class BillboardTile extends Tile {
         return this.height;
     }
 
+    /**
+     * How big the sprite is drawn: the texture's pixel width / PIXELS_PER_BLOCK blocks, so a
+     * billboard keeps the same pixel size as the terrain without declaring anything. Falls back
+     * to the hitbox height if the atlas doesn't know the texture yet (and then isn't cached).
+     */
+    public float getSpriteSize() {
+        if (this.spriteSize < 0.0F) {
+            int pixels = Textures.getSourceWidth(getTexture(FACE_NORTH));
+            if (pixels == 0) {
+                return this.height;
+            }
+            this.spriteSize = pixels / (float) PIXELS_PER_BLOCK;
+        }
+        return this.spriteSize;
+    }
+
+    private float getAtlasExtent() {
+        if (this.atlasExtent < 0.0F) {
+            this.atlasExtent = Textures.getAtlasExtent(getTexture(FACE_NORTH));
+        }
+        return this.atlasExtent;
+    }
+
     @Override
     public boolean isBillboard() {
         return true;
+    }
+
+    /**
+     * World-space offset of the sprite's pivot from the centre of the origin cell (x+0.5, z+0.5),
+     * derived from the footprint so every billboard ends up centred on its tile(s): 0 for a 1×1
+     * footprint, 0.5 for 2 cells, 1.0 for 3, and so on.
+     * The caller must add them to the billboard's world position BEFORE the yaw rotation is
+     * applied (i.e. to worldX/worldZ, not to the local vertices).
+     * Billboards always face the camera, so the unrotated footprint is used.
+     */
+    public float getPivotOffsetX() {
+        return (getSizeX(0) - 1) / 2.0F;
+    }
+
+    public float getPivotOffsetZ() {
+        return (getSizeZ(0) - 1) / 2.0F;
     }
 
     @Override
@@ -53,7 +108,8 @@ public abstract class BillboardTile extends Tile {
 
     @Override
     public AABB getPickAABB(int x, int y, int z) {
-        return new AABB(x, y, z, x + 1.0F, y + this.height, z + 1.0F);
+        // Width and depth follow the footprint (1x1 for ordinary billboards); height is the hitbox height.
+        return new AABB(x, y, z, x + getSizeX(0), y + this.height, z + getSizeZ(0));
     }
 
     public float getEffectiveYaw(float tileX, float tileZ, float playerX, float playerZ, float currentCameraYaw) {
@@ -90,9 +146,10 @@ public abstract class BillboardTile extends Tile {
 
         int slot = getAtlasSlot(FACE_NORTH);
         float minU = slot / (float) totalAtlasSlots;
-        float maxU = minU + 1.0F / totalAtlasSlots;
+        float extent = getAtlasExtent();
+        float maxU = minU + extent / totalAtlasSlots;
         float minV = 0.0F;
-        float maxV = 1.0F;
+        float maxV = extent;
 
         int hash = x * 31220 + z * 452389 + y * 93901;
         if ((hash & 1) == 0) {
@@ -101,7 +158,7 @@ public abstract class BillboardTile extends Tile {
             maxU = temp;
         }
 
-        float quadHeight = this.height;
+        float quadHeight = getSpriteSize();
         float half = quadHeight / 2.0F;
 
         tessellator.texture(minU, minV);
@@ -131,9 +188,10 @@ public abstract class BillboardTile extends Tile {
 
         int slot = getAtlasSlot(FACE_NORTH);
         float minU = slot / (float) totalAtlasSlots;
-        float maxU = minU + 1.0F / totalAtlasSlots;
+        float extent = getAtlasExtent();
+        float maxU = minU + extent / totalAtlasSlots;
         float minV = 0.0F;
-        float maxV = 1.0F;
+        float maxV = extent;
 
         int hash = x * 31220 + z * 452389 + y * 93901;
         if ((hash & 1) == 0) {
@@ -142,7 +200,7 @@ public abstract class BillboardTile extends Tile {
             maxU = temp;
         }
 
-        float quadHeight = this.height;
+        float quadHeight = getSpriteSize();
         float half = quadHeight / 2.0F;
 
         putVertex(tessellator, -half, quadHeight, minU, minV, brightness, worldX, worldY, worldZ, cosYaw, sinYaw, scale);

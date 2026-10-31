@@ -60,6 +60,10 @@ public class LevelRenderer implements LevelListener {
                 }
             }
         }
+
+        // After the chunks exist: creating the first Chunk builds the texture atlas, and billboard
+        // sprite sizes come from the atlas textures.
+        this.maxBillboardSize = findMaxBillboardSize();
     }
 
     public void render(int layer) {
@@ -132,6 +136,24 @@ public class LevelRenderer implements LevelListener {
 
     private static final float MAX_BILLBOARD_OVERHANG = 1.0F;
 
+    /**
+     * Largest edge (width or height) of any registered billboard sprite, in blocks. Grows the
+     * chunk cull box so a billboard whose origin chunk is off-screen is still drawn while its
+     * sprite is visible. Computed from the registered tiles, so new billboards need no upkeep.
+     */
+    private final float maxBillboardSize;
+
+    private static float findMaxBillboardSize() {
+        float max = 1.0F;
+        for (Tile tile : Tile.getTiles()) {
+            if (tile instanceof BillboardTile) {
+                BillboardTile billboard = (BillboardTile) tile;
+                max = Math.max(max, Math.max(billboard.getSpriteSize(), billboard.getHeight()));
+            }
+        }
+        return max;
+    }
+
     public void renderBillboards(float cameraYaw, float cameraPitch) {
         renderBillboards(cameraYaw, cameraPitch, Double.NaN, Double.NaN, Double.NaN);
     }
@@ -143,7 +165,7 @@ public class LevelRenderer implements LevelListener {
 
         List<int[]> visibleBillboards = new ArrayList<>();
 
-        float maxBillboardHeight = 4.0F;
+        float maxBillboardHeight = this.maxBillboardSize;
         float maxScaleFactor = 2.0F;
         float maxOverhang = Math.max(MAX_BILLBOARD_OVERHANG, (maxBillboardHeight * maxScaleFactor) / 2.0F);
 
@@ -209,15 +231,17 @@ public class LevelRenderer implements LevelListener {
             }
             BillboardTile billboardTile = (BillboardTile) tile;
 
-            float worldX = x + 0.5F;
+            // Centre of the tile's whole footprint (the offset is 0 for ordinary 1x1 billboards).
+            // It is added here, in world space, so it doesn't swing around with the camera yaw.
+            float worldX = x + 0.5F + billboardTile.getPivotOffsetX();
             float worldY = y;
-            float worldZ = z + 0.5F;
+            float worldZ = z + 0.5F + billboardTile.getPivotOffsetZ();
 
             float scale = 1.0F;
             if (scaleByDistance) {
-                double dx = eyeX - (x + 0.5);
+                double dx = eyeX - worldX;
                 double dy = eyeY - y;
-                double dz = eyeZ - (z + 0.5);
+                double dz = eyeZ - worldZ;
                 float distance = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
                 scale = BillboardTile.getDistanceScale(distance);
             }

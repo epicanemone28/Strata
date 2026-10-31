@@ -30,6 +30,27 @@ public class Textures {
 
     private static final Map<String, Integer> TEXTURE_CACHE = new HashMap<>();
 
+    /**
+     * Per atlas texture: the fraction of its cell (on both axes) that the image really covers.
+     * 1.0 when the cell size is a whole multiple of the image size; below 1.0 the rest of the cell
+     * is transparent padding, and sprites must only sample the covered part to stay pixel-exact.
+     */
+    private static final Map<String, Float> ATLAS_EXTENTS = new HashMap<>();
+
+    /** Original pixel width of every texture put into the atlas (before any scaling). */
+    private static final Map<String, Integer> SOURCE_WIDTHS = new HashMap<>();
+
+    /** Original pixel width of an atlas texture, or 0 if the atlas hasn't been built with it yet. */
+    public static int getSourceWidth(String resourceName) {
+        Integer width = SOURCE_WIDTHS.get(resourceName);
+        return width == null ? 0 : width;
+    }
+
+    public static float getAtlasExtent(String resourceName) {
+        Float extent = ATLAS_EXTENTS.get(resourceName);
+        return extent == null ? 1.0F : extent;
+    }
+
     public static int loadTexture(String resourceName, int mode) {
         String cacheKey = resourceName + ":" + mode;
         Integer cached = TEXTURE_CACHE.get(cacheKey);
@@ -142,7 +163,15 @@ public class Textures {
         graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
 
         for (int i = 0; i < images.length; i++) {
-            graphics.drawImage(images[i], i * cellSize, 0, cellSize, cellSize, null);
+            // Scale by a whole number only, so every source pixel stays the same size. When the
+            // cell isn't an exact multiple, the image sits in the cell's top-left corner and the
+            // remainder is left transparent (see ATLAS_EXTENTS).
+            int width = images[i].getWidth();
+            int factor = Math.max(1, cellSize / width);
+            int drawn = width * factor;
+            graphics.drawImage(images[i], i * cellSize, 0, drawn, drawn, null);
+            ATLAS_EXTENTS.put(resourceNames[i], drawn / (float) cellSize);
+            SOURCE_WIDTHS.put(resourceNames[i], width);
         }
 
         graphics.dispose();
