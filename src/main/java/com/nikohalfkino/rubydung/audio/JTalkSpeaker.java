@@ -114,6 +114,15 @@ public final class JTalkSpeaker {
     /** Bumped by {@link #clear()} so an utterance that is mid-playback knows to stop. */
     private final AtomicInteger generation = new AtomicInteger();
 
+    /** The line currently playing, polled by {@link #getViseme()} (null when nothing is playing). */
+    private volatile SourceDataLine activeLine;
+
+    /** Mouth cues for the audio written to {@link #activeLine}, in that line's own timeline. */
+    private final List<Visemes.Cue> cues = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /** Microseconds of audio written to the current line so far (worker thread only). */
+    private long queuedMicros;
+
     /** Renders the notes of one utterance in parallel (each note is its own open_jtalk process). */
     private ExecutorService pool;
 
@@ -169,6 +178,21 @@ public final class JTalkSpeaker {
         this.generation.incrementAndGet();
     }
 
+    /**
+     * The mouth shape for what is audible right now, or {@link Visemes.Viseme#CLOSED} when nothing
+     * is playing. Reads the sound line's playback position, so it stays in sync with what you hear.
+     * Safe to call from the game thread every frame.
+     */
+    public Visemes.Viseme getViseme() {
+        SourceDataLine l = this.activeLine;
+        if (l == null) return Visemes.Viseme.CLOSED;
+        long pos = l.getMicrosecondPosition();
+        for (Visemes.Cue c : this.cues) {
+            if (pos >= c.startMicros && pos < c.endMicros) return c.viseme;
+        }
+        return Visemes.Viseme.CLOSED;
+    }
+
     // ── Worker loop ───────────────────────────────────────────────────────────
 
     private void loop() {
@@ -203,15 +227,18 @@ public final class JTalkSpeaker {
         // Start rendering EVERY note right away, in parallel. Playback below consumes them in
         // order, so by the time note 1 has finished playing, notes 2..n are already waiting.
         List<Future<Pcm>> jobs = new ArrayList<>();
+        List<Segment> jobSegs = new ArrayList<>();   // jobSegs.get(i) is the segment of jobs.get(i)
         for (Segment seg : segments) {
             if (seg.kana.isBlank()) continue;
+            jobSegs.add(seg);
             jobs.add(workers.submit((Callable<Pcm>) () -> render(seg)));
         }
 
         SourceDataLine line = null;
         boolean aborted = false;
         try {
-            for (Future<Pcm> job : jobs) {
+            for (int j = 0; j < jobs.size(); j++) {
+                Future<Pcm> job = jobs.get(j);
                 if (!this.running || gen != this.generation.get()) { aborted = true; break; }
 
                 Pcm pcm;
@@ -225,7 +252,7 @@ public final class JTalkSpeaker {
 
                 AudioFormat fmt = pcm.format;
                 if (line == null || !formatsMatch(line.getFormat(), fmt)) {
-                    if (line != null) { line.drain(); line.close(); line = null; }
+                    if (line != null) { line.drain(); line.close(); line = null; this.activeLine = null; }
                     DataLine.Info info = new DataLine.Info(SourceDataLine.class, fmt);
                     if (!AudioSystem.isLineSupported(info)) {
                         System.err.println("JTalkSpeaker: unsupported format: " + fmt);
@@ -234,7 +261,14 @@ public final class JTalkSpeaker {
                     line = (SourceDataLine) AudioSystem.getLine(info);
                     line.open(fmt);
                     line.start();
+                    this.cues.clear();
+                    this.queuedMicros = 0;
+                    this.activeLine = line;
                 }
+
+                // Mouth cues for this segment, placed after everything already written to the line.
+                this.cues.addAll(Visemes.build(jobSegs.get(j).kana, pcm.millis(), this.queuedMicros));
+                this.queuedMicros += (long) (pcm.millis() * 1000);
 
                 int frame = Math.max(1, fmt.getFrameSize());
                 int offset = 0;
@@ -254,6 +288,8 @@ public final class JTalkSpeaker {
                 if (aborted || !this.running) line.flush(); else line.drain();
                 line.close();
             }
+            this.activeLine = null;
+            this.cues.clear();
         }
     }
 

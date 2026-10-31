@@ -5,6 +5,9 @@ import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.console.Command;
 import com.nikohalfkino.rubydung.console.Console;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class TimeCommand implements Command {
 
     @Override
@@ -14,7 +17,17 @@ public class TimeCommand implements Command {
 
     @Override
     public String description() {
-        return "Controls the day-night cycle. Subcommands: set, speed, freeze, unfreeze, query";
+        return "Controls the day-night cycle";
+    }
+
+    @Override
+    public List<String> help() {
+        return Arrays.asList(
+                "Usage:",
+                "  time set <dawn|noon|dusk|midnight|0.0-1.0>  - jump to a time",
+                "  time speed <multiplier>                     - e.g. 2 = 2x faster, 0 = freeze",
+                "  time freeze / unfreeze                      - stop / resume the cycle",
+                "  time query                                  - print current time & speed");
     }
 
     @Override
@@ -122,10 +135,6 @@ public class TimeCommand implements Command {
     }
 
     private static void printUsage(Console console) {
-        console.println("Usage:");
-        console.println("  time set <dawn|noon|dusk|midnight|0.0-1.0>  - jump to a time");
-        console.println("  time speed <multiplier>                     - e.g. 2 = 2x faster, 0 = freeze");
-        console.println("  time freeze / unfreeze                      - stop / resume the cycle");
-        console.println("  time query                                  - print current time & speed");
+        console.println("Usage: time <set|speed|freeze|unfreeze|query>  (type 'time help' for details)");
     }
 }

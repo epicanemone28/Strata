@@ -5,6 +5,9 @@ import com.nikohalfkino.rubydung.console.Command;
 import com.nikohalfkino.rubydung.console.Console;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class RegenerateCommand implements Command {
 
     @Override
@@ -14,7 +17,16 @@ public class RegenerateCommand implements Command {
 
     @Override
     public String description() {
-        return "Regenerates map: regenerate [seed|-] [flat|natural] [size]";
+        return "Regenerates the map";
+    }
+
+    @Override
+    public List<String> help() {
+        return Arrays.asList(
+                "Usage: regenerate [seed|-] [flat|natural] [size]",
+                "  seed  - a number or text; '-' skips this argument",
+                "  type  - flat or natural; '-' skips this argument",
+                "  size  - tiny, default, large or insane");
     }
 
     @Override

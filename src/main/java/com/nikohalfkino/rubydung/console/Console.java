@@ -37,12 +37,18 @@ public class Console {
         register(new SeedCommand());
         register(new RegenerateCommand());
         register(new TimeCommand());
+        register(new SingCommand());
 
         println("Type 'help' for a list of commands.");
     }
 
     public void register(Command command) {
         this.commands.put(command.name().toLowerCase(), command);
+    }
+
+    /** Looks a command up by name (case-insensitive); null if there is none. */
+    public Command find(String name) {
+        return this.commands.get(name.toLowerCase());
     }
 
     public List<Command> commands() {
@@ -189,6 +195,14 @@ public class Console {
         Command command = this.commands.get(name);
         if (command == null) {
             println("Unknown command: " + name + " (try 'help')");
+            return;
+        }
+
+        // "<command> help" prints that command's detailed help instead of running it.
+        if (args.length == 1 && args[0].equalsIgnoreCase("help")) {
+            for (String helpLine : command.help()) {
+                println(helpLine);
+            }
             return;
         }
 

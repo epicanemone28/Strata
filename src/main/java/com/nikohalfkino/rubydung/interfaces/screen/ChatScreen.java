@@ -1,7 +1,9 @@
 package com.nikohalfkino.rubydung.interfaces.screen;
 
 import com.nikohalfkino.rubydung.RubyDung;
+import com.nikohalfkino.rubydung.audio.Visemes;
 import com.nikohalfkino.rubydung.console.ChatLog;
+import com.nikohalfkino.rubydung.interfaces.FrameMouthProvider;
 import com.nikohalfkino.rubydung.interfaces.FramePanelScreen;
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
 import com.nikohalfkino.rubydung.interfaces.widget.PanelSection;
@@ -19,7 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ChatScreen extends FramePanelScreen {
+public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
 
     /** Scale of every string this screen draws (the one knob for text size). */
     private static final float CHAT_SCALE = 2.0F;
@@ -91,6 +93,12 @@ public class ChatScreen extends FramePanelScreen {
 
     public void scroll(int lines) {
         this.scrollLines = Math.max(0, this.scrollLines + lines);
+    }
+
+    /** Portrait frame for the current mouth shape: 0 = idle, 1..5 = A I U E O. */
+    @Override
+    public int getMouthFrame() {
+        return this.game.getSpeaker().getViseme().ordinal();
     }
 
     @Override

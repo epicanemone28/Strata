@@ -71,7 +71,19 @@ public final class GameFrame {
 
     // Portrait box above the slot grid, in UI units.
     private static final int PORTRAIT_SIZE = 64;
-    private static final String PORTRAIT_TEXTURE = "/assets/rubydung/textures/gui/portrait.png";
+
+    /**
+     * Portrait frames, in the order of {@code Visemes.Viseme}: idle (mouth closed), A, I, U, E, O.
+     * A screen picks one through {@link FrameMouthProvider}; with no provider the idle frame is used.
+     */
+    private static final String[] PORTRAIT_FRAMES = {
+            "/assets/rubydung/textures/gui/portrait_idle.png",
+            "/assets/rubydung/textures/gui/portrait_a.png",
+            "/assets/rubydung/textures/gui/portrait_i.png",
+            "/assets/rubydung/textures/gui/portrait_u.png",
+            "/assets/rubydung/textures/gui/portrait_e.png",
+            "/assets/rubydung/textures/gui/portrait_o.png"
+    };
 
     // Text in the right-hand panel (username under the portrait, heading over the slots / buttons).
     private static final float TEXT_SCALE = 2.0F;
@@ -109,6 +121,12 @@ public final class GameFrame {
     private boolean open = false;
     private List<PanelSection> sections = Collections.singletonList(
             PanelSection.slots("", GRID_COLUMNS, GRID_ROWS));
+
+    /**
+     * Where the portrait frame comes from (the screen the frame was last opened for, if it
+     * animates the portrait). Kept while closing, like the sections, so the panel slides out intact.
+     */
+    private FrameMouthProvider mouthSource;
 
     /** Multiplier applied to the frame's greys, so each screen can give the frame its own colour. */
     private float tintR = 1.0F;
@@ -240,6 +258,8 @@ public final class GameFrame {
             this.tintR = Bevel.red(tint);
             this.tintG = Bevel.green(tint);
             this.tintB = Bevel.blue(tint);
+            // No screen is attached to this form; the screen overload sets it again afterwards.
+            this.mouthSource = null;
         }
     }
 
@@ -253,6 +273,9 @@ public final class GameFrame {
                     ? ((FramePatternProvider) screen).getFramePattern()
                     : NoisePattern.STONE;
             setTarget(true, screen.getSections(), screen.getFrameTint(), pattern);
+            this.mouthSource = screen instanceof FrameMouthProvider
+                    ? (FrameMouthProvider) screen
+                    : null;
         } else {
             this.open = false;
         }
@@ -521,7 +544,13 @@ public final class GameFrame {
             // Same darkened noise as the slots behind the portrait (shows through transparent pixels).
             drawTexturedRect(this.slotTexture, layout.portraitX, layout.portraitY,
                     layout.portraitSize, layout.portraitSize);
-            Gui2D.drawTexture(PORTRAIT_TEXTURE, layout.portraitX, layout.portraitY,
+
+            // The portrait frame the screen asks for (mouth shape); idle when it has no opinion.
+            int frame = this.mouthSource == null ? 0 : this.mouthSource.getMouthFrame();
+            if (frame < 0 || frame >= PORTRAIT_FRAMES.length) {
+                frame = 0;
+            }
+            Gui2D.drawTexture(PORTRAIT_FRAMES[frame], layout.portraitX, layout.portraitY,
                     layout.portraitSize, layout.portraitSize);
             glDisable(GL_TEXTURE_2D);
 

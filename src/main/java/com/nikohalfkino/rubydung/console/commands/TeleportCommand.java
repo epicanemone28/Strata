@@ -3,6 +3,9 @@ package com.nikohalfkino.rubydung.console.commands;
 import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.console.Command;
 import com.nikohalfkino.rubydung.console.Console;
+
+import java.util.Arrays;
+import java.util.List;
 import com.nikohalfkino.rubydung.player.Player;
 
 public class TeleportCommand implements Command {
@@ -14,7 +17,15 @@ public class TeleportCommand implements Command {
 
     @Override
     public String description() {
-        return "Teleports you: tp <x> <y> <z>";
+        return "Teleports you";
+    }
+
+    @Override
+    public List<String> help() {
+        return Arrays.asList(
+                "Usage: tp <x> <y> <z>",
+                "  Use ~ for your current coordinate, or ~<offset> for relative,",
+                "  e.g. tp ~ ~10 ~ goes 10 blocks up.");
     }
 
     @Override

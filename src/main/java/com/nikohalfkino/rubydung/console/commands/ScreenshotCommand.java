@@ -4,6 +4,9 @@ import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.console.Command;
 import com.nikohalfkino.rubydung.console.Console;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class ScreenshotCommand implements Command {
 
     @Override
@@ -13,7 +16,17 @@ public class ScreenshotCommand implements Command {
 
     @Override
     public String description() {
-        return "Takes a screenshot: screenshot [pano|iso] [direction|scale] [scale]";
+        return "Takes a screenshot";
+    }
+
+    @Override
+    public List<String> help() {
+        return Arrays.asList(
+                "Usage:",
+                "  screenshot [scale]            - normal screenshot",
+                "  screenshot pano [scale]       - panorama",
+                "  screenshot iso [dir] [scale]  - isometric (dir defaults to NW, scale to 2)",
+                "Scale is a number, optionally with an x: 2 or 2x.");
     }
 
     @Override
