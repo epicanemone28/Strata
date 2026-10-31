@@ -4,154 +4,89 @@ import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Tessellator;
 import com.nikohalfkino.rubydung.render.Textures;
-import com.nikohalfkino.rubydung.util.Registry;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class Tile {
 
     public static final int FACE_BOTTOM = 0;
-    public static final int FACE_TOP = 1;
-    public static final int FACE_NORTH = 2;
-    public static final int FACE_SOUTH = 3;
-    public static final int FACE_WEST = 4;
-    public static final int FACE_EAST = 5;
+    public static final int FACE_TOP    = 1;
+    public static final int FACE_NORTH  = 2;
+    public static final int FACE_SOUTH  = 3;
+    public static final int FACE_WEST   = 4;
+    public static final int FACE_EAST   = 5;
 
     private static final String BLOCK_TEXTURE_PATH = "/assets/rubydung/textures/block/";
-    private static final String MISSING_TEXTURE = "/assets/rubydung/textures/missing.png";
+    private static final String MISSING_TEXTURE    = "/assets/rubydung/textures/missing.png";
 
-    private static final Registry<Tile> REGISTRY = new Registry<>();
-    private static final Map<String, Tile> BY_NAME = new HashMap<>();
+    /** Largest footprint along any axis. */
+    public static final int MAX_FOOTPRINT = 16;
 
-    /** Cached result of getCycleOrder(), built on first use once every tile is registered. */
-    private static List<Tile> placeableTiles;
+    // Every Tile self-registers here on construction so byId() works without any
+    // dependency on TileRegistry.  Ids are assigned sequentially starting at 0.
+    private static int idCounter = 0;
+    private static final List<Tile> BY_ID = new ArrayList<>();
 
-    // Registration order is also the order tiles appear in the tile selector. Block ids can shift
-    // freely: worlds are saved with a tile palette (see TilePalette), so reordering, inserting or
-    // removing tiles here never corrupts a save. Two rules:
-    //  - AIR must stay first (id 0 means "empty" throughout the level code).
-    //  - TilePalette.LEGACY_ORDER is a frozen copy of the old order for pre-palette saves; leave it alone.
+    // -------------------------------------------------------------------------
+    // Forwarding aliases — source of truth is TileRegistry; these exist so that
+    // call-sites using Tile.GRASS, Tile.byName(...) etc. continue to compile.
+    // Initialising these triggers TileRegistry to load (and register all tiles).
 
-    public static final Tile AIR = REGISTRY.register(new Tile("air").setSolid(false).setPlaceable(false));
+    public static final Tile AIR               = TileRegistry.AIR;
 
-    // terrain
-    public static final Tile GRASS = REGISTRY.register(new Tile("grass"));
-    public static final Tile SAND = REGISTRY.register(new Tile("sand"));
-    public static final Tile GRAVEL = REGISTRY.register(new Tile("gravel"));
-    public static final Tile STONE = REGISTRY.register(new Tile("stone"));
-    public static final Tile COBBLESTONE = REGISTRY.register(new Tile("cobblestone"));
-    public static final Tile SLATE = REGISTRY.register(new Tile("slate"));
+    public static final Tile GRASS             = TileRegistry.GRASS;
+    public static final Tile SAND              = TileRegistry.SAND;
+    public static final Tile GRAVEL            = TileRegistry.GRAVEL;
+    public static final Tile STONE             = TileRegistry.STONE;
+    public static final Tile COBBLESTONE       = TileRegistry.COBBLESTONE;
+    public static final Tile SLATE             = TileRegistry.SLATE;
 
-    // bricks
-    public static final Tile BRICKS = REGISTRY.register(new Tile("bricks"));
-    public static final Tile BRICKS_LARGE = REGISTRY.register(new Tile("bricks_large"));
-    public static final Tile STONE_BRICKS = REGISTRY.register(new Tile("stone_bricks"));
-    public static final Tile STONE_BRICKS_LARGE = REGISTRY.register(new Tile("stone_bricks_large"));
+    public static final Tile BRICKS            = TileRegistry.BRICKS;
+    public static final Tile BRICKS_LARGE      = TileRegistry.BRICKS_LARGE;
+    public static final Tile STONE_BRICKS      = TileRegistry.STONE_BRICKS;
+    public static final Tile STONE_BRICKS_LARGE = TileRegistry.STONE_BRICKS_LARGE;
 
-    // pillars & columns
-    public static final Tile MARBLE = REGISTRY.register(new Tile("marble"));
+    public static final Tile MARBLE            = TileRegistry.MARBLE;
+    public static final Tile PILLAR_TOP        = TileRegistry.PILLAR_TOP;
+    public static final Tile PILLAR            = TileRegistry.PILLAR;
+    public static final Tile PILLAR_BOTTOM     = TileRegistry.PILLAR_BOTTOM;
+    public static final Tile COLUMN            = TileRegistry.COLUMN;
+    public static final Tile STATUE            = TileRegistry.STATUE;
 
-    // Rotatable like LOG: the default texture is the side, TOP/BOTTOM are the end caps
-    // ("middle"), and RotatableTile swaps them around when the block is placed on its side.
-    public static final Tile PILLAR_TOP = REGISTRY.register(
-            new RotatableTile("pillar_top", "pillar_side_top")
-                    .setTexture(FACE_TOP, "pillar_middle")
-                    .setTexture(FACE_BOTTOM, "pillar_middle")
-    );
-    public static final Tile PILLAR = REGISTRY.register(
-            new RotatableTile("pillar", "pillar_side")
-                    .setTexture(FACE_TOP, "pillar_middle")
-                    .setTexture(FACE_BOTTOM, "pillar_middle")
-    );
-    public static final Tile PILLAR_BOTTOM = REGISTRY.register(
-            new RotatableTile("pillar_bottom", "pillar_side_bottom")
-                    .setTexture(FACE_TOP, "pillar_middle")
-                    .setTexture(FACE_BOTTOM, "pillar_middle")
-    );
+    public static final Tile METAL             = TileRegistry.METAL;
+    public static final Tile METAL_GIRDER      = TileRegistry.METAL_GIRDER;
+    public static final Tile METAL_GRATE       = TileRegistry.METAL_GRATE;
+    public static final Tile GOLD              = TileRegistry.GOLD;
 
-    public static final Tile COLUMN = REGISTRY.register(new ColumnTile("column"));
+    public static final Tile LOG               = TileRegistry.LOG;
+    public static final Tile PLANKS            = TileRegistry.PLANKS;
+    public static final Tile WOOD              = TileRegistry.WOOD;
 
-    // metal
-    public static final Tile METAL = REGISTRY.register(new Tile("metal"));
+    public static final Tile GLASS             = TileRegistry.GLASS;
+    public static final Tile LAMP              = TileRegistry.LAMP;
+    public static final Tile LAMPPOST          = TileRegistry.LAMPPOST;
 
-    public static final Tile METAL_GIRDER = REGISTRY.register(
-            new RotatableTile("metal_girder", "metal_girder")
-                    .setTransparent(true)
-                    .setTexture(FACE_TOP, "metal_girder_middle")
-                    .setTexture(FACE_BOTTOM, "metal_girder_middle")
-                    .setSelfCull(FACE_TOP, FACE_BOTTOM)
-    );
+    public static final Tile TREE_SAPLING      = TileRegistry.TREE_SAPLING;
+    public static final Tile TREE_MEDIUM       = TileRegistry.TREE_MEDIUM;
+    public static final Tile TREE_LARGE        = TileRegistry.TREE_LARGE;
+    public static final Tile TREE              = TileRegistry.TREE;
 
-    public static final Tile METAL_GRATE = REGISTRY.register(
-            new Tile("metal_grate", "metal_grate")
-                    .setTransparent(true)
-                    .setTexture(FACE_TOP, "metal_grate")
-                    .setTexture(FACE_BOTTOM, "empty")
-                    .setTexture(FACE_NORTH, "metal_grate_side")
-                    .setTexture(FACE_SOUTH, "metal_grate_side")
-                    .setTexture(FACE_WEST, "metal_grate_side")
-                    .setTexture(FACE_EAST, "metal_grate_side")
-    );
+    public static final Tile PATH              = TileRegistry.PATH;
 
-    public static final Tile GOLD = REGISTRY.register(
-            new Tile("gold")
-    );
+    public static Tile      byName(String name)  { return TileRegistry.byName(name); }
+    public static List<Tile> getTiles()          { return TileRegistry.getTiles(); }
+    public static List<Tile> getCycleOrder()     { return TileRegistry.getCycleOrder(); }
 
-    // wood
-    public static final Tile LOG = REGISTRY.register(
-            new RotatableTile("log", "log_side")
-                    .setTransparent(true)
-                    .setTexture(FACE_TOP, "log_middle")
-                    .setTexture(FACE_BOTTOM, "log_middle")
-    );
-    public static final Tile PLANKS = REGISTRY.register(new Tile("planks"));
-    public static final Tile WOOD = REGISTRY.register(new Tile("wood"));
-
-    // glass & lighting
-    public static final Tile GLASS = REGISTRY.register(
-            new Tile("glass").setTransparent(true).setSelfCullAll()
-    );
-    public static final Tile LAMP = REGISTRY.register(new Tile("lamp").setLightRadius(12.0F));
-    public static final Tile LAMPPOST = REGISTRY.register(
-            new LamppostTile("lamppost").setLightRadius(10.0F)
-    );
-
-    // trees
-    public static final Tile TREE_SAPLING = REGISTRY.register(
-            new TreeTile("tree_sapling", TreeTile.TreeType.SAPLING)
-    );
-    public static final Tile TREE_MEDIUM = REGISTRY.register(
-            new TreeTile("tree_medium", TreeTile.TreeType.MEDIUM)
-    );
-    public static final Tile TREE_LARGE = REGISTRY.register(
-            new TreeTile("tree_large", TreeTile.TreeType.LARGE)
-    );
-
-    public static final Tile TREE = TREE_MEDIUM;
-
-    // doors: one tile per colour and state. The open ones are only ever created by interacting with
-    // the closed ones (see DimensionalDoorTile.setOpen), so they stay out of the tile selector.
-    static {
-        for (DoorColor color : DoorColor.values()) {
-            REGISTRY.register(new DimensionalDoorTile(color, false));
-            REGISTRY.register(new DimensionalDoorTile(color, true).setPlaceable(false));
-        }
-    }
-
-    // not placeable by the player (kept out of the tile selector)
-    public static final Tile PATH = REGISTRY.register(new Tile("path").setPlaceable(false));
+    // -------------------------------------------------------------------------
 
     public final int id;
     public final String name;
 
-    private final String[] faceTextures = new String[6];
-    private final int[] faceAtlasSlots = new int[6];
+    private final String[] faceTextures   = new String[6];
+    private final int[]    faceAtlasSlots = new int[6];
 
-    private boolean isSolid = true;
+    private boolean isSolid      = true;
     private boolean isTransparent = false;
 
     /** Whether the player can place this tile (false keeps it out of the tile selector). */
@@ -166,52 +101,34 @@ public class Tile {
     /** Radius in blocks of the light this tile emits (0 = emits no light). */
     private float lightRadius = 0.0F;
 
-    /** Largest footprint along any axis. */
-    public static final int MAX_FOOTPRINT = 16;
-
     /** Cells this tile covers when placed unrotated (see setFootprint). 1x1x1 = an ordinary tile. */
     private int footprintX = 1;
     private int footprintY = 1;
     private int footprintZ = 1;
+
+    // -------------------------------------------------------------------------
 
     public Tile(String name) {
         this(name, name);
     }
 
     public Tile(String name, String defaultTextureName) {
-        this.id = REGISTRY.nextId();
+        this.id   = idCounter++;
         this.name = name;
-
+        BY_ID.add(this);   // index == id (tiles are always constructed in registration order)
         setTexture(defaultTextureName);
-
-        BY_NAME.put(name, this);
     }
 
+    // -------------------------------------------------------------------------
+    // Lookup (id-based only; name-based lookup lives in TileRegistry)
+
+    /** Returns the tile with the given id, or {@code null} if no tile has that id. */
     public static Tile byId(int id) {
-        return REGISTRY.get(id);
+        return (id >= 0 && id < BY_ID.size()) ? BY_ID.get(id) : null;
     }
 
-    public static Tile byName(String name) {
-        return BY_NAME.get(name);
-    }
-
-    public static List<Tile> getTiles() {
-        return REGISTRY.entries();
-    }
-
-    /** Tiles the player can place, in registration order (the order the tile selector shows them). */
-    public static List<Tile> getCycleOrder() {
-        if (placeableTiles == null) {
-            List<Tile> placeable = new ArrayList<>();
-            for (Tile tile : REGISTRY.entries()) {
-                if (tile.isPlaceable()) {
-                    placeable.add(tile);
-                }
-            }
-            placeableTiles = Collections.unmodifiableList(placeable);
-        }
-        return placeableTiles;
-    }
+    // -------------------------------------------------------------------------
+    // Instance API
 
     public boolean isBillboard() {
         return false;
@@ -250,12 +167,12 @@ public class Tile {
     }
 
     public Tile setTextures(String topBottomTextureName, String sideTextureName) {
-        setTexture(FACE_TOP, topBottomTextureName);
+        setTexture(FACE_TOP,    topBottomTextureName);
         setTexture(FACE_BOTTOM, topBottomTextureName);
-        setTexture(FACE_NORTH, sideTextureName);
-        setTexture(FACE_SOUTH, sideTextureName);
-        setTexture(FACE_WEST, sideTextureName);
-        setTexture(FACE_EAST, sideTextureName);
+        setTexture(FACE_NORTH,  sideTextureName);
+        setTexture(FACE_SOUTH,  sideTextureName);
+        setTexture(FACE_WEST,   sideTextureName);
+        setTexture(FACE_EAST,   sideTextureName);
         return this;
     }
 
@@ -369,9 +286,12 @@ public class Tile {
 
     protected boolean shouldRenderFace(Level level, int x, int y, int z) {
         int tileId = level.getTile(x, y, z);
-        Tile neighbour = Tile.byId(tileId);
+        if (tileId == 0) {
+            return true;  // air (id 0 is always AIR)
+        }
 
-        if (neighbour == null || neighbour == Tile.AIR) {
+        Tile neighbour = Tile.byId(tileId);
+        if (neighbour == null) {
             return true;
         }
 
@@ -417,10 +337,10 @@ public class Tile {
 
     // Per face: outward normal, directional shade, and the 4 vertices as
     // {cornerX, cornerY, cornerZ, uSelect, vSelect} (corner 0 = min, 1 = max; uv 0 = min, 1 = max).
-    static final int[][] FACE_NORMALS = {
+    static final int[][]   FACE_NORMALS  = {
             {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}
     };
-    static final float[] FACE_SHADE = {1.0F, 1.0F, 0.8F, 0.8F, 0.6F, 0.6F};
+    static final float[]   FACE_SHADE    = {1.0F, 1.0F, 0.8F, 0.8F, 0.6F, 0.6F};
     static final int[][][] FACE_VERTICES = {
             // BOTTOM
             {{0, 0, 1, 0, 1}, {0, 0, 0, 0, 0}, {1, 0, 0, 1, 0}, {1, 0, 1, 1, 1}},
@@ -468,10 +388,10 @@ public class Tile {
     }
 
     public final void render(Tessellator tessellator, Level level, int layer, int x, int y, int z, int totalAtlasSlots, int direction) {
-        boolean smooth = level.hasLightSources();
+        boolean smooth    = level.hasLightSources();
         boolean fullBright = level.isFullBright(); // tile icons: plain shade, drawn without the shader
-        boolean emissive = emitsLight();
-        float[] block = new float[4];
+        boolean emissive  = emitsLight();
+        float[] block     = new float[4];
 
         for (int face = 0; face < 6; face++) {
             int[] normal = FACE_NORMALS[face];
@@ -484,7 +404,7 @@ public class Tile {
             }
 
             // Light-emitting tiles are fullbright: no sky shadow and no directional face shading.
-            float shade = emissive ? 1.0F : FACE_SHADE[face];
+            float shade    = emissive ? 1.0F : FACE_SHADE[face];
             int[][] vertices = FACE_VERTICES[face];
 
             float sky = (emissive || fullBright) ? 1.0F : level.getSkyLight(nx, ny, nz);
@@ -510,7 +430,7 @@ public class Tile {
                 continue;
             }
 
-            int slot = getAtlasSlot(getTextureFace(face, direction));
+            int slot  = getAtlasSlot(getTextureFace(face, direction));
             float minU = slot / (float) totalAtlasSlots;
             float maxU = minU + 1.0F / totalAtlasSlots;
             int[][] uvs = getFaceUvs(face, direction);
@@ -541,13 +461,13 @@ public class Tile {
         int ax, ay, az, bx, by, bz;
         if (sx == 0) {
             ax = 0; ay = sy; az = 0;
-            bx = 0; by = 0; bz = sz;
+            bx = 0; by = 0;  bz = sz;
         } else if (sy == 0) {
             ax = sx; ay = 0; az = 0;
-            bx = 0; by = 0; bz = sz;
+            bx = 0;  by = 0; bz = sz;
         } else {
-            ax = sx; ay = 0; az = 0;
-            bx = 0; by = sy; bz = 0;
+            ax = sx; ay = 0;  az = 0;
+            bx = 0;  by = sy; bz = 0;
         }
 
         boolean blockedA = level.blocksBlockLight(nx + ax, ny + ay, nz + az);
@@ -579,12 +499,9 @@ public class Tile {
             minZ = (float) aabb.minZ;
             maxZ = (float) aabb.maxZ;
         } else {
-            minX = x + 0.0f;
-            maxX = x + 1.0f;
-            minY = y + 0.0f;
-            maxY = y + 1.0f;
-            minZ = z + 0.0f;
-            maxZ = z + 1.0f;
+            minX = x; maxX = x + 1.0f;
+            minY = y; maxY = y + 1.0f;
+            minZ = z; maxZ = z + 1.0f;
         }
 
         if (face == FACE_BOTTOM) {
