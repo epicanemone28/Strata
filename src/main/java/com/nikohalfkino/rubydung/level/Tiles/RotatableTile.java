@@ -1,9 +1,23 @@
 package com.nikohalfkino.rubydung.level.Tiles;
 
-import com.nikohalfkino.rubydung.level.Level;
-import com.nikohalfkino.rubydung.render.Tessellator;
-
+/**
+ * A tile that can lie along any axis (direction 0 = Y, 1 = X, 2 = Z, stored in the data byte).
+ * It draws through Tile.render like every other tile; this class only says which texture a face
+ * uses and how that texture is oriented once rotated.
+ */
 public class RotatableTile extends Tile {
+
+    // Face UVs when the tile is turned (per face and vertex: {u, v}, 0 = min, 1 = max).
+    // ALT_DIRECTION says which direction value uses them; every other direction uses the default.
+    private static final int[][][] ALT_UVS = {
+            /* BOTTOM */ {{1, 1}, {0, 1}, {0, 0}, {1, 0}},
+            /* TOP    */ {{0, 0}, {1, 0}, {1, 1}, {0, 1}},
+            /* NORTH  */ {{1, 1}, {1, 0}, {0, 0}, {0, 1}},
+            /* SOUTH  */ {{0, 1}, {1, 1}, {1, 0}, {0, 0}},
+            /* WEST   */ {{1, 1}, {1, 0}, {0, 0}, {0, 1}},
+            /* EAST   */ {{0, 0}, {0, 1}, {1, 1}, {1, 0}},
+    };
+    private static final int[] ALT_DIRECTION = {2, 2, 2, 2, 1, 1};
 
     public RotatableTile(String name) {
         super(name);
@@ -15,6 +29,10 @@ public class RotatableTile extends Tile {
 
     public boolean isDirectional() {
         return true;
+    }
+
+    private int effectiveDirection(int direction) {
+        return isDirectional() ? direction : 0;
     }
 
     private int rotateFace(int worldFace, int axis) {
@@ -36,218 +54,19 @@ public class RotatableTile extends Tile {
     }
 
     @Override
-    public void render(Tessellator tessellator, Level level, int layer, int x, int y, int z, int totalAtlasSlots, int direction) {
-        if (!this.isDirectional()) {
-            direction = 0;
-        }
+    protected int getTextureFace(int face, int direction) {
+        return rotateFace(face, effectiveDirection(direction));
+    }
 
-        float shadeX = 0.6f;
-        float shadeY = 1.0f;
-        float shadeZ = 0.8f;
+    /** Self-culling uses the tile's own faces, so a girder's "top/bottom" are its end caps however it lies. */
+    @Override
+    protected int getCullFace(int face, int direction) {
+        return rotateFace(face, effectiveDirection(direction));
+    }
 
-        float minX = x + 0.0F;
-        float maxX = x + 1.0F;
-        float minY = y + 0.0F;
-        float maxY = y + 1.0F;
-        float minZ = z + 0.0F;
-        float maxZ = z + 1.0F;
-
-        if (shouldRenderFace(level, x, y - 1, z)) {
-            float brightness = level.getBrightness(x, y - 1, z) * shadeY;
-            if (layer == 1 ^ brightness == shadeY) {
-                int slot = getAtlasSlot(rotateFace(FACE_BOTTOM, direction));
-                float minU = slot / (float) totalAtlasSlots;
-                float maxU = minU + 1.0F / totalAtlasSlots;
-                float minV = 0.0F;
-                float maxV = 1.0F;
-
-                tessellator.color(brightness, brightness, brightness);
-
-                if (direction == 2) {
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(minX, minY, maxZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(minX, minY, minZ);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(maxX, minY, minZ);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(maxX, minY, maxZ);
-                } else {
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(minX, minY, maxZ);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(minX, minY, minZ);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(maxX, minY, minZ);
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(maxX, minY, maxZ);
-                }
-            }
-        }
-
-        if (shouldRenderFace(level, x, y + 1, z)) {
-            float brightness = level.getBrightness(x, y + 1, z) * shadeY;
-            if (layer == 1 ^ brightness == shadeY) {
-                int slot = getAtlasSlot(rotateFace(FACE_TOP, direction));
-                float minU = slot / (float) totalAtlasSlots;
-                float maxU = minU + 1.0F / totalAtlasSlots;
-                float minV = 0.0F;
-                float maxV = 1.0F;
-
-                tessellator.color(brightness, brightness, brightness);
-
-                if (direction == 2) {
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(maxX, maxY, maxZ);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(maxX, maxY, minZ);
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(minX, maxY, minZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(minX, maxY, maxZ);
-                } else {
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(maxX, maxY, maxZ);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(maxX, maxY, minZ);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(minX, maxY, minZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(minX, maxY, maxZ);
-                }
-            }
-        }
-
-        if (shouldRenderFace(level, x, y, z - 1)) {
-            float brightness = level.getBrightness(x, y, z - 1) * shadeZ;
-            if (layer == 1 ^ brightness == shadeZ) {
-                int slot = getAtlasSlot(rotateFace(FACE_NORTH, direction));
-                float minU = slot / (float) totalAtlasSlots;
-                float maxU = minU + 1.0F / totalAtlasSlots;
-                float minV = 0.0F;
-                float maxV = 1.0F;
-
-                tessellator.color(brightness, brightness, brightness);
-
-                if (direction == 2) {
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(minX, maxY, minZ);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(maxX, maxY, minZ);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(maxX, minY, minZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(minX, minY, minZ);
-                } else {
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(minX, maxY, minZ);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(maxX, maxY, minZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(maxX, minY, minZ);
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(minX, minY, minZ);
-                }
-            }
-        }
-
-        if (shouldRenderFace(level, x, y, z + 1)) {
-            float brightness = level.getBrightness(x, y, z + 1) * shadeZ;
-            if (layer == 1 ^ brightness == shadeZ) {
-                int slot = getAtlasSlot(rotateFace(FACE_SOUTH, direction));
-                float minU = slot / (float) totalAtlasSlots;
-                float maxU = minU + 1.0F / totalAtlasSlots;
-                float minV = 0.0F;
-                float maxV = 1.0F;
-
-                tessellator.color(brightness, brightness, brightness);
-
-                if (direction == 2) {
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(minX, maxY, maxZ);
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(minX, minY, maxZ);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(maxX, minY, maxZ);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(maxX, maxY, maxZ);
-                } else {
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(minX, maxY, maxZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(minX, minY, maxZ);
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(maxX, minY, maxZ);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(maxX, maxY, maxZ);
-                }
-            }
-        }
-
-        if (shouldRenderFace(level, x - 1, y, z)) {
-            float brightness = level.getBrightness(x - 1, y, z) * shadeX;
-            if (layer == 1 ^ brightness == shadeX) {
-                int slot = getAtlasSlot(rotateFace(FACE_WEST, direction));
-                float minU = slot / (float) totalAtlasSlots;
-                float maxU = minU + 1.0F / totalAtlasSlots;
-                float minV = 0.0F;
-                float maxV = 1.0F;
-
-                tessellator.color(brightness, brightness, brightness);
-
-                if (direction == 1) {
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(minX, maxY, maxZ);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(minX, maxY, minZ);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(minX, minY, minZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(minX, minY, maxZ);
-                } else {
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(minX, maxY, maxZ);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(minX, maxY, minZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(minX, minY, minZ);
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(minX, minY, maxZ);
-                }
-            }
-        }
-
-        if (shouldRenderFace(level, x + 1, y, z)) {
-            float brightness = level.getBrightness(x + 1, y, z) * shadeX;
-            if (layer == 1 ^ brightness == shadeX) {
-                int slot = getAtlasSlot(rotateFace(FACE_EAST, direction));
-                float minU = slot / (float) totalAtlasSlots;
-                float maxU = minU + 1.0F / totalAtlasSlots;
-                float minV = 0.0F;
-                float maxV = 1.0F;
-
-                tessellator.color(brightness, brightness, brightness);
-
-                if (direction == 1) {
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(maxX, minY, maxZ);
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(maxX, minY, minZ);
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(maxX, maxY, minZ);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(maxX, maxY, maxZ);
-                } else {
-                    tessellator.texture(minU, maxV);
-                    tessellator.vertex(maxX, minY, maxZ);
-                    tessellator.texture(maxU, maxV);
-                    tessellator.vertex(maxX, minY, minZ);
-                    tessellator.texture(maxU, minV);
-                    tessellator.vertex(maxX, maxY, minZ);
-                    tessellator.texture(minU, minV);
-                    tessellator.vertex(maxX, maxY, maxZ);
-                }
-            }
-        }
+    @Override
+    protected int[][] getFaceUvs(int face, int direction) {
+        int d = effectiveDirection(direction);
+        return d == ALT_DIRECTION[face] ? ALT_UVS[face] : super.getFaceUvs(face, d);
     }
 }

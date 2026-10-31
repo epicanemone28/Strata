@@ -8,6 +8,9 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -141,7 +144,10 @@ public final class LevelIO {
     }
 
     public static void save(File file, byte[] blocks, byte[] data, SavedPosition position) {
-        try (DataOutputStream dos = new DataOutputStream(new GZIPOutputStream(new FileOutputStream(file)))) {
+        // Write to a temp file and move it into place, so a crash mid-write can't corrupt the world.
+        File temp = new File(file.getPath() + ".tmp");
+
+        try (DataOutputStream dos = new DataOutputStream(new GZIPOutputStream(new FileOutputStream(temp)))) {
             dos.write(blocks);
 
             dos.writeBoolean(position.present);
@@ -173,6 +179,13 @@ public final class LevelIO {
                 dos.writeFloat(position.flySpeedMultiplier);
             }
         } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        try {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

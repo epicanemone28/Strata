@@ -31,6 +31,7 @@ import com.nikohalfkino.rubydung.render.Textures;
 import com.nikohalfkino.rubydung.util.AutosaveSettings;
 import com.nikohalfkino.rubydung.util.GameSettings;
 import com.nikohalfkino.rubydung.util.KeyBinding;
+import com.nikohalfkino.rubydung.util.SaveQueue;
 import org.lwjgl.LWJGLException;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -38,6 +39,8 @@ import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
 
 import javax.swing.*;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static org.lwjgl.opengl.GL11.*;
 
@@ -76,6 +79,9 @@ public class RubyDung implements Runnable {
     /** Ticks of actual play since the world was last saved (counts only while the game is running). */
     private int ticksSinceAutosave = 0;
     private boolean running = true;
+
+    /** Work handed back to the game thread by background threads (e.g. the save thread). */
+    private final Queue<Runnable> mainThreadTasks = new ConcurrentLinkedQueue<>();
     private Font font;
     private Screen currentScreen;
 
@@ -330,8 +336,16 @@ public class RubyDung implements Runnable {
 
     /** Saves the world on a timer and tells the player. */
     private void autosave() {
-        saveLevel();
-        this.centerIndicator.showMessage("Saved!");
+        // Only snapshots happen here; the GZIP + disk write runs on the save thread.
+        this.session.saveLevelAsync(() ->
+                runOnMainThread(() -> this.centerIndicator.showMessage("Saved!")));
+        saveWorldTime();
+        this.ticksSinceAutosave = 0;
+    }
+
+    /** Safe to call from any thread; the task runs on the game thread at the start of the next frame. */
+    public void runOnMainThread(Runnable task) {
+        this.mainThreadTasks.add(task);
     }
 
     public void quit() {
@@ -344,6 +358,7 @@ public class RubyDung implements Runnable {
         KeyBinding.save();
         JTalkSettings.save();
         AutosaveSettings.save();
+        SaveQueue.shutdownAndWait();
         this.session.dispose();
         this.speaker.stop();
         this.musicPlayer.stop();
@@ -371,6 +386,11 @@ public class RubyDung implements Runnable {
 
         try {
             while (!Display.isCloseRequested() && this.running) {
+                Runnable task;
+                while ((task = this.mainThreadTasks.poll()) != null) {
+                    task.run();
+                }
+
                 this.timer.advanceTime();
 
                 for (int i = 0; i < this.timer.ticks; ++i) {

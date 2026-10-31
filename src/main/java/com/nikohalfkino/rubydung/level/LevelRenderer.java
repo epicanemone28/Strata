@@ -7,6 +7,7 @@ import com.nikohalfkino.rubydung.player.Player;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Frustum;
 import com.nikohalfkino.rubydung.render.Tessellator;
+import com.nikohalfkino.rubydung.render.TerrainShader;
 import com.nikohalfkino.rubydung.render.Textures;
 
 import java.util.ArrayList;
@@ -68,12 +69,16 @@ public class LevelRenderer implements LevelListener {
 
         Chunk.rebuiltThisFrame = 0;
 
-        for (Chunk chunk : this.chunks) {
-
-            if (frustum.cubeInFrustum(chunk.boundingBox)) {
-
-                chunk.render(layer);
+        // Time of day is applied here, at draw time, so chunk meshes never go stale when it changes.
+        TerrainShader.bind(this.level.getSkyAmbient());
+        try {
+            for (Chunk chunk : this.chunks) {
+                if (frustum.cubeInFrustum(chunk.boundingBox)) {
+                    chunk.render(layer);
+                }
             }
+        } finally {
+            TerrainShader.unbind();
         }
     }
 

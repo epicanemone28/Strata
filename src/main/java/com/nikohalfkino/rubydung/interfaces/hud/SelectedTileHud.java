@@ -4,6 +4,7 @@ import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.interfaces.TileIconRenderer;
 import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.Widget;
+import com.nikohalfkino.rubydung.level.Tiles.DimensionalDoorTile;
 import com.nikohalfkino.rubydung.level.Tiles.Tile;
 import com.nikohalfkino.rubydung.level.Tiles.TreeTile;
 import com.nikohalfkino.rubydung.render.Font;
@@ -23,11 +24,13 @@ public class SelectedTileHud extends Widget {
     }
 
     private static String tileName(Tile tile) {
-        return (tile instanceof TreeTile) ? "Tree" : formatTileName(tile.name);
+        if (tile instanceof TreeTile) return "Tree";
+        if (tile instanceof DimensionalDoorTile) return "Door";
+        return formatTileName(tile.name);
     }
 
     private static float iconTop(Tile tile) {
-        float lastLineY = (tile instanceof TreeTile) ? LINE_STEP : 0.0f;
+        float lastLineY = (tile instanceof TreeTile || tile instanceof DimensionalDoorTile) ? LINE_STEP : 0.0f;
         return lastLineY + LINE_STEP + ICON_TOP_MARGIN;
     }
 
@@ -37,6 +40,9 @@ public class SelectedTileHud extends Widget {
         float widest = font.getWidth("Selected: " + tileName(tile)) * SCALE;
         if (tile instanceof TreeTile) {
             widest = Math.max(widest, font.getWidth("Type: " + ((TreeTile) tile).getType().displayName) * SCALE);
+        }
+        if (tile instanceof DimensionalDoorTile) {
+            widest = Math.max(widest, font.getWidth("Type: " + ((DimensionalDoorTile) tile).getColor().getDisplayName()) * SCALE);
         }
         return Math.max(widest, ICON_SIZE);
     }
@@ -65,6 +71,21 @@ public class SelectedTileHud extends Widget {
 
             String typePrefix = "Type: ";
             String typeValue = treeTile.getType().displayName;
+
+            int secondLineY = top + (int) LINE_STEP;
+
+            font.drawStringScaled(typePrefix, left, secondLineY, 0xFFFFFF, SCALE);
+
+            int typePrefixWidth = (int) (font.getWidth(typePrefix) * SCALE);
+
+            font.drawStringScaled(typeValue, left + typePrefixWidth, secondLineY, 0xFFFF00, SCALE);
+        }
+
+        if (tile instanceof DimensionalDoorTile) {
+            DimensionalDoorTile door = (DimensionalDoorTile) tile;
+
+            String typePrefix = "Type: ";
+            String typeValue = door.getColor().getDisplayName();
 
             int secondLineY = top + (int) LINE_STEP;
 

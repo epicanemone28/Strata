@@ -83,6 +83,7 @@ public class Tile {
                     .setTransparent(true)
                     .setTexture(FACE_TOP, "metal_girder_middle")
                     .setTexture(FACE_BOTTOM, "metal_girder_middle")
+                    .setSelfCull(FACE_TOP, FACE_BOTTOM)
     );
 
     public static final Tile METAL_GRATE = REGISTRY.register(
@@ -97,7 +98,7 @@ public class Tile {
     );
 
     public static final Tile GOLD = REGISTRY.register(
-            new Tile("gold").setTransparent(true)
+            new Tile("gold")
     );
 
     // wood
@@ -112,7 +113,7 @@ public class Tile {
 
     // glass & lighting
     public static final Tile GLASS = REGISTRY.register(
-            new Tile("glass").setTransparent(true)
+            new Tile("glass").setTransparent(true).setSelfCullAll()
     );
     public static final Tile LAMP = REGISTRY.register(new Tile("lamp").setLightRadius(12.0F));
     public static final Tile LAMPPOST = REGISTRY.register(
@@ -155,6 +156,12 @@ public class Tile {
 
     /** Whether the player can place this tile (false keeps it out of the tile selector). */
     private boolean placeable = true;
+
+    /**
+     * Faces that are not drawn when the neighbour on that side is the same tile (bit per FACE_*).
+     * Only matters for transparent tiles, which otherwise draw every face.
+     */
+    private int selfCullMask = 0;
 
     /** Radius in blocks of the light this tile emits (0 = emits no light). */
     private float lightRadius = 0.0F;
@@ -320,6 +327,24 @@ public class Tile {
         return this;
     }
 
+    /** Hides the listed faces when the neighbouring cell on that side is the same tile. */
+    public Tile setSelfCull(int... faces) {
+        for (int face : faces) {
+            this.selfCullMask |= 1 << face;
+        }
+        return this;
+    }
+
+    /** Hides every face that touches another cell of the same tile (e.g. glass). */
+    public Tile setSelfCullAll() {
+        this.selfCullMask = 0b111111;
+        return this;
+    }
+
+    public boolean cullsSelfFace(int face) {
+        return (this.selfCullMask & (1 << face)) != 0;
+    }
+
     public boolean isMultiTile() {
         return this.footprintX * this.footprintY * this.footprintZ > 1;
     }
@@ -372,17 +397,31 @@ public class Tile {
         return shouldRenderFace(level, x, y, z);
     }
 
+    /**
+     * Face-aware version: also applies this tile's self-cull faces. face is the tile's own face
+     * (FACE_*) that looks at the neighbour cell (x, y, z).
+     */
+    protected boolean shouldRenderFace(Level level, int fromX, int fromY, int fromZ, int x, int y, int z, int face) {
+        if (isMultiTile() && level.isSameMultiTile(fromX, fromY, fromZ, x, y, z)) {
+            return false;
+        }
+        if (cullsSelfFace(face) && level.getTile(x, y, z) == this.id) {
+            return false;
+        }
+        return shouldRenderFace(level, x, y, z);
+    }
+
     public void render(Tessellator tessellator, Level level, int layer, int x, int y, int z, int totalAtlasSlots) {
         render(tessellator, level, layer, x, y, z, totalAtlasSlots, 0);
     }
 
     // Per face: outward normal, directional shade, and the 4 vertices as
     // {cornerX, cornerY, cornerZ, uSelect, vSelect} (corner 0 = min, 1 = max; uv 0 = min, 1 = max).
-    private static final int[][] FACE_NORMALS = {
+    static final int[][] FACE_NORMALS = {
             {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}
     };
-    private static final float[] FACE_SHADE = {1.0F, 1.0F, 0.8F, 0.8F, 0.6F, 0.6F};
-    private static final int[][][] FACE_VERTICES = {
+    static final float[] FACE_SHADE = {1.0F, 1.0F, 0.8F, 0.8F, 0.6F, 0.6F};
+    static final int[][][] FACE_VERTICES = {
             // BOTTOM
             {{0, 0, 1, 0, 1}, {0, 0, 0, 0, 0}, {1, 0, 0, 1, 0}, {1, 0, 1, 1, 1}},
             // TOP
@@ -397,9 +436,42 @@ public class Tile {
             {{1, 0, 1, 0, 1}, {1, 0, 0, 1, 1}, {1, 1, 0, 1, 0}, {1, 1, 1, 0, 0}}
     };
 
-    public void render(Tessellator tessellator, Level level, int layer, int x, int y, int z, int totalAtlasSlots, int direction) {
+    /** Default UV corner selects per face and vertex (0 = min, 1 = max), taken from FACE_VERTICES. */
+    private static final int[][][] BASE_UVS = buildBaseUvs();
+
+    private static int[][][] buildBaseUvs() {
+        int[][][] uvs = new int[6][4][2];
+        for (int face = 0; face < 6; face++) {
+            for (int v = 0; v < 4; v++) {
+                uvs[face][v][0] = FACE_VERTICES[face][v][3];
+                uvs[face][v][1] = FACE_VERTICES[face][v][4];
+            }
+        }
+        return uvs;
+    }
+
+    // ---- Per-tile hooks: the ONLY things a subclass may change about how a cube is drawn. ----
+
+    /** Which of this tile's textures a world-space face uses (RotatableTile swaps them around). */
+    protected int getTextureFace(int face, int direction) {
+        return face;
+    }
+
+    /** The tile's own face that a world-space face corresponds to, for self-culling. */
+    protected int getCullFace(int face, int direction) {
+        return face;
+    }
+
+    /** UV corner selects for the 4 vertices of a face: int[4][2] of {u, v}, 0 = min, 1 = max. */
+    protected int[][] getFaceUvs(int face, int direction) {
+        return BASE_UVS[face];
+    }
+
+    public final void render(Tessellator tessellator, Level level, int layer, int x, int y, int z, int totalAtlasSlots, int direction) {
         boolean smooth = level.hasLightSources();
-        float[] colors = new float[4];
+        boolean fullBright = level.isFullBright(); // tile icons: plain shade, drawn without the shader
+        boolean emissive = emitsLight();
+        float[] block = new float[4];
 
         for (int face = 0; face < 6; face++) {
             int[] normal = FACE_NORMALS[face];
@@ -407,29 +479,29 @@ public class Tile {
             int ny = y + normal[1];
             int nz = z + normal[2];
 
-            if (!shouldRenderFace(level, x, y, z, nx, ny, nz)) {
+            if (!shouldRenderFace(level, x, y, z, nx, ny, nz, getCullFace(face, direction))) {
                 continue;
             }
 
             // Light-emitting tiles are fullbright: no sky shadow and no directional face shading.
-            float shade = emitsLight() ? 1.0F : FACE_SHADE[face];
+            float shade = emissive ? 1.0F : FACE_SHADE[face];
             int[][] vertices = FACE_VERTICES[face];
 
-            float sky = emitsLight() ? 1.0F : level.getBrightness(nx, ny, nz);
+            float sky = (emissive || fullBright) ? 1.0F : level.getSkyLight(nx, ny, nz);
 
             boolean fullyLit = true;
             for (int v = 0; v < 4; v++) {
-                float block = 0.0F;
-                if (smooth) {
+                block[v] = 0.0F;
+                if (emissive) {
+                    block[v] = 1.0F;
+                } else if (smooth && !fullBright) {
                     int sx = normal[0] == 0 ? vertices[v][0] * 2 - 1 : 0;
                     int sy = normal[1] == 0 ? vertices[v][1] * 2 - 1 : 0;
                     int sz = normal[2] == 0 ? vertices[v][2] * 2 - 1 : 0;
-                    block = cornerBlockLight(level, nx, ny, nz, sx, sy, sz);
+                    block[v] = cornerBlockLight(level, nx, ny, nz, sx, sy, sz);
                 }
 
-                // Block light is screen-blended over the sky brightness, so it never overshoots 1.
-                colors[v] = (sky + (1.0F - sky) * block) * shade;
-                if (colors[v] != shade) {
+                if (sky < 1.0F && block[v] < 1.0F) {
                     fullyLit = false;
                 }
             }
@@ -438,15 +510,20 @@ public class Tile {
                 continue;
             }
 
-            int slot = getAtlasSlot(face);
+            int slot = getAtlasSlot(getTextureFace(face, direction));
             float minU = slot / (float) totalAtlasSlots;
             float maxU = minU + 1.0F / totalAtlasSlots;
+            int[][] uvs = getFaceUvs(face, direction);
 
             for (int v = 0; v < 4; v++) {
                 int[] vertex = vertices[v];
 
-                tessellator.color(colors[v], colors[v], colors[v]);
-                tessellator.texture(vertex[3] == 0 ? minU : maxU, vertex[4] == 0 ? 0.0F : 1.0F);
+                if (fullBright) {
+                    tessellator.color(shade, shade, shade);
+                } else {
+                    tessellator.color(sky, block[v], shade);
+                }
+                tessellator.texture(uvs[v][0] == 0 ? minU : maxU, uvs[v][1] == 0 ? 0.0F : 1.0F);
                 tessellator.vertex(x + vertex[0], y + vertex[1], z + vertex[2]);
             }
         }
@@ -458,7 +535,7 @@ public class Tile {
      * walls don't create dark seams, and light can't leak diagonally between two walls.
      * (sx, sy, sz) are the corner's signs along the face's two tangent axes; the normal axis is 0.
      */
-    private static float cornerBlockLight(Level level, int nx, int ny, int nz, int sx, int sy, int sz) {
+    static float cornerBlockLight(Level level, int nx, int ny, int nz, int sx, int sy, int sz) {
         float center = level.getBlockLight(nx, ny, nz);
 
         int ax, ay, az, bx, by, bz;

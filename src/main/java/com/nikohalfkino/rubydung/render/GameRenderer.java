@@ -8,7 +8,6 @@ import com.nikohalfkino.rubydung.interfaces.GameFrame;
 import com.nikohalfkino.rubydung.interfaces.Screen;
 import com.nikohalfkino.rubydung.interfaces.hud.FpsHud;
 import com.nikohalfkino.rubydung.interfaces.screen.ConsoleScreen;
-import com.nikohalfkino.rubydung.level.Chunk;
 import com.nikohalfkino.rubydung.level.LevelRenderer;
 import com.nikohalfkino.rubydung.level.VoxelRaycaster;
 import com.nikohalfkino.rubydung.player.Player;
@@ -102,7 +101,7 @@ public class GameRenderer {
             LevelRenderer levelRenderer = this.game.getLevelRenderer();
             DayNightCycle cycle = this.game.getDayNightCycle();
 
-            // Push current ambient brightness into the level so terrain dims at night.
+            // Ambient is applied to terrain by TerrainShader at draw time (and to billboards per frame).
             this.game.getLevel().setSkyAmbient(cycle.getAmbient());
 
             // The world is drawn into the frame's viewport; without a frame (closed, or window
@@ -126,10 +125,6 @@ public class GameRenderer {
 
             float cameraPartialTicks = playing ? partialTicks : 1.0F;
             setupCamera(cameraPartialTicks, viewWidth, viewHeight);
-
-            // Bring chunks outside the view up to date with the current sky light, so turning
-            // around never reveals chunks lit for an earlier time of day.
-            Chunk.refreshStaleOffscreen(Frustum.getFrustum());
 
             double eyeX = player.prevX + (player.x - player.prevX) * cameraPartialTicks;
             double eyeY = player.prevY + (player.y - player.prevY) * cameraPartialTicks;

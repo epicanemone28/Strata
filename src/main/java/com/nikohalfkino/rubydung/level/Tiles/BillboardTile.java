@@ -68,10 +68,24 @@ public abstract class BillboardTile extends Tile {
         return currentCameraYaw;
     }
 
+    /**
+     * Sprites are redrawn every frame, so they use the current ambient directly. Block light from
+     * nearby lamps is screen-blended on top, the same way Tile.render lights cubes, so a tree next
+     * to a lamp isn't pitch black at night. Light-emitting sprites are fullbright.
+     */
+    protected float spriteBrightness(Level level, int x, int y, int z) {
+        if (emitsLight()) {
+            return 1.0F;
+        }
+        float base = level.getBrightness(x, y, z);
+        float block = level.getBlockLight(x, y, z);
+        return base + (1.0F - base) * block;
+    }
+
     @Override
     public void renderBillboard(Tessellator tessellator, Level level, int x, int y, int z, int totalAtlasSlots) {
         // Light-emitting billboards (e.g. lampposts) are fullbright.
-        float brightness = emitsLight() ? 1.0F : level.getBrightness(x, y, z);
+        float brightness = spriteBrightness(level, x, y, z);
         tessellator.color(brightness, brightness, brightness, 1.0F);
 
         int slot = getAtlasSlot(FACE_NORTH);
@@ -113,7 +127,7 @@ public abstract class BillboardTile extends Tile {
                                        float worldX, float worldY, float worldZ,
                                        float cosYaw, float sinYaw, float scale) {
         // Light-emitting billboards (e.g. lampposts) are fullbright.
-        float brightness = emitsLight() ? 1.0F : level.getBrightness(x, y, z);
+        float brightness = spriteBrightness(level, x, y, z);
 
         int slot = getAtlasSlot(FACE_NORTH);
         float minU = slot / (float) totalAtlasSlots;

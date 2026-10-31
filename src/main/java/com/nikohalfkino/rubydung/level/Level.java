@@ -4,6 +4,7 @@ import com.nikohalfkino.rubydung.level.Tiles.DimensionalDoorTile;
 import com.nikohalfkino.rubydung.level.Tiles.Tile;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
 import com.nikohalfkino.rubydung.phys.AABB;
+import com.nikohalfkino.rubydung.util.SaveQueue;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -115,45 +116,22 @@ public class Level {
      */
     private float skyAmbient = 1.0F;
 
-    /**
-     * Terrain brightness is baked into chunk meshes, so changing the ambient means re-meshing
-     * every chunk. To keep that affordable the value is only re-applied when it has drifted by
-     * AMBIENT_STEP (the cycle itself is smooth, so the steps are small), or, for the last bit
-     * of drift near a plateau (noon/midnight/frozen time), at most every AMBIENT_SETTLE_MS.
-     */
-    private static final float AMBIENT_STEP = 0.03F;
-    private static final float AMBIENT_SETTLE_EPSILON = 0.001F;
-    private static final long AMBIENT_SETTLE_MS = 3000L;
-
-    private long lastAmbientApplyMs = 0L;
-    private int lightVersion = 0;
     private boolean fullBright = false;
 
+    /**
+     * Sets the sky ambient. Chunk meshes do NOT depend on it any more: it is applied at draw time
+     * by TerrainShader, so changing it costs nothing and never re-meshes a chunk.
+     */
     public void setSkyAmbient(float ambient) {
-        float diff = Math.abs(ambient - this.skyAmbient);
-        if (diff <= AMBIENT_SETTLE_EPSILON) {
-            return;
-        }
-
-        long now = System.currentTimeMillis();
-        boolean bigEnough = diff >= AMBIENT_STEP;
-        boolean settleDue = now - this.lastAmbientApplyMs >= AMBIENT_SETTLE_MS;
-        if (!bigEnough && !settleDue) {
-            return;
-        }
-
         this.skyAmbient = ambient;
-        this.lastAmbientApplyMs = now;
-
-        // Brightness is baked into the chunk display lists. Chunks compare this version against
-        // the one they were built with and refresh themselves on a budget (see Chunk), so the
-        // whole world is never re-meshed in a single frame.
-        this.lightVersion++;
     }
 
-    /** Bumped every time the sky ambient is re-applied; chunks built with an older value are stale. */
-    public int getLightVersion() {
-        return this.lightVersion;
+    public float getSkyAmbient() {
+        return this.skyAmbient;
+    }
+
+    public boolean isFullBright() {
+        return this.fullBright;
     }
 
     /**
@@ -188,9 +166,13 @@ public class Level {
         this.type = type;
         this.seed = seed;
 
-        LevelGenerator.Result generated = LevelGenerator.generateWorld(type, width, height, depth, seed);
-        this.blocks = generated.blocks;
-        this.generatedMultiTiles = generated.multiTileOrigins;
+        // Loading an existing world overwrites every block anyway, so don't generate one first.
+        boolean hasSave = loadFromDisk && WorldManager.levelFile(worldName).isFile();
+        LevelGenerator.Result generated = hasSave
+                ? null
+                : LevelGenerator.generateWorld(type, width, height, depth, seed);
+        this.blocks = hasSave ? new byte[width * height * depth] : generated.blocks;
+        this.generatedMultiTiles = hasSave ? null : generated.multiTileOrigins;
         this.data = new byte[width * height * depth];
         this.lightDepths = new int[width * height];
         this.blockLight = new byte[width * height * depth];
@@ -265,7 +247,48 @@ public class Level {
         }
     }
 
+    /** Saves on the calling thread (quit, travelling through a door, new world). */
     public void save() {
+        // Wait for any queued background save so two writes never touch level.dat at once.
+        SaveQueue.flush();
+
+        byte[] encodedBlocks = writeSideFiles();
+        LevelIO.save(WorldManager.levelFile(this.worldName), encodedBlocks, this.data, buildSavedPosition());
+    }
+
+    /**
+     * Saves with the slow part (GZIP + disk write of level.dat) on the save thread. Only cheap
+     * snapshots happen on the calling thread. onDone runs on the save thread when the file is written.
+     */
+    public void saveAsync(Runnable onDone) {
+        byte[] encodedBlocks = writeSideFiles();       // fresh array, safe to hand to another thread
+        byte[] dataCopy = this.data.clone();           // the live array keeps changing
+        LevelIO.SavedPosition position = buildSavedPosition();
+        File file = WorldManager.levelFile(this.worldName);
+
+        SaveQueue.submit(() -> {
+            LevelIO.save(file, encodedBlocks, dataCopy, position);
+            if (onDone != null) {
+                onDone.run();
+            }
+        });
+    }
+
+    /**
+     * Palette, multi-tiles, doors and world type are tiny, so they are written synchronously.
+     * The palette only ever grows and is written before level.dat, so a crash between the writes
+     * still leaves a level file that matches its palette. Returns the encoded blocks.
+     */
+    private byte[] writeSideFiles() {
+        byte[] encodedBlocks = this.palette.encode(this.blocks);
+        WorldManager.saveWorldPalette(this.worldName, this.palette);
+        WorldManager.saveWorldMultiTiles(this.worldName, collectMultiTileOrigins());
+        WorldManager.saveWorldType(this.worldName, this.type);
+        DoorRegistry.save(this.worldName, getDoors());
+        return encodedBlocks;
+    }
+
+    private LevelIO.SavedPosition buildSavedPosition() {
         LevelIO.SavedPosition position = this.hasSavedPosition
                 ? LevelIO.SavedPosition.of(this.savedPlayerX, this.savedPlayerY, this.savedPlayerZ,
                 this.savedPlayerYRotation, this.savedPlayerXRotation)
@@ -276,16 +299,7 @@ public class Level {
         if (this.hasFlightState) {
             position = position.withFlightState(this.savedFlying, this.savedNoClip, this.savedFlySpeedMultiplier);
         }
-
-        // Write blocks as palette indices. The palette only ever grows and is written first, so a
-        // crash between the two writes still leaves a level file that matches its palette.
-        byte[] encodedBlocks = this.palette.encode(this.blocks);
-        WorldManager.saveWorldPalette(this.worldName, this.palette);
-
-        WorldManager.saveWorldMultiTiles(this.worldName, collectMultiTileOrigins());
-        DoorRegistry.save(this.worldName, getDoors());
-
-        LevelIO.save(WorldManager.levelFile(this.worldName), encodedBlocks, this.data, position);
+        return position;
     }
 
     public void setPlayerPosition(double x, double y, double z, float yRotation, float xRotation) {
@@ -367,20 +381,13 @@ public class Level {
     }
 
     /**
-     * Brightness of a cell. Looks for the nearest light-blocking tile above it (within
-     * SHADOW_FADE_DISTANCE). Directly under a block it is SHADOW_DARKEST, and it fades
-     * linearly back to full brightness over SHADOW_FADE_DISTANCE tiles.
-     *
-     * The result is scaled by skyAmbient so the world dims naturally during night.
-     * Block light (lamps etc.) is added on top in Tile.render() and is unaffected by this.
+     * Shadow-only sky light of a cell (1.0 = open sky, SHADOW_DARKEST directly under a block,
+     * fading back to 1.0 over SHADOW_FADE_DISTANCE tiles). Time of day is NOT included: it is
+     * applied later, in the shader, so this value is safe to bake into chunk meshes.
      */
-    public float getBrightness(int x, int y, int z) {
-        if (this.fullBright) {
-            return 1.0F;
-        }
-
+    public float getSkyLight(int x, int y, int z) {
         if (x < 0 || y < 0 || z < 0 || x >= this.width || y >= this.depth || z >= this.height) {
-            return this.skyAmbient;
+            return 1.0F;
         }
 
         int maxDistance = Math.min(SHADOW_FADE_DISTANCE, this.depth - 1 - y);
@@ -392,12 +399,22 @@ public class Level {
         for (int distance = 1; distance <= maxDistance; distance++) {
             if (isLightBlocker(x, y + distance, z) && (self == null || !self.contains(x, y + distance, z))) {
                 float t = (distance - 1) / (float) SHADOW_FADE_DISTANCE;
-                float raw = SHADOW_DARKEST + (1.0F - SHADOW_DARKEST) * t;
-                return raw * this.skyAmbient;
+                return SHADOW_DARKEST + (1.0F - SHADOW_DARKEST) * t;
             }
         }
 
-        return this.skyAmbient;
+        return 1.0F;
+    }
+
+    /**
+     * Shadow * current ambient. For things that are drawn fresh every frame (billboards); chunk
+     * meshes use getSkyLight and let the shader apply the ambient.
+     */
+    public float getBrightness(int x, int y, int z) {
+        if (this.fullBright) {
+            return 1.0F;
+        }
+        return getSkyLight(x, y, z) * this.skyAmbient;
     }
 
     // ---------------------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import com.nikohalfkino.rubydung.level.LevelRenderer;
 import com.nikohalfkino.rubydung.level.Tiles.Tile;
 import com.nikohalfkino.rubydung.level.WorldManager;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
+import com.nikohalfkino.rubydung.util.SaveQueue;
 import com.nikohalfkino.rubydung.player.Player;
 import com.nikohalfkino.rubydung.player.PlayerInteraction;
 import org.lwjgl.input.Mouse;
@@ -59,6 +60,9 @@ public class GameSession {
     }
 
     private void enterWorld(String worldName, LevelGenerator.WorldType type, Long seed, int width, int height, int depth) {
+        // A background save of this world must be on disk before it is read back.
+        SaveQueue.flush();
+
         this.level = seed != null
                 ? new Level(worldName, width, height, depth, type, seed)
                 : new Level(worldName, width, height, depth, type);
@@ -88,19 +92,27 @@ public class GameSession {
     }
 
     public void loadWorld(String worldName) {
+        // A background save of this world must be on disk before it is read back.
+        SaveQueue.flush();
+
         int[] savedSize = WorldManager.loadWorldSize(worldName);
         int width = savedSize != null ? savedSize[0] : FALLBACK_SIZE.width;
         int height = savedSize != null ? savedSize[1] : FALLBACK_SIZE.height;
         int depth = savedSize != null ? savedSize[2] : FALLBACK_SIZE.depth;
 
-        LevelGenerator.WorldType worldType = LevelGenerator.WorldType.FLAT;
-        java.io.File levelFile = WorldManager.levelFile(worldName);
-        if (levelFile.isFile()) {
-            byte[] dummyBlocks = new byte[width * height * depth];
-            byte[] dummyData = new byte[width * height * depth];
-            LevelIO.SavedPosition pos = LevelIO.load(levelFile, dummyBlocks, dummyData);
-            if (pos.hasWorldType) {
-                worldType = pos.worldType;
+        LevelGenerator.WorldType worldType = WorldManager.loadWorldType(worldName);
+        if (worldType == null) {
+            // Save from before type.dat existed: read the type out of level.dat once. The next save
+            // writes type.dat, so this slow path only ever runs for old worlds.
+            worldType = LevelGenerator.WorldType.FLAT;
+            java.io.File levelFile = WorldManager.levelFile(worldName);
+            if (levelFile.isFile()) {
+                byte[] dummyBlocks = new byte[width * height * depth];
+                byte[] dummyData = new byte[width * height * depth];
+                LevelIO.SavedPosition pos = LevelIO.load(levelFile, dummyBlocks, dummyData);
+                if (pos.hasWorldType) {
+                    worldType = pos.worldType;
+                }
             }
         }
 
@@ -151,13 +163,27 @@ public class GameSession {
         Mouse.setGrabbed(true);
     }
 
+    /** Saves on the calling thread (quit, travelling through a door). */
     public void saveLevel() {
         if (!hasWorld()) {
             return;
         }
+        captureState();
+        this.level.save();
+    }
+
+    /** Saves with the GZIP + disk write on the save thread; onDone runs on that thread. */
+    public void saveLevelAsync(Runnable onDone) {
+        if (!hasWorld()) {
+            return;
+        }
+        captureState();
+        this.level.saveAsync(onDone);
+    }
+
+    private void captureState() {
         this.level.setPlayerPosition(this.player.x, this.player.y, this.player.z, this.player.yRotation, this.player.xRotation);
         this.level.setPlayerFlightState(this.player.flying, this.player.noClip, this.player.flySpeedMultiplier);
-        this.level.save();
     }
 
     public void dispose() {

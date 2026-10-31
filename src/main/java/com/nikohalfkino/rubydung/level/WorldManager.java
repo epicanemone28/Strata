@@ -25,6 +25,7 @@ public final class WorldManager {
     private static final String TIME_FILE_NAME = "time.dat";
     private static final String PALETTE_FILE_NAME = "palette.dat";
     private static final String MULTI_TILES_FILE_NAME = "multitiles.dat";
+    private static final String TYPE_FILE_NAME = "type.dat";
     private static final int MAX_NAME_LENGTH = 32;
 
     private WorldManager() {
@@ -191,6 +192,38 @@ public final class WorldManager {
             return origins;
         } catch (IOException e) {
             System.out.println("Warning: could not read multi-tiles for world \"" + worldName + "\": " + e.getMessage());
+            return null;
+        }
+    }
+
+    /** Saves the world type in a tiny file, so loading never has to decompress level.dat just to read it. */
+    public static void saveWorldType(String worldName, LevelGenerator.WorldType type) {
+        if (type == null) {
+            return;
+        }
+
+        File dir = new File(SAVES_DIR, worldName);
+        dir.mkdirs();
+
+        try (DataOutputStream dos = new DataOutputStream(new FileOutputStream(new File(dir, TYPE_FILE_NAME)))) {
+            dos.writeInt(type.ordinal());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /** The saved world type, or null for saves from before type.dat existed. */
+    public static LevelGenerator.WorldType loadWorldType(String worldName) {
+        File file = new File(new File(SAVES_DIR, worldName), TYPE_FILE_NAME);
+        if (!file.isFile()) {
+            return null;
+        }
+
+        try (DataInputStream dis = new DataInputStream(new FileInputStream(file))) {
+            int ordinal = dis.readInt();
+            LevelGenerator.WorldType[] types = LevelGenerator.WorldType.values();
+            return ordinal >= 0 && ordinal < types.length ? types[ordinal] : null;
+        } catch (IOException e) {
             return null;
         }
     }
