@@ -1,9 +1,9 @@
 package com.nikohalfkino.rubydung.util;
 
 public enum Axis {
-    X(Direction.NORTH),
+    X(Direction.WEST),
     Y(Direction.UP),
-    Z(Direction.EAST);
+    Z(Direction.NORTH);
 
     public final Direction positiveDirection;
 

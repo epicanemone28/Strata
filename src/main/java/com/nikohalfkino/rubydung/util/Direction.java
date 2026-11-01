@@ -1,15 +1,13 @@
 package com.nikohalfkino.rubydung.util;
 
-import java.util.Dictionary;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 public enum Direction {
 
-    NORTH("north",1,0,0, Axis.X),
-    SOUTH("south",-1,0,0, Axis.X),
-    EAST("east",0,0,1, Axis.Z),
-    WEST("west",0,0,-1, Axis.Z),
+    NORTH("north",0,0,1, Axis.Z),
+    EAST("east",-1,0,0, Axis.X),
+    SOUTH("south",0,0,-1, Axis.Z),
+    WEST("west",1,0,0, Axis.X),
     UP("up",0,1,0, Axis.Y),
     DOWN("down",0,-1,0, Axis.Y);
 
@@ -23,6 +21,38 @@ public enum Direction {
 
     public String getName() {
         return name;
+    }
+
+    static private Direction[] getRotationOrder(Axis axis){
+        switch(axis){
+            case X: return new Direction[]{NORTH, UP, SOUTH, DOWN};
+            case Y: return new Direction[]{EAST, SOUTH, WEST, NORTH};
+            case Z: return new Direction[]{EAST, DOWN, WEST, UP};
+            default: throw new RuntimeException("tried to rotate around a null axis!");
+        }
+    }
+
+    public Direction rotate(Axis axis,int offset) {
+        if(this.axis == axis) return this;
+
+        Direction[] order = getRotationOrder(axis);
+        for(int i = 0; i<order.length; i++){
+            if(order[i]==this) return order[Math.floorMod(i+offset,4)];
+        }
+
+        return this;
+    }
+
+    public Direction getOpposite(){
+        switch (this){
+            case WEST: return EAST;
+            case EAST: return WEST;
+            case NORTH: return SOUTH;
+            case SOUTH: return NORTH;
+            case UP: return DOWN;
+            case DOWN: return UP;
+            default: throw new RuntimeException("tried to get the opposite of a null direction!");
+        }
     }
 
     public static Direction fromName(String name){
@@ -47,6 +77,10 @@ public enum Direction {
         for(Direction d : Direction.values()){
             allDirs.put(d.name, d);
         }
+    }
+
+    public boolean isPositive() {
+        return (this.x+this.y+this.z)>0;
     }
 
 

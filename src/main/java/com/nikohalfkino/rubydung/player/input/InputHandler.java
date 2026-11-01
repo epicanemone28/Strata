@@ -6,6 +6,7 @@ import com.nikohalfkino.rubydung.interfaces.screen.PauseScreen;
 import com.nikohalfkino.rubydung.interfaces.Screen;
 import com.nikohalfkino.rubydung.level.Tiles.Tile;
 import com.nikohalfkino.rubydung.player.Player;
+import com.nikohalfkino.rubydung.util.Axis;
 import com.nikohalfkino.rubydung.util.KeyBinding;
 import com.nikohalfkino.rubydung.util.KeyMap;
 import org.lwjgl.input.Keyboard;

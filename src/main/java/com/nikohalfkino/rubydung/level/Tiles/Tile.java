@@ -5,14 +5,11 @@ import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Tessellator;
 import com.nikohalfkino.rubydung.render.Textures;
+import com.nikohalfkino.rubydung.util.Axis;
 import com.nikohalfkino.rubydung.util.Direction;
 import com.nikohalfkino.rubydung.util.Registry;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Tile {
 
@@ -150,7 +147,11 @@ public class Tile {
     private boolean isSolid = true;
     private boolean isTransparent = false;
 
-    public Model model;
+    private Model baseModel;
+
+    public Model getModel(){
+        return this.baseModel;
+    }
 
     public Tile(String name) {
         this(name, name);
@@ -162,8 +163,8 @@ public class Tile {
 
         setTexture(defaultTextureName);
 
-        this.model = new Model(name);
-        this.model.addSimplestCube(0,0,0,16,16,16,"rubydung:block/"+defaultTextureName);
+        this.baseModel = new Model(name);
+        this.baseModel.addSimplestCube(0,0,0,16,16,16,"rubydung:block/"+defaultTextureName);
 
         BY_NAME.put(name, this);
     }
@@ -203,8 +204,7 @@ public class Tile {
     }
 
     public Tile setModel(String path){
-
-        this.model = Model.fromAsset(AssetPath.parse(path).asModelPath());
+        this.baseModel = Model.fromAsset(AssetPath.parse(path).asModelPath());
         return this;
     }
 
@@ -284,10 +284,14 @@ public class Tile {
         render(tessellator, level, layer, x, y, z, blockAtlas, 0);
     }
 
+    public ArrayList<Axis> rotations = new ArrayList<>();
+
     public void render(Tessellator tessellator, Level level, int layer, int x, int y, int z, TextureAtlas blockAtlas, int direction) {
         float shadeX = 0.6f;
         float shadeY = 1.0f;
         float shadeZ = 0.8f;
+
+        Model model = getModel();
 
         float minX = x + 0.0F;
         float maxX = x + 1.0F;
@@ -297,6 +301,9 @@ public class Tile {
         float maxZ = z + 1.0F;
 
         for(ModelElement e : model.elements){
+
+            for(Axis axis : rotations) e = e.rotatedCopy(axis);
+
             int i = 0;
             for(ModelFace face : e.faces){
                 Direction d = face.direction;
@@ -341,13 +348,13 @@ public class Tile {
                     tessellator.color(brightness,brightness,brightness);
                     float[][] verts = face.getQuadFromCube(e,minX,minY,minZ);
                     tessellator.texture(maxU, maxV);
-                    tessellator.vertex(verts[0]);
+                    tessellator.vertex(verts[Math.floorMod(0+face.rotation,4)]);
                     tessellator.texture(maxU, minV);
-                    tessellator.vertex(verts[1]);
+                    tessellator.vertex(verts[Math.floorMod(1+face.rotation,4)]);
                     tessellator.texture(minU, minV);
-                    tessellator.vertex(verts[2]);
+                    tessellator.vertex(verts[Math.floorMod(2+face.rotation,4)]);
                     tessellator.texture(minU, maxV);
-                    tessellator.vertex(verts[3]);
+                    tessellator.vertex(verts[Math.floorMod(3+face.rotation,4)]);
                 }
             }
         }
