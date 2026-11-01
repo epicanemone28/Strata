@@ -97,6 +97,9 @@ public final class TileRegistry {
     public static final Tile PLANKS = register(new Tile("planks"));
     public static final Tile WOOD   = register(new Tile("wood"));
 
+    // Bottom and top half are two states of one tile: assets/rubydung/blockstates/wood_slab.toml
+    public static final Tile WOOD_SLAB = register(new SlabTile("wood_slab"));
+
     // glass & lighting
     public static final Tile GLASS = register(
             new Tile("glass").setTransparent(true).setSelfCullAll()

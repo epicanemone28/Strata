@@ -95,6 +95,26 @@ public final class Face {
         for (int i = 0; i < turnsZ; i++) quarterTurn(p, 2);
     }
 
+    /**
+     * Rotates a box {minX, minY, minZ, maxX, maxY, maxZ} (in blocks, cell = 0..1) about the cell
+     * centre, with the same turns and order as {@link #rotate(double[], int, int, int)}.
+     */
+    static float[] rotateBox(float[] box, int turnsX, int turnsY, int turnsZ) {
+        if (turnsX == 0 && turnsY == 0 && turnsZ == 0) {
+            return box;
+        }
+        double[] a = {box[0] - 0.5, box[1] - 0.5, box[2] - 0.5};
+        double[] b = {box[3] - 0.5, box[4] - 0.5, box[5] - 0.5};
+        rotate(a, turnsX, turnsY, turnsZ);
+        rotate(b, turnsX, turnsY, turnsZ);
+        float[] out = new float[6];
+        for (int i = 0; i < 3; i++) {
+            out[i] = (float) (Math.min(a[i], b[i]) + 0.5);
+            out[i + 3] = (float) (Math.max(a[i], b[i]) + 0.5);
+        }
+        return out;
+    }
+
     /** The face a face ends up as after the rotations. */
     static int rotate(int face, int turnsX, int turnsY, int turnsZ) {
         double[] v = {NORMALS[face][0], NORMALS[face][1], NORMALS[face][2]};

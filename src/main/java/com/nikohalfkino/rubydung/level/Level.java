@@ -376,8 +376,10 @@ public class Level {
         return tile != null && tile.isSolid();
     }
 
+    /** Whether the cell casts a sky shadow on the cells below it (not true for glass, grates...). */
     public boolean isLightBlocker(final int x, final int y, final int z) {
-        return this.isSolidTile(x, y, z);
+        Tile tile = Tile.byId(getTile(x, y, z));
+        return tile != null && tile.castsShadow();
     }
 
     /**
@@ -646,10 +648,7 @@ public class Level {
                 for (int z = minZ; z < maxZ; z++) {
                     Tile tile = Tile.byId(getTile(x, y, z));
                     if (tile != null && tile != Tile.AIR) {
-                        AABB tileBox = tile.getAABB(x, y, z);
-                        if (tileBox != null) {
-                            boundingBoxList.add(tileBox);
-                        }
+                        boundingBoxList.addAll(tile.getCollisionBoxes(this, x, y, z));
                     }
                 }
             }

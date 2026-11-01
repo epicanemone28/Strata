@@ -1,0 +1,29 @@
+# Wood slab: one tile, three states.
+# - bottom (data 0): lower half
+# - top    (data 1): upper half
+# - both   (data 2): full double-slab (two halves stacked)
+# Collision and the selection box come from the elements.
+
+[textures]
+all = "planks"
+
+[properties]
+half = ["bottom", "top", "both"]
+
+[[state]]
+condition = { half = "bottom" }
+model     = "&_bottom"
+elements  = [ { from = [0, 0, 0], to = [16, 8, 16], faces = { down = { texture = "#all", cullface = "down" }, up = { texture = "#all" }, north = { texture = "#all", cullface = "north" }, south = { texture = "#all", cullface = "south" }, west = { texture = "#all", cullface = "west" }, east = { texture = "#all", cullface = "east" } } } ]
+
+[[state]]
+condition = { half = "top" }
+model     = "&_top"
+elements  = [ { from = [0, 8, 0], to = [16, 16, 16], faces = { down = { texture = "#all" }, up = { texture = "#all", cullface = "up" }, north = { texture = "#all", cullface = "north" }, south = { texture = "#all", cullface = "south" }, west = { texture = "#all", cullface = "west" }, east = { texture = "#all", cullface = "east" } } } ]
+
+[[state]]
+condition = { half = "both" }
+model     = "&_both"
+elements  = [
+    { from = [0, 0, 0], to = [16, 8, 16], faces = { down = { texture = "#all", cullface = "down" }, up = { texture = "#all" }, north = { texture = "#all", cullface = "north" }, south = { texture = "#all", cullface = "south" }, west = { texture = "#all", cullface = "west" }, east = { texture = "#all", cullface = "east" } } },
+    { from = [0, 8, 0], to = [16, 16, 16], faces = { down = { texture = "#all" }, up = { texture = "#all", cullface = "up" }, north = { texture = "#all", cullface = "north" }, south = { texture = "#all", cullface = "south" }, west = { texture = "#all", cullface = "west" }, east = { texture = "#all", cullface = "east" } } }
+]

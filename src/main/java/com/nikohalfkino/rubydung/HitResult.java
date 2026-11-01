@@ -1,5 +1,7 @@
 package com.nikohalfkino.rubydung;
 
+import com.nikohalfkino.rubydung.phys.AABB;
+
 public class HitResult {
 
     public int x;
@@ -17,6 +19,32 @@ public class HitResult {
     public int cellX;
     public int cellY;
     public int cellZ;
+
+    /**
+     * Where exactly the ray struck the tile, in world coordinates. Only set (hasPoint) when the
+     * picker produced the hit; a plain cell-stepping hit leaves these at 0.
+     */
+    public boolean hasPoint;
+    public double hitX;
+    public double hitY;
+    public double hitZ;
+
+    /**
+     * The part of the tile that was struck, in world coordinates: the whole cell for a cube, the
+     * slab itself, the one step of a staircase. Null when unknown (the overlay then falls back to
+     * the tile's outline box).
+     */
+    public AABB hitBox;
+
+    /** Records the exact hit point and the box that was struck. Returns this, for chaining. */
+    public HitResult withPoint(double hitX, double hitY, double hitZ, AABB hitBox) {
+        this.hasPoint = true;
+        this.hitX = hitX;
+        this.hitY = hitY;
+        this.hitZ = hitZ;
+        this.hitBox = hitBox;
+        return this;
+    }
 
     public HitResult(int x, int y, int z, int type, int face) {
         this(x, y, z, type, face, x, y, z);

@@ -13,10 +13,72 @@ public final class BakedModel {
 
     private final List<BakedQuad> quads;
     private final boolean fullCube;
+    private final List<float[]> collision;
 
+    /** Collision boxes default to the bounds of the quads. */
     BakedModel(List<BakedQuad> quads) {
+        this(quads, null);
+    }
+
+    /**
+     * @param collision boxes {minX, minY, minZ, maxX, maxY, maxZ} in blocks (the cell is 0..1), already
+     *                  rotated like the quads. Empty = nothing to collide with; null = bounds of the quads.
+     */
+    BakedModel(List<BakedQuad> quads, List<float[]> collision) {
         this.quads = Collections.unmodifiableList(new ArrayList<>(quads));
         this.fullCube = computeFullCube(quads);
+
+        List<float[]> boxes = new ArrayList<>();
+        if (collision != null) {
+            for (float[] box : collision) {
+                boxes.add(box.clone());
+            }
+        } else if (!quads.isEmpty()) {
+            boxes.add(boundsOf(quads));
+        }
+        this.collision = Collections.unmodifiableList(boxes);
+    }
+
+    /** The same quads with other collision boxes (a blockstate's own "collision"). */
+    BakedModel withCollision(List<float[]> boxes) {
+        return new BakedModel(this.quads, boxes);
+    }
+
+    /** The boxes entities collide with: {minX, minY, minZ, maxX, maxY, maxZ}, in blocks relative to the cell corner. Do not modify. */
+    public List<float[]> collisionBoxes() {
+        return this.collision;
+    }
+
+    /**
+     * The box of the selection outline: the hull of the collision boxes, or of the quads when there
+     * is nothing to collide with (so a walk-through model can still be pointed at).
+     */
+    public float[] outlineBox() {
+        if (this.collision.isEmpty()) {
+            return this.quads.isEmpty() ? new float[]{0, 0, 0, 1, 1, 1} : boundsOf(this.quads);
+        }
+        float[] hull = this.collision.get(0).clone();
+        for (float[] box : this.collision) {
+            for (int i = 0; i < 3; i++) {
+                hull[i] = Math.min(hull[i], box[i]);
+                hull[i + 3] = Math.max(hull[i + 3], box[i + 3]);
+            }
+        }
+        return hull;
+    }
+
+    private static float[] boundsOf(List<BakedQuad> quads) {
+        float[] box = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+        for (BakedQuad quad : quads) {
+            for (int v = 0; v < 4; v++) {
+                for (int a = 0; a < 3; a++) {
+                    float value = quad.positions[v * 3 + a];
+                    box[a] = Math.min(box[a], value);
+                    box[a + 3] = Math.max(box[a + 3], value);
+                }
+            }
+        }
+        return box;
     }
 
     public List<BakedQuad> quads() {

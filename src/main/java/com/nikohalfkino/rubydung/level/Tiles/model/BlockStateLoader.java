@@ -30,7 +30,14 @@ import java.util.Set;
  * parent    = "block/cube_column"   # optional: define that model right here, extending this one
  * textures  = { side = "other" }    # optional per-state overrides
  * transform = { rx = 90 }           # optional: rx, ry, rz (multiples of 90, x then y then z), uvlock
+ * collision = [[0,0,0, 16,8,16]]    # optional: the boxes (in sixteenths) entities collide with
  * </pre>
+ *
+ * <h3>Collision</h3>
+ * Without a {@code collision} key a state collides with its model's {@code "collision"} boxes, or
+ * if the model has none, with its elements (a slab model is a half-height cube, so a slab needs
+ * nothing extra). A state's boxes are written like the model's, before the transform, and turn with
+ * it. {@code collision = []} makes the state walk-through.
  *
  * <h3>Implicit models</h3>
  * A state that gives a {@code parent} (or its own {@code elements}) defines its model inline, so
@@ -55,7 +62,7 @@ public final class BlockStateLoader {
     private static final int MAX_PARENT_DEPTH = 8;
 
     private static final Set<String> STATE_KEYS = new HashSet<>(
-            Arrays.asList("condition", "model", "parent", "textures", "elements", "transform"));
+            Arrays.asList("condition", "model", "parent", "textures", "elements", "transform", "collision"));
     private static final Set<String> TRANSFORM_KEYS = new HashSet<>(
             Arrays.asList("rx", "ry", "rz", "uvlock"));
 
@@ -267,6 +274,9 @@ public final class BlockStateLoader {
         if (state.get("elements") != null && !(state.get("elements") instanceof List)) {
             throw new ModelException("'elements' must be a list of tables");
         }
+        if (state.get("collision") != null) {
+            ModelLoader.parseBoxes(state.get("collision"), "collision");
+        }
         checkCondition(state.get("condition"), properties);
     }
 
@@ -390,6 +400,18 @@ public final class BlockStateLoader {
         if (cached == null) {
             cached = this.models.bake(modelId, definition, textures, rx, ry, rz, uvLock);
             cache.put(key, cached);
+        }
+
+        // The state's own collision boxes replace the model's, and turn with the model.
+        if (state.get("collision") != null) {
+            int tx = ModelLoader.turns(rx);
+            int ty = ModelLoader.turns(ry);
+            int tz = ModelLoader.turns(rz);
+            List<float[]> boxes = new ArrayList<>();
+            for (float[] box : ModelLoader.parseBoxes(state.get("collision"), "collision")) {
+                boxes.add(Face.rotateBox(box, tx, ty, tz));
+            }
+            return cached.withCollision(boxes);
         }
         return cached;
     }

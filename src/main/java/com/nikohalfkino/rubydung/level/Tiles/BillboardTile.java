@@ -183,8 +183,20 @@ public abstract class BillboardTile extends Tile {
     public void renderBillboardBatched(Tessellator tessellator, Level level, int x, int y, int z, int totalAtlasSlots,
                                        float worldX, float worldY, float worldZ,
                                        float cosYaw, float sinYaw, float scale) {
+        renderBillboardBatched(tessellator, level, x, y, z, totalAtlasSlots,
+                worldX, worldY, worldZ, cosYaw, sinYaw, scale, -1.0F, 1.0F);
+    }
+
+    /**
+     * @param brightnessOverride the colour to draw the sprite in, or negative for the normal lighting
+     * @param alpha              1 for the normal sprite; less for the selection blink
+     */
+    public void renderBillboardBatched(Tessellator tessellator, Level level, int x, int y, int z, int totalAtlasSlots,
+                                       float worldX, float worldY, float worldZ,
+                                       float cosYaw, float sinYaw, float scale,
+                                       float brightnessOverride, float alpha) {
         // Light-emitting billboards (e.g. lampposts) are fullbright.
-        float brightness = spriteBrightness(level, x, y, z);
+        float brightness = brightnessOverride >= 0.0F ? brightnessOverride : spriteBrightness(level, x, y, z);
 
         int slot = getAtlasSlot(FACE_NORTH);
         float minU = slot / (float) totalAtlasSlots;
@@ -203,21 +215,21 @@ public abstract class BillboardTile extends Tile {
         float quadHeight = getSpriteSize();
         float half = quadHeight / 2.0F;
 
-        putVertex(tessellator, -half, quadHeight, minU, minV, brightness, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
-        putVertex(tessellator, half, quadHeight, maxU, minV, brightness, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
-        putVertex(tessellator, half, 0.0F, maxU, maxV, brightness, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
-        putVertex(tessellator, -half, 0.0F, minU, maxV, brightness, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
+        putVertex(tessellator, -half, quadHeight, minU, minV, brightness, alpha, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
+        putVertex(tessellator, half, quadHeight, maxU, minV, brightness, alpha, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
+        putVertex(tessellator, half, 0.0F, maxU, maxV, brightness, alpha, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
+        putVertex(tessellator, -half, 0.0F, minU, maxV, brightness, alpha, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
 
-        putVertex(tessellator, half, quadHeight, minU, minV, brightness, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
-        putVertex(tessellator, -half, quadHeight, maxU, minV, brightness, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
-        putVertex(tessellator, -half, 0.0F, maxU, maxV, brightness, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
-        putVertex(tessellator, half, 0.0F, minU, maxV, brightness, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
+        putVertex(tessellator, half, quadHeight, minU, minV, brightness, alpha, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
+        putVertex(tessellator, -half, quadHeight, maxU, minV, brightness, alpha, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
+        putVertex(tessellator, -half, 0.0F, maxU, maxV, brightness, alpha, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
+        putVertex(tessellator, half, 0.0F, minU, maxV, brightness, alpha, worldX, worldY, worldZ, cosYaw, sinYaw, scale);
     }
 
     private static void putVertex(Tessellator tessellator, float localX, float localY, float u, float v,
-                                  float brightness, float worldX, float worldY, float worldZ,
+                                  float brightness, float alpha, float worldX, float worldY, float worldZ,
                                   float cosYaw, float sinYaw, float scale) {
-        tessellator.color(brightness, brightness, brightness, 1.0F);
+        tessellator.color(brightness, brightness, brightness, alpha);
         tessellator.texture(u, v);
 
         float sx = localX * scale;

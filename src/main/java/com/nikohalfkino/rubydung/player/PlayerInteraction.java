@@ -1,6 +1,7 @@
 package com.nikohalfkino.rubydung.player;
 
 import com.nikohalfkino.rubydung.HitResult;
+import com.nikohalfkino.rubydung.level.TilePicker;
 import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.level.Tiles.DimensionalDoorTile;
 import com.nikohalfkino.rubydung.level.Tiles.RotatableTile;
@@ -78,6 +79,27 @@ public class PlayerInteraction {
 
     private HitResult hitResult;
 
+    /** Where in the cell being placed into the player pointed (fractions 0..1; NaN = unknown). */
+    private double placeFx = Double.NaN;
+    private double placeFy = Double.NaN;
+    private double placeFz = Double.NaN;
+
+    private void aimPlacement(HitResult hit, int x, int y, int z) {
+        if (hit.hasPoint) {
+            this.placeFx = hit.hitX - x;
+            this.placeFy = hit.hitY - y;
+            this.placeFz = hit.hitZ - z;
+        } else {
+            clearPlacementAim();
+        }
+    }
+
+    private void clearPlacementAim() {
+        this.placeFx = Double.NaN;
+        this.placeFy = Double.NaN;
+        this.placeFz = Double.NaN;
+    }
+
     private Tile selectedTile = Tile.GRASS;
 
     public PlayerInteraction(Level level, Player player) {
@@ -90,6 +112,8 @@ public class PlayerInteraction {
     }
 
     public void setHitResult(HitResult hitResult) {
+        // Exact hit point, box and face on partial blocks (slabs, stairs), before anything uses the hit.
+        TilePicker.refine(this.level, hitResult);
         this.hitResult = hitResult;
 
         if (hitResult == null) {
@@ -185,6 +209,15 @@ public class PlayerInteraction {
     // Breaking
 
     private void breakAt(HitResult hit) {
+        Tile tile = Tile.byId(this.level.getTile(hit.x, hit.y, hit.z));
+        if (tile != null) {
+            int result = tile.getBreakResult(this.level, hit.x, hit.y, hit.z, hit.hitBox);
+            if (result >= 0) {
+                // Partial break: downgrade to surviving state (e.g. double slab → single half).
+                this.level.setTile(hit.x, hit.y, hit.z, tile.id, result);
+                return;
+            }
+        }
         this.level.setTile(hit.x, hit.y, hit.z, 0);
     }
 
@@ -311,7 +344,7 @@ public class PlayerInteraction {
     /** Axis data for rotatable tiles, based on the face they were placed against (0 = Y, 1 = Z, 2 = X). */
     private int axisForFace(int face) {
         if (!(this.selectedTile instanceof RotatableTile)) {
-            return 0;
+            return this.selectedTile.getPlacementData(face, this.placeFx, this.placeFy, this.placeFz);
         }
 
         if (face == 2 || face == 3) return 1;
@@ -319,13 +352,19 @@ public class PlayerInteraction {
         return 0;
     }
 
-    private boolean intersectsPlayer(int x, int y, int z) {
-        AABB box = this.selectedTile.getAABB(x, y, z);
-        if (box == null) {
-            box = new AABB(x, y, z, x + 1, y + 1, z + 1);
+    private boolean intersectsPlayer(int x, int y, int z, int data) {
+        List<AABB> boxes = this.selectedTile.getCollisionBoxes(x, y, z, data);
+        if (boxes.isEmpty() && this.selectedTile.getAABB(x, y, z) == null) {
+            // Keep the old behaviour: a tile without a box counts as filling the cell.
+            boxes = java.util.Collections.singletonList(new AABB(x, y, z, x + 1, y + 1, z + 1));
         }
 
-        return box.intersects(this.player.boundingBox);
+        for (AABB box : boxes) {
+            if (box.intersects(this.player.boundingBox)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether any cell the selected tile would occupy overlaps the player (rotation matters for non-square footprints). */
@@ -337,7 +376,7 @@ public class PlayerInteraction {
         for (int cx = x; cx < x + sizeX; cx++) {
             for (int cy = y; cy < y + sizeY; cy++) {
                 for (int cz = z; cz < z + sizeZ; cz++) {
-                    if (intersectsPlayer(cx, cy, cz)) {
+                    if (intersectsPlayer(cx, cy, cz, rotation)) {
                         return true;
                     }
                 }
@@ -358,7 +397,7 @@ public class PlayerInteraction {
             return true;
         }
 
-        if (intersectsPlayer(x, y, z)) {
+        if (intersectsPlayer(x, y, z, axisForFace(face))) {
             return false;
         }
 
@@ -387,10 +426,43 @@ public class PlayerInteraction {
         int y = hit.cellY + normal[1];
         int z = hit.cellZ + normal[2];
 
-        if (!inWorld(x, y, z) || this.level.getTile(x, y, z) != 0) {
+        if (!inWorld(x, y, z)) {
             return false;
         }
-        if (!placeTile(x, y, z, hit.face)) {
+
+        // Before a normal placement, try merging into an already-occupied cell (e.g. upgrading a
+        // single slab to a double slab when the complementary half is placed against it).
+        if (this.level.getTile(x, y, z) != 0) {
+            aimPlacement(hit, x, y, z);
+            boolean merged;
+            try {
+                merged = this.selectedTile.tryMergePlacement(
+                        this.level, x, y, z,
+                        hit.face, this.placeFx, this.placeFy, this.placeFz);
+            } finally {
+                clearPlacementAim();
+            }
+            if (!merged) {
+                return false; // cell occupied and no merge possible
+            }
+            // Merge succeeded — account for the placement.
+            this.buildBudget = Math.max(0.0, this.buildBudget - 1.0);
+            this.acted = true;
+            this.buildActive = true;
+            this.buildFace = hit.face;
+            this.buildPlane = axisValue(x, y, z, hit.face);
+            this.placedCells.add(cellKey(x, y, z));
+            return true;
+        }
+
+        boolean placed;
+        aimPlacement(hit, x, y, z);
+        try {
+            placed = placeTile(x, y, z, hit.face);
+        } finally {
+            clearPlacementAim();
+        }
+        if (!placed) {
             return false;
         }
 
@@ -478,7 +550,9 @@ public class PlayerInteraction {
             return false;
         }
 
+        aimPlacement(hit, hit.cellX, hit.cellY, hit.cellZ);
         int newData = axisForFace(hit.face);
+        clearPlacementAim();
 
         // Already the same block: nothing to do.
         if (this.level.getTile(hit.x, hit.y, hit.z) == this.selectedTile.id
@@ -490,7 +564,7 @@ public class PlayerInteraction {
             return replaceWithMultiTile(hit);
         }
 
-        if (intersectsPlayer(hit.x, hit.y, hit.z)) {
+        if (intersectsPlayer(hit.x, hit.y, hit.z, newData)) {
             return false;
         }
 

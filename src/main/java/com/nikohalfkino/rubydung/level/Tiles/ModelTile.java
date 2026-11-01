@@ -7,11 +7,14 @@ import com.nikohalfkino.rubydung.level.Tiles.model.BlockStateDef;
 import com.nikohalfkino.rubydung.level.Tiles.model.BlockStateLoader;
 import com.nikohalfkino.rubydung.level.Tiles.model.Face;
 import com.nikohalfkino.rubydung.level.Tiles.model.ModelSource;
+import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Tessellator;
 import com.nikohalfkino.rubydung.render.Textures;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -65,6 +68,39 @@ public class ModelTile extends Tile {
     @Override
     public boolean occludesNeighbours() {
         return this.blockState.isFullCube();
+    }
+
+    // -------------------------------------------------------------------------
+    // Shape
+
+    /** The collision boxes of the cell's current state (slab, stairs...), in world coordinates. */
+    @Override
+    public List<AABB> getCollisionBoxes(int x, int y, int z, int data) {
+        List<AABB> boxes = new ArrayList<>();
+        if (!isSolid()) {
+            return boxes;
+        }
+        for (float[] b : this.blockState.state(data).collisionBoxes()) {
+            boxes.add(new AABB(x + b[0], y + b[1], z + b[2], x + b[3], y + b[4], z + b[5]));
+        }
+        return boxes;
+    }
+
+    /** Rays are tested against the state's real shape (each step of a staircase, the half of a slab). */
+    @Override
+    public List<AABB> getPickBoxes(Level level, int x, int y, int z) {
+        List<AABB> boxes = getCollisionBoxes(level, x, y, z);
+        if (boxes.isEmpty()) {
+            boxes.add(getOutlineAABB(level, x, y, z));
+        }
+        return boxes;
+    }
+
+    /** The selection outline follows the state's shape. */
+    @Override
+    public AABB getOutlineAABB(Level level, int x, int y, int z) {
+        float[] b = this.blockState.state(level.getData(x, y, z)).outlineBox();
+        return new AABB(x + b[0], y + b[1], z + b[2], x + b[3], y + b[4], z + b[5]);
     }
 
     // -------------------------------------------------------------------------
@@ -124,7 +160,12 @@ public class ModelTile extends Tile {
             float sky = 1.0F;
             if (!emissive && !fullBright) {
                 sky = level.getSkyLight(lx, ly, lz);
-                if (inside) {
+                // A quad inside the cell is also lit by the cell itself. Not so for a downward-facing
+                // quad of a shadow-casting tile (the underside of a top slab): the cell's own sky
+                // light only looks at what lies ABOVE the cell, and knows nothing of this tile, so it
+                // would read as open sky and cancel the shadow the tile casts on that very quad.
+                boolean shadowedUnderside = inside && quad.lightFace == FACE_BOTTOM && castsShadow();
+                if (inside && !shadowedUnderside) {
                     sky = Math.max(sky, level.getSkyLight(x, y, z));
                 }
             }

@@ -1,5 +1,6 @@
 package com.nikohalfkino.rubydung.level.Tiles;
 
+import com.nikohalfkino.rubydung.HitResult;
 import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Tessellator;
@@ -65,6 +66,7 @@ public class Tile {
     public static final Tile LOG               = TileRegistry.LOG;
     public static final Tile PLANKS            = TileRegistry.PLANKS;
     public static final Tile WOOD              = TileRegistry.WOOD;
+    public static final Tile WOOD_SLAB         = TileRegistry.WOOD_SLAB;
 
     public static final Tile GLASS             = TileRegistry.GLASS;
     public static final Tile LAMP              = TileRegistry.LAMP;
@@ -91,6 +93,9 @@ public class Tile {
 
     private boolean isSolid      = true;
     private boolean isTransparent = false;
+
+    /** null = decide from the tile's other flags (see castsShadow). */
+    private Boolean castsShadow = null;
 
     /** Whether the player can place this tile (false keeps it out of the tile selector). */
     private boolean placeable = true;
@@ -137,9 +142,66 @@ public class Tile {
         return false;
     }
 
+    /**
+     * The data byte a freshly placed tile gets, given the face of the neighbour it was placed
+     * against (FACE_*). 0 for ordinary tiles; slabs pick their half here.
+     */
+    public int getPlacementData(int face) {
+        return 0;
+    }
+
+    /**
+     * Same, but also given where in the target cell the player pointed, as a fraction 0..1 per axis
+     * (NaN when unknown): a slab uses the height to choose its half.
+     */
+    public int getPlacementData(int face, double fractionX, double fractionY, double fractionZ) {
+        return getPlacementData(face);
+    }
+
     /** Whether the interact key does something when aimed at this tile (shows the "[E] Interact" prompt). */
     public boolean isInteractable() {
         return false;
+    }
+
+    /**
+     * Called before normal placement when the target cell (x, y, z) is already occupied by this
+     * tile. Return {@code true} if placement was handled (e.g. a bottom slab upgrading to a double
+     * slab) — the caller will not attempt a normal place. Return {@code false} to let the caller
+     * treat the occupied cell as a no-op (the default).
+     *
+     * <p>fractionX/Y/Z are the hit-point fractions (0..1) inside the target cell, or NaN when
+     * unknown. face is the face of the neighbour that was clicked (the face the player aimed at).
+     */
+    public boolean tryMergePlacement(Level level, int x, int y, int z,
+                                     int face, double fractionX, double fractionY, double fractionZ) {
+        return false;
+    }
+
+    /**
+     * The one call placement should make before it places anything: given the full hit, merge into
+     * an existing cell if this tile can. The default tries only the cell next to the clicked face
+     * (the old behaviour); partial tiles such as slabs override it to also look at the clicked cell
+     * itself.
+     *
+     * @return true if the placement was handled (the caller must not place anything else and
+     *         should still consume the item / play the sound)
+     */
+    public boolean tryMergePlacement(Level level, HitResult hit,
+                                     double fractionX, double fractionY, double fractionZ) {
+        int[] n = FACE_NORMALS[hit.face];
+        return tryMergePlacement(level, hit.cellX + n[0], hit.cellY + n[1], hit.cellZ + n[2],
+                hit.face, fractionX, fractionY, fractionZ);
+    }
+
+    /**
+     * Called when the player breaks the tile at (x, y, z). Return the data byte the cell should
+     * be set to (leaving the tile in place with new data, e.g. downgrading a double slab to a
+     * single half), or -1 to remove the tile entirely (the default).
+     *
+     * <p>hitBox is the specific sub-box the ray struck (may be null when unknown).
+     */
+    public int getBreakResult(Level level, int x, int y, int z, AABB hitBox) {
+        return -1;
     }
 
     public void renderBillboard(Tessellator tessellator, Level level, int x, int y, int z, int totalAtlasSlots) {
@@ -154,6 +216,41 @@ public class Tile {
 
     public AABB getPickAABB(int x, int y, int z) {
         return getAABB(x, y, z);
+    }
+
+    /**
+     * The boxes entities collide with, in world coordinates. Unlike getAABB this knows the level, so
+     * a tile whose shape depends on its data byte (slab, stairs) can answer per cell. Empty = walk through.
+     */
+    public List<AABB> getCollisionBoxes(Level level, int x, int y, int z) {
+        return getCollisionBoxes(x, y, z, level.getData(x, y, z));
+    }
+
+    /**
+     * Same, for an explicit data byte: for a tile that isn't placed yet (is the spot free of the
+     * player?), where the cell still holds air.
+     */
+    public List<AABB> getCollisionBoxes(int x, int y, int z, int data) {
+        AABB box = getAABB(x, y, z);
+        return box == null ? Collections.<AABB>emptyList() : Collections.singletonList(box);
+    }
+
+    /**
+     * The boxes a ray is tested against when picking this cell, in world coordinates. A ray that
+     * passes through none of them goes on to the next cell. Defaults to the pick box (or the whole
+     * cell if there is none).
+     */
+    public List<AABB> getPickBoxes(Level level, int x, int y, int z) {
+        AABB box = getPickAABB(x, y, z);
+        if (box == null) {
+            box = new AABB(x, y, z, x + 1.0F, y + 1.0F, z + 1.0F);
+        }
+        return Collections.singletonList(box);
+    }
+
+    /** The box drawn as the selection outline of this cell (data-aware); defaults to getPickAABB. */
+    public AABB getOutlineAABB(Level level, int x, int y, int z) {
+        return getPickAABB(x, y, z);
     }
 
     public Tile setTexture(String textureName) {
@@ -305,6 +402,23 @@ public class Tile {
 
     public int getSizeZ(int rotation) {
         return (rotation & 1) == 0 ? this.footprintZ : this.footprintX;
+    }
+
+    /**
+     * Whether this tile darkens the cells below it (the sky shadow). By default only solid,
+     * non-transparent tiles do, so glass and grates let the light through. Override per tile with
+     * setCastsShadow.
+     */
+    public boolean castsShadow() {
+        if (this.castsShadow != null) {
+            return this.castsShadow;
+        }
+        return this.isSolid && !this.isTransparent;
+    }
+
+    public Tile setCastsShadow(boolean castsShadow) {
+        this.castsShadow = castsShadow;
+        return this;
     }
 
     /** Whether this tile stops light emitted by other tiles from passing through. */

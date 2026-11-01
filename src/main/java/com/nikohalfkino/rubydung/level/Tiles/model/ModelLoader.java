@@ -40,6 +40,8 @@ public final class ModelLoader {
     private static final class Resolved {
         final Map<String, String> textures = new LinkedHashMap<>();
         List<Object> elements = new ArrayList<>();
+        /** The model's own "collision" boxes (in sixteenths), or null to derive them from the elements. */
+        List<Object> collision = null;
     }
 
     // -------------------------------------------------------------------------
@@ -157,6 +159,7 @@ public final class ModelLoader {
             Resolved parentModel = resolve(qualify((String) parent), depth + 1);
             model.textures.putAll(parentModel.textures);
             model.elements = parentModel.elements;
+            model.collision = parentModel.collision;
         }
 
         Object textures = json.get("textures");
@@ -173,6 +176,15 @@ public final class ModelLoader {
             @SuppressWarnings("unchecked")
             List<Object> list = (List<Object>) elements;
             model.elements = list;
+        }
+
+        Object collision = json.get("collision");
+        if (collision instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Object> list = (List<Object>) collision;
+            model.collision = list;
+        } else if (collision != null) {
+            throw new ModelException("'collision' must be a list of boxes [x1, y1, z1, x2, y2, z2]");
         }
 
         return model;
@@ -218,7 +230,60 @@ public final class ModelLoader {
         for (Object element : model.elements) {
             bakeElement(asObject(element, "element"), textures, turnsX, turnsY, turnsZ, uvLock, quads);
         }
-        return new BakedModel(quads);
+
+        // Entities collide with the model's "collision" boxes if it has them; otherwise with its
+        // elements. Rotated elements (crossed planes, etc.) and flat ones have no volume to hit.
+        List<float[]> boxes = new ArrayList<>();
+        if (model.collision != null) {
+            boxes.addAll(parseBoxes(model.collision, "collision"));
+        } else {
+            for (Object element : model.elements) {
+                Map<String, Object> e = asObject(element, "element");
+                Object rotation = e.get("rotation");
+                if (rotation instanceof Map && Math.abs(number(((Map<?, ?>) rotation).get("angle"), "rotation.angle")) > EPSILON) {
+                    continue;
+                }
+                double[] a = numbers(e.get("from"), 3, "element.from");
+                double[] b = numbers(e.get("to"), 3, "element.to");
+                float[] box = new float[6];
+                boolean solid = true;
+                for (int i = 0; i < 3; i++) {
+                    box[i] = (float) (Math.min(a[i], b[i]) / 16.0);
+                    box[i + 3] = (float) (Math.max(a[i], b[i]) / 16.0);
+                    solid &= box[i + 3] - box[i] > EPSILON;
+                }
+                if (solid) {
+                    boxes.add(box);
+                }
+            }
+        }
+
+        List<float[]> rotated = new ArrayList<>();
+        for (float[] box : boxes) {
+            rotated.add(Face.rotateBox(box, turnsX, turnsY, turnsZ));
+        }
+        return new BakedModel(quads, rotated);
+    }
+
+    /**
+     * Reads a list of boxes [x1, y1, z1, x2, y2, z2] given in sixteenths into boxes in blocks,
+     * each as {minX, minY, minZ, maxX, maxY, maxZ}. An empty list means "no collision".
+     */
+    static List<float[]> parseBoxes(Object value, String what) {
+        if (!(value instanceof List)) {
+            throw new ModelException("'" + what + "' must be a list of boxes [x1, y1, z1, x2, y2, z2]");
+        }
+        List<float[]> boxes = new ArrayList<>();
+        for (Object item : (List<?>) value) {
+            double[] n = numbers(item, 6, what + " box");
+            float[] box = new float[6];
+            for (int i = 0; i < 3; i++) {
+                box[i] = (float) (Math.min(n[i], n[i + 3]) / 16.0);
+                box[i + 3] = (float) (Math.max(n[i], n[i + 3]) / 16.0);
+            }
+            boxes.add(box);
+        }
+        return boxes;
     }
 
     private void bakeElement(Map<String, Object> element, Map<String, String> textures,
@@ -430,7 +495,7 @@ public final class ModelLoader {
         return current;
     }
 
-    private static int turns(int degrees) {
+    static int turns(int degrees) {
         if (degrees % 90 != 0) {
             throw new ModelException("Rotation must be a multiple of 90 degrees, got " + degrees);
         }

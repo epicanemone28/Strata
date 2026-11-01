@@ -170,6 +170,13 @@ public class LevelRenderer implements LevelListener {
     public void renderBillboards(float cameraYaw, float cameraPitch, double eyeX, double eyeY, double eyeZ) {
         boolean scaleByDistance = !Double.isNaN(eyeX);
 
+        // Remembered for the selection code (exact hit points) and the billboard blink.
+        if (scaleByDistance) {
+            CameraRay.set(eyeX, eyeY, eyeZ, cameraYaw, cameraPitch);
+        } else {
+            CameraRay.setAngles(cameraYaw, cameraPitch);
+        }
+
         Frustum frustum = Frustum.getFrustum();
 
         List<int[]> visibleBillboards = new ArrayList<>();
@@ -270,14 +277,27 @@ public class LevelRenderer implements LevelListener {
         glDisable(GL_TEXTURE_2D);
     }
     public void renderHit(HitResult hitResult) {
+        renderHit(hitResult, CameraRay.yaw());
+    }
+
+    /**
+     * Draws the selection overlay. It follows the shape that was actually hit: one face of a slab or
+     * of one stair step, the whole face of a multi-tile object, or, for a billboard, a blink of the
+     * sprite itself (which needs the camera yaw; without it the billboard's box is outlined).
+     */
+    public void renderHit(HitResult hitResult, float cameraYaw) {
+        TilePicker.refine(this.level, hitResult);
+
         Tile tile = Tile.byId(this.level.getTile(hitResult.x, hitResult.y, hitResult.z));
         if (tile == null || tile == Tile.AIR) {
             return;
         }
 
+        float pulse = (float) Math.sin(System.currentTimeMillis() / 100.0) * 0.2f + 0.4f;
+
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_CURRENT_BIT);
-        glColor4f(1.0f, 1.0f, 1.0f, (float) Math.sin(System.currentTimeMillis() / 100.0) * 0.2f + 0.4f);
+        glColor4f(1.0f, 1.0f, 1.0f, pulse);
 
         // The overlay lies exactly in the plane of the block's own face. Pull it slightly towards the
         // camera (polygon offset, plus a tiny nudge along the face normal) and don't let it write
@@ -286,6 +306,20 @@ public class LevelRenderer implements LevelListener {
         glPolygonOffset(-2.0F, -4.0F);
         glDepthMask(false);
 
+        if (tile instanceof BillboardTile && !Float.isNaN(cameraYaw)) {
+            renderBillboardBlink((BillboardTile) tile, hitResult, cameraYaw, pulse);
+        } else {
+            renderFaceOverlay(tile, hitResult);
+        }
+
+        glDepthMask(true);
+        glDisable(GL_POLYGON_OFFSET_FILL);
+
+        glDisable(GL_BLEND);
+    }
+
+    /** The hit face of whatever part of the tile was hit. */
+    private void renderFaceOverlay(Tile tile, HitResult hitResult) {
         int[] normal = HIT_FACE_NORMALS[hitResult.face];
         glPushMatrix();
         glTranslatef(normal[0] * HIT_FACE_NUDGE, normal[1] * HIT_FACE_NUDGE, normal[2] * HIT_FACE_NUDGE);
@@ -298,16 +332,46 @@ public class LevelRenderer implements LevelListener {
             renderBoxFace(object.x, object.y, object.z,
                     object.x + object.sizeX, object.y + object.sizeY, object.z + object.sizeZ, hitResult.face);
         } else {
-            tile.renderFace(this.tessellator, hitResult.x, hitResult.y, hitResult.z, hitResult.face);
+            // The box the ray struck (one step of a staircase, a slab), else the tile's outline box.
+            AABB box = hitResult.hitBox;
+            if (box == null) {
+                box = tile.getOutlineAABB(this.level, hitResult.x, hitResult.y, hitResult.z);
+            }
+            if (box != null) {
+                renderBoxFace((float) box.minX, (float) box.minY, (float) box.minZ,
+                        (float) box.maxX, (float) box.maxY, (float) box.maxZ, hitResult.face);
+            } else {
+                tile.renderFace(this.tessellator, hitResult.x, hitResult.y, hitResult.z, hitResult.face);
+            }
         }
 
         this.tessellator.flush();
-
         glPopMatrix();
-        glDepthMask(true);
-        glDisable(GL_POLYGON_OFFSET_FILL);
+    }
 
-        glDisable(GL_BLEND);
+    /** Redraws the billboard's sprite (same quad, same place) additively, so it blinks in its own shape. */
+    private void renderBillboardBlink(BillboardTile billboard, HitResult hitResult, float cameraYaw, float pulse) {
+        glEnable(GL_TEXTURE_2D);
+        glEnable(GL_ALPHA_TEST);
+        glAlphaFunc(GL_GREATER, 0.01F);
+        Textures.bind(Chunk.getAtlasTexture());
+
+        float rotRad = (float) Math.toRadians(-cameraYaw);
+        float cosYaw = (float) Math.cos(rotRad);
+        float sinYaw = (float) Math.sin(rotRad);
+
+        // Same placement as renderBillboards (the hit position is the object's origin cell).
+        float worldX = hitResult.x + 0.5F + billboard.getPivotOffsetX();
+        float worldY = hitResult.y;
+        float worldZ = hitResult.z + 0.5F + billboard.getPivotOffsetZ();
+
+        this.tessellator.init();
+        billboard.renderBillboardBatched(this.tessellator, this.level, hitResult.x, hitResult.y, hitResult.z,
+                Chunk.getTotalAtlasSlots(), worldX, worldY, worldZ, cosYaw, sinYaw, 1.0F, 1.0F, pulse);
+        this.tessellator.flush();
+
+        glAlphaFunc(GL_GREATER, 0.1F);
+        glDisable(GL_TEXTURE_2D);
     }
 
     /** Outward normal per face, numbered like the Tile.FACE_* constants. */
