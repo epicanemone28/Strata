@@ -134,19 +134,14 @@ public class PauseScreen extends FramePanelScreen {
                 this.layout.viewY + this.layout.viewHeight + yOffset);
     }
 
-    /** Current World: "name" - 2:30 PM (the same label the door screen shows, plus the world's own clock). */
     private String worldInfoText() {
         Level level = this.game.getLevel();
         if (level == null) {
             return "";
         }
 
-        int minutes = Math.floorMod((int) (this.game.getDayNightCycle().getTime() * 24.0F * 60.0F), 24 * 60);
-        int hour = minutes / 60;
-        int hour12 = hour % 12 == 0 ? 12 : hour % 12;
-
-        return String.format("Current World: \"%s\" - %d:%02d %s",
-                level.getWorldName(), hour12, minutes % 60, hour < 12 ? "AM" : "PM");
+        return String.format("Current World: \"%s\"",
+                level.getWorldName());
     }
 
     /**

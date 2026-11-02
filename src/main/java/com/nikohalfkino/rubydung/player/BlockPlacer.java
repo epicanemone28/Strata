@@ -55,6 +55,13 @@ final class BlockPlacer {
     /** True while tick() (the place button held down) is running, false for a fresh click. */
     private boolean holding = false;
 
+    /**
+     * Horizontal unit vector the player is looking along this tick, taken from the crosshair hit
+     * (the hit lies on the look ray). Only meaningful while hasLook is true.
+     */
+    private double lookX, lookZ;
+    private boolean hasLook = false;
+
     private boolean buildActive = false;
     private int buildFace;
     private int buildPlane;
@@ -310,12 +317,60 @@ final class BlockPlacer {
                 && movingAlongFace(hit.face));
     }
 
-    /** Whether the player moved this tick in the direction the face points (away from the block). */
+    /**
+     * Whether the player is moving this tick in the direction the face points (away from the block).
+     * <p>
+     * For the horizontal faces this goes by the keys held, not by the raw position change: only the
+     * forward/back keys count, so strafing along a row never reads as backing away from it, however
+     * far off-square the player is standing to the wall. The actual movement must still agree, so a
+     * back key held against an obstacle doesn't count.
+     */
     private boolean movingAlongFace(int face) {
         int[] n = FACE_NORMALS[face];
         Player p = this.ctx.player;
         double along = (p.x - p.prevX) * n[0] + (p.y - p.prevY) * n[1] + (p.z - p.prevZ) * n[2];
-        return along > MOVING_EPSILON;
+        if (along <= MOVING_EPSILON) {
+            return false;
+        }
+        if (n[1] != 0) {
+            return true; // vertical faces: the fly up/down movement itself is what counts
+        }
+        return keyAlongFace(n) > 0.0;
+    }
+
+    /**
+     * How much the forward/back keys currently held push the player along the face normal:
+     * positive = away from the block, negative = toward it, 0 = no forward/back key (or both).
+     * Strafe keys deliberately contribute nothing.
+     */
+    private double keyAlongFace(int[] normal) {
+        if (!this.hasLook) {
+            return 0.0;
+        }
+        double forward = (KeyBinding.FORWARD.isDown() ? 1.0 : 0.0) - (KeyBinding.BACK.isDown() ? 1.0 : 0.0);
+        return forward * (this.lookX * normal[0] + this.lookZ * normal[2]);
+    }
+
+    /** Works out the horizontal look direction from the newest hit (the one under the crosshair now). */
+    private void updateLook(List<HitResult> hits) {
+        this.hasLook = false;
+        if (hits.isEmpty()) {
+            return;
+        }
+
+        HitResult hit = hits.get(hits.size() - 1);
+        double hx = hit.hasPoint ? hit.hitX : hit.cellX + 0.5;
+        double hz = hit.hasPoint ? hit.hitZ : hit.cellZ + 0.5;
+        double dx = hx - this.ctx.player.x;
+        double dz = hz - this.ctx.player.z;
+        double len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 1.0E-3) {
+            return; // looking (almost) straight up or down: no horizontal direction
+        }
+
+        this.lookX = dx / len;
+        this.lookZ = dz / len;
+        this.hasLook = true;
     }
 
     private boolean inPlayerColumn(int[] cell, int face) {
@@ -349,6 +404,7 @@ final class BlockPlacer {
         double perTick = TICK_MS / placeDelayMs(speed);
         this.buildBudget = Math.min(this.buildBudget + perTick, 1.0 + perTick);
 
+        updateLook(hits);
         for (HitResult hit : hits) {
             if (this.buildBudget < 1.0) {
                 break;
