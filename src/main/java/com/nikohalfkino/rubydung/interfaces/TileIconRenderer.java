@@ -28,6 +28,15 @@ public final class TileIconRenderer {
     /** Where the crop sits vertically in the sprite: 0 = top edge, 0.5 = centred, 1 = bottom edge. */
     private static final float SPRITE_CROP_VERTICAL = 0.5F;
 
+    /** Outward normals by Tile.FACE_* (bottom, top, north, south, west, east), as in the tile's own table. */
+    private static final int[][] FACE_NORMALS = {
+            {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}
+    };
+
+    /** The tilt and turn the cube is drawn with (see draw): 30 degrees about X, then -45 + spin about Y. */
+    private static final double ICON_PITCH_DEGREES = 30.0;
+    private static final double ICON_YAW_DEGREES = -45.0;
+
     private static Tessellator tessellator;
 
     private TileIconRenderer() {
@@ -131,9 +140,14 @@ public final class TileIconRenderer {
             if (level != null) {
                 level.setFullBright(true);
             }
+            // The icon honours the tile's self-cull faces (the cull faces set in TileRegistry) as if the
+            // cube sat inside a mass of the same tile: the faces the camera can't see are the ones
+            // that touch it, so they are dropped. Only tiles that set self-cull faces are affected.
+            Tile.setIconSelfFaces(hiddenFaces(spinDegrees));
             try {
                 tile.render(tessellator, level, 0, -1, -1, -1, Chunk.getTotalAtlasSlots(), tile.getIconData());
             } finally {
+                Tile.setIconSelfFaces(0);
                 if (level != null) {
                     level.setFullBright(false);
                 }
@@ -157,6 +171,31 @@ public final class TileIconRenderer {
         setEnabled(GL_CULL_FACE, cullWasOn);
         setEnabled(GL_TEXTURE_2D, textureWasOn);
         setEnabled(GL_BLEND, blendWasOn);
+    }
+
+    /**
+     * The faces (bit per Tile.FACE_*) of a cube that point away from the icon's camera: the cube is
+     * turned by Ry(yaw) and then tilted by Rx(pitch) (the order draw applies them in), and the
+     * camera looks down -z, so a face is visible when its rotated normal has a positive z.
+     */
+    private static int hiddenFaces(float spinDegrees) {
+        double yaw = Math.toRadians(ICON_YAW_DEGREES + spinDegrees);
+        double pitch = Math.toRadians(ICON_PITCH_DEGREES);
+        double sinYaw = Math.sin(yaw);
+        double cosYaw = Math.cos(yaw);
+        double sinPitch = Math.sin(pitch);
+        double cosPitch = Math.cos(pitch);
+
+        int mask = 0;
+        for (int face = 0; face < 6; face++) {
+            int[] n = FACE_NORMALS[face];
+            double turnedZ = -n[0] * sinYaw + n[2] * cosYaw;
+            double z = n[1] * sinPitch + turnedZ * cosPitch;
+            if (z < 1.0E-3) {
+                mask |= 1 << face;
+            }
+        }
+        return mask;
     }
 
     /**

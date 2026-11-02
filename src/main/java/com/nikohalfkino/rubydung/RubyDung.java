@@ -26,6 +26,7 @@ import com.nikohalfkino.rubydung.render.Font;
 import com.nikohalfkino.rubydung.render.GameRenderer;
 import com.nikohalfkino.rubydung.render.ScreenshotManager;
 import com.nikohalfkino.rubydung.render.Textures;
+import com.nikohalfkino.rubydung.render.WindowManager;
 import com.nikohalfkino.rubydung.util.AutosaveSettings;
 import com.nikohalfkino.rubydung.util.GameSettings;
 import com.nikohalfkino.rubydung.util.KeyBinding;
@@ -57,8 +58,8 @@ public class RubyDung implements Runnable {
 
     private final com.nikohalfkino.rubydung.util.Timer timer = new Timer(TICKS_PER_SECOND);
 
-    private final int width = 800;
-    private final int height = 600;
+    /** Window mode + logical size; the game lays itself out in {@link #getWidth()} x {@link #getHeight()}. */
+    private final WindowManager windowManager = new WindowManager();
     private final Console console = new Console(this);
     private final ChatLog chatLog = new ChatLog();
     private final InputHandler inputHandler = new InputHandler(this);
@@ -94,12 +95,16 @@ public class RubyDung implements Runnable {
         new Thread(new RubyDung()).start();
     }
 
+    public WindowManager getWindowManager() {
+        return this.windowManager;
+    }
+
     public int getWidth() {
-        return this.width;
+        return this.windowManager.getLogicalWidth();
     }
 
     public int getHeight() {
-        return this.height;
+        return this.windowManager.getLogicalHeight();
     }
 
     public Screen getCurrentScreen() {
@@ -177,11 +182,12 @@ public class RubyDung implements Runnable {
         AutosaveSettings.load();
 
         Display.setTitle(GAME_TITLE);
-        Display.setDisplayMode(new DisplayMode(this.width, this.height));
+        this.windowManager.applyInitialMode();
 
         Display.create();
         Keyboard.create();
         Mouse.create();
+        this.windowManager.recompute();
 
         Display.setVSyncEnabled(GameSettings.isVsyncEnabled());
 
@@ -418,6 +424,10 @@ public class RubyDung implements Runnable {
                     tick();
                 }
 
+                if (Display.wasResized()) {
+                    onWindowResized();
+                }
+
                 this.gameRenderer.render(this.timer.partialTicks);
 
                 if (GameSettings.getFpsCap() != GameSettings.UNCAPPED_FPS) {
@@ -464,7 +474,7 @@ public class RubyDung implements Runnable {
         }
 
         this.currentScreen = screen;
-        screen.init(this.width, this.height);
+        screen.init(getWidth(), getHeight());
 
         if (screen.pausesGame()) {
             Mouse.setGrabbed(false);
@@ -487,6 +497,47 @@ public class RubyDung implements Runnable {
         }
 
         Display.setTitle(GAME_TITLE);
+    }
+
+    /** Applies the display settings (windowed / maximized / fullscreen and their layouts). Queued, so it runs at the start of the next frame, never mid-click. */
+    public void applyDisplay() {
+        this.mainThreadTasks.add(() -> {
+            try {
+                boolean grabbed = Mouse.isGrabbed();
+                this.windowManager.applyMode();
+
+                // The window may have been recreated.
+                Display.setTitle(this.currentScreen != null && this.currentScreen.pausesGame() && hasWorld()
+                        ? PAUSED_TITLE : GAME_TITLE);
+                Display.setIcon(Textures.loadIcons("/assets/rubydung/icon.png"));
+
+                Mouse.setGrabbed(grabbed);
+                Mouse.getDX(); // drop the jump the mode switch causes so the camera doesn't snap
+                Mouse.getDY();
+
+                if (this.currentScreen != null) {
+                    this.currentScreen.resize(getWidth(), getHeight());
+                }
+            } catch (LWJGLException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    /** The user dragged the window edge (or maximised it): re-lay the game out for the new size. */
+    private void onWindowResized() {
+        this.windowManager.recompute();
+        if (this.currentScreen != null) {
+            this.currentScreen.resize(getWidth(), getHeight());
+        }
+    }
+
+    public void toggleFullscreen() {
+        // F11: into fullscreen, or back to whichever of windowed / maximized it came from.
+        GameSettings.setDisplayType(GameSettings.isFullscreen()
+                ? GameSettings.getLastWindowType() : GameSettings.DisplayType.FULLSCREEN);
+        GameSettings.save();
+        applyDisplay();
     }
 
     public void takeScreenshot(int scale) {

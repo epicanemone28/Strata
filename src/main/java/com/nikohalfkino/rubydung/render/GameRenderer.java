@@ -90,12 +90,16 @@ public class GameRenderer {
         int width = this.game.getWidth();
         int height = this.game.getHeight();
 
-        int mouseX = Mouse.getX();
-        int mouseY = height - Mouse.getY() - 1;
+        WindowManager wm = this.game.getWindowManager();
+
+        // Window mouse position -> game UI coordinates (differs from raw in Fit / Bordered fullscreen).
+        int mouseX = wm.toLogicalX(Mouse.getX());
+        int mouseY = wm.toLogicalY(Mouse.getY());
 
         this.game.getInputHandler().handle(playing, mouseX, mouseY);
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Black everywhere, then everything below is clipped to the game area.
+        wm.beginFrame();
 
         if (this.game.hasWorld()) {
             Player player = this.game.getPlayer();
@@ -120,7 +124,7 @@ public class GameRenderer {
                 viewHeight = layout.viewHeight;
                 viewGlX = layout.viewX;
                 viewGlY = height - layout.viewY - layout.viewHeight;
-                glViewport(viewGlX, viewGlY, viewWidth, viewHeight);
+                wm.viewport(viewGlX, viewGlY, viewWidth, viewHeight);
 
                 // Let the screen know where the panel is right now (it slides in).
                 if (frameScreen != null) {
@@ -132,7 +136,9 @@ public class GameRenderer {
             // view size so the aspect ratio is right.
             boolean pixelate = GameSettings.isPixelationEnabled() && GameSettings.getPixelSize() > 1;
             if (pixelate) {
-                this.pixelation.begin(viewGlX, viewGlY, viewWidth, viewHeight, GameSettings.getPixelSize());
+                // The filter works in real window pixels; the pixel size grows with the Fit scale.
+                this.pixelation.begin(wm.glX(viewGlX), wm.glY(viewGlY), wm.size(viewWidth), wm.size(viewHeight),
+                        Math.max(1, Math.round(GameSettings.getPixelSize() * wm.getScale())));
             }
 
             float cameraPartialTicks = playing ? partialTicks : 1.0F;
@@ -186,7 +192,7 @@ public class GameRenderer {
             // The HUD lays itself out inside the viewport (crosshair centred on the world view).
             this.game.getHud().render(this.game.getFont(), viewWidth, viewHeight);
 
-            glViewport(0, 0, width, height);
+            wm.viewport(0, 0, width, height);
         }
 
         if (this.game.getCurrentScreen() != null) {
@@ -195,6 +201,8 @@ public class GameRenderer {
 
         ConsoleScreen.render(this.game.getConsole(), this.game.getFont(), width, height);
         FpsHud.render(this.game, this.game.getFont(), width, height);
+
+        wm.endFrame();
 
         Display.update();
     }

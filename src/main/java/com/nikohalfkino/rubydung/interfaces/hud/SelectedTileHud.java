@@ -35,12 +35,67 @@ public class SelectedTileHud extends Widget {
 
     private static final float MAX_FRAME_SECONDS = 0.1F;
 
-    private static final Map<Tile, String> WOOD_TYPES = new HashMap<>();
+    /**
+     * Tiles shown under one shared name, with their own name as the "Type:" line (the same way
+     * trees and doors are). A tile in none of these shows its own name and no type line.
+     */
+    private static final Map<Tile, String> GROUP_NAMES = new HashMap<>();
+    private static final Map<Tile, String> GROUP_TYPES = new HashMap<>();
+
+    /**
+     * A tile by registry name. Goes through Tile (not TileRegistry directly) on purpose: Tile and
+     * TileRegistry initialise each other, and if TileRegistry is the first one touched, Tile.AIR
+     * and the other Tile.* aliases end up null.
+     */
+    private static Tile t(String name) {
+        Tile tile = Tile.byName(name);
+        if (tile == null) {
+            throw new IllegalStateException("SelectedTileHud: no tile named '" + name + "'");
+        }
+        return tile;
+    }
+
+    private static void group(String groupName, Object... tilesAndTypes) {
+        for (int i = 0; i < tilesAndTypes.length; i += 2) {
+            Tile tile = (Tile) tilesAndTypes[i];
+            GROUP_NAMES.put(tile, groupName);
+            GROUP_TYPES.put(tile, (String) tilesAndTypes[i + 1]);
+        }
+    }
+
     static {
-        WOOD_TYPES.put(Tile.LOG, "Log");
-        WOOD_TYPES.put(Tile.PLANKS, "Planks");
-        WOOD_TYPES.put(Tile.WOOD_SLAB, "Slab");
-        WOOD_TYPES.put(Tile.WOOD, "Smooth");
+        group("Wood",
+                t("log"), "Log",
+                t("planks"), "Planks",
+                t("wood_slab"), "Slab",
+                t("wood"), "Smooth");
+        group("Metal",
+                t("metal"), "Block",
+                t("metal_girder"), "Girder",
+                t("metal_grate"), "Grate",
+                t("metal_bars"), "Bars");
+        group("Marble",
+                t("marble"), "Block",
+                t("pillar_top"), "Pillar Top",
+                t("pillar"), "Pillar",
+                t("pillar_bottom"), "Pillar Bottom",
+                t("column"), "Column");
+        group("Bricks",
+                t("bricks"), "Small",
+                t("bricks_large"), "Large",
+                t("bricks_slab"), "Small Slab",
+                t("bricks_large_slab"), "Large Slab");
+        group("Stone Bricks",
+                t("stone_bricks"), "Small",
+                t("stone_bricks_large"), "Large",
+                t("stone_bricks_slab"), "Small Slab",
+                t("stone_bricks_large_slab"), "Large Slab");
+        group("Glass",
+                t("glass"), "Plain",
+                t("framed_glass"), "Framed");
+        group("Lamp",
+                t("lamp"), "Block",
+                t("lamppost"), "Post");
     }
 
     private static final float FAST_WINDOW_SECONDS = 0.20F;
@@ -69,7 +124,8 @@ public class SelectedTileHud extends Widget {
     private static String tileName(Tile tile) {
         if (tile instanceof TreeTile) return "Tree";
         if (tile instanceof DimensionalDoorTile) return "Dimensional Door";
-        if (WOOD_TYPES.containsKey(tile)) return "Wood";
+        String group = GROUP_NAMES.get(tile);
+        if (group != null) return group;
         return formatTileName(tile.name);
     }
 
@@ -80,7 +136,7 @@ public class SelectedTileHud extends Widget {
         if (tile instanceof DimensionalDoorTile) {
             return ((DimensionalDoorTile) tile).getColor().getDisplayName();
         }
-        return WOOD_TYPES.get(tile);
+        return GROUP_TYPES.get(tile);
     }
 
     private static int textLines(Tile tile) {

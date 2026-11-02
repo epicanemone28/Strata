@@ -1,0 +1,4 @@
+parent = "slab_all"
+
+[textures]
+all = "bricks_large"

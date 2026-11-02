@@ -148,6 +148,7 @@ public class ScreenshotManager {
         int depthRenderbuffer = GL30.glGenRenderbuffers();
 
         try {
+            glDisable(GL_SCISSOR_TEST); // the frame's clip to the game area must not cut the offscreen image
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
 
             glBindTexture(GL_TEXTURE_2D, colorTexture);
@@ -211,7 +212,7 @@ public class ScreenshotManager {
             return readPixels(viewportWidth, viewportHeight);
         } finally {
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
-            glViewport(0, 0, this.game.getWidth(), this.game.getHeight());
+            this.game.getWindowManager().viewport(0, 0, this.game.getWidth(), this.game.getHeight());
 
             GL30.glDeleteFramebuffers(fbo);
             glDeleteTextures(colorTexture);

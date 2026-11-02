@@ -511,6 +511,26 @@ public class Tile {
         return this.isSolid && !this.isTransparent;
     }
 
+    // -------------------------------------------------------------------------
+    // Tile icons (TileIconRenderer)
+
+    /**
+     * While an icon is being drawn: the world faces (bit per FACE_*) the icon pretends border another
+     * cell of the same tile, so a tile's self-cull faces (setSelfCull) are left out there too. The
+     * renderer sets the faces the icon's camera cannot see, so the see-through back of a glass cube
+     * or a grate is not drawn through its front. 0 outside icons.
+     */
+    private static int iconSelfFaces = 0;
+
+    public static void setIconSelfFaces(int worldFaceMask) {
+        iconSelfFaces = worldFaceMask;
+    }
+
+    /** Whether the icon being drawn treats the neighbour on this world face (FACE_*) as the same tile. */
+    protected static boolean iconTouchesSelf(int worldFace) {
+        return (iconSelfFaces & (1 << worldFace)) != 0;
+    }
+
     protected boolean shouldRenderFace(Level level, int x, int y, int z) {
         int tileId = level.getTile(x, y, z);
         if (tileId == 0) {
@@ -642,8 +662,14 @@ public class Tile {
                 nx = x;
                 ny = y;
                 nz = z;
-            } else if (!shouldRenderFace(level, x, y, z, nx, ny, nz, getCullFace(face, direction))) {
-                continue;
+            } else {
+                int cullFace = getCullFace(face, direction);
+                if (cullsSelfFace(cullFace) && iconTouchesSelf(face)) {
+                    continue;   // an icon: a self-culled face that would touch the same tile
+                }
+                if (!shouldRenderFace(level, x, y, z, nx, ny, nz, cullFace)) {
+                    continue;
+                }
             }
 
             // A neighbour that only fills part of this face (a slab, a sub-tile) hides only that part.

@@ -172,6 +172,9 @@ public class ModelTile extends Tile {
                 int[] side = FACE_NORMALS[cullFace];
                 int nx = x + side[0], ny = y + side[1], nz = z + side[2];
                 boolean selfCull = cullsSelfFace(quad.modelCullFace);
+                if (selfCull && iconTouchesSelf(cullFace)) {
+                    continue;   // an icon: a self-culled face that would touch the same tile
+                }
                 boolean visible;
                 if (selfCull && level.getTile(nx, ny, nz) == this.id) {
                     // The same kind of tile next door: what hides this face is decided below, by how

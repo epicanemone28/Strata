@@ -292,7 +292,20 @@ final class BlockPlacer {
         if (hit.face == this.buildFace && plane == this.buildPlane) {
             return false;
         }
-        return !(hit.face == this.buildFace && inPlayerColumn(target, hit.face));
+
+        // Growing the row toward the player is only wanted while they back away from it,
+        // not while they strafe along it (which used to place extra blocks in front of the row).
+        return !(hit.face == this.buildFace
+                && inPlayerColumn(target, hit.face)
+                && movingAlongFace(hit.face));
+    }
+
+    /** Whether the player moved this tick in the direction the face points (away from the block). */
+    private boolean movingAlongFace(int face) {
+        int[] n = FACE_NORMALS[face];
+        Player p = this.ctx.player;
+        double along = (p.x - p.prevX) * n[0] + (p.y - p.prevY) * n[1] + (p.z - p.prevZ) * n[2];
+        return along > MOVING_EPSILON;
     }
 
     private boolean inPlayerColumn(int[] cell, int face) {

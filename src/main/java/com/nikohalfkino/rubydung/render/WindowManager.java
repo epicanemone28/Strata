@@ -1,0 +1,249 @@
+package com.nikohalfkino.rubydung.render;
+
+import com.nikohalfkino.rubydung.util.GameSettings;
+import com.nikohalfkino.rubydung.util.GameSettings.DisplayType;
+import com.nikohalfkino.rubydung.util.GameSettings.LayoutMode;
+import org.lwjgl.LWJGLException;
+import org.lwjgl.opengl.Display;
+import org.lwjgl.opengl.DisplayMode;
+
+import javax.swing.JFrame;
+import java.awt.GraphicsEnvironment;
+import java.awt.Insets;
+import java.awt.Rectangle;
+
+import static org.lwjgl.opengl.GL11.*;
+
+/**
+ * Keeps the game's logical size (what the UI lays itself out in) apart from the real window size,
+ * and works out where the game is drawn inside the window.
+ * <p>
+ * Three display states ({@link DisplayType}): a plain resizable window, a maximized window that
+ * fills the desktop work area, and fullscreen. Windowed always uses Expand; maximized and
+ * fullscreen each have their own layout:
+ * <ul>
+ *   <li>Expand: the logical size is the whole window / screen, so the UI fills it.</li>
+ *   <li>Fit: the 800x600 game scaled up by the largest <b>whole number</b> that fits, centred, black
+ *       bars. Whole-number scaling keeps every game pixel the same size on screen.</li>
+ *   <li>Bordered: 800x600 at 1:1, centred, black around it (shrinks to fit if the window is smaller).</li>
+ * </ul>
+ */
+public final class WindowManager {
+
+    public static final int BASE_WIDTH = 800;
+    public static final int BASE_HEIGHT = 600;
+
+    private int logicalWidth = BASE_WIDTH;
+    private int logicalHeight = BASE_HEIGHT;
+
+    /** Where the logical area sits in the window, in GL pixels (origin bottom-left). */
+    private int vpX, vpY, vpW = BASE_WIDTH, vpH = BASE_HEIGHT;
+    private float scale = 1.0f;
+
+    /** The state last applied to the real window. */
+    private DisplayType applied = DisplayType.WINDOWED;
+
+    /** Size and position of the plain window, restored when coming back from maximized / fullscreen. */
+    private int windowedWidth = BASE_WIDTH;
+    private int windowedHeight = BASE_HEIGHT;
+    private int windowedX, windowedY;
+    private boolean hasWindowedPosition = false;
+
+    private Insets decorationInsets;
+
+    public int getLogicalWidth() {
+        return this.logicalWidth;
+    }
+
+    public int getLogicalHeight() {
+        return this.logicalHeight;
+    }
+
+    public float getScale() {
+        return this.scale;
+    }
+
+    /** Call before Display.create() so the window starts in the saved state. */
+    public void applyInitialMode() throws LWJGLException {
+        Display.setResizable(true);
+
+        DisplayType type = GameSettings.getDisplayType();
+        if (type == DisplayType.FULLSCREEN) {
+            Display.setDisplayModeAndFullscreen(Display.getDesktopDisplayMode());
+        } else if (type == DisplayType.MAXIMIZED) {
+            Rectangle area = workArea();
+            Insets in = insets();
+            Display.setDisplayMode(new DisplayMode(
+                    Math.max(1, area.width - in.left - in.right), Math.max(1, area.height - in.top - in.bottom)));
+            Display.setLocation(area.x, area.y);
+        } else {
+            Display.setDisplayMode(new DisplayMode(BASE_WIDTH, BASE_HEIGHT));
+        }
+        this.applied = type;
+    }
+
+    /** Applies the current settings to an already-created window (display state, layouts). */
+    public void applyMode() throws LWJGLException {
+        DisplayType want = GameSettings.getDisplayType();
+        boolean fullscreenNow = Display.isFullscreen();
+
+        // Leaving the plain window: remember where it was so it can come back there.
+        if (this.applied == DisplayType.WINDOWED && !fullscreenNow && want != DisplayType.WINDOWED) {
+            this.windowedX = Display.getX();
+            this.windowedY = Display.getY();
+            this.windowedWidth = Display.getWidth();
+            this.windowedHeight = Display.getHeight();
+            this.hasWindowedPosition = true;
+        }
+
+        boolean changed = want != this.applied || (want == DisplayType.FULLSCREEN) != fullscreenNow;
+
+        if (changed) {
+            if (want == DisplayType.FULLSCREEN) {
+                Display.setDisplayModeAndFullscreen(Display.getDesktopDisplayMode());
+            } else {
+                int w;
+                int h;
+                if (want == DisplayType.MAXIMIZED) {
+                    Rectangle area = workArea();
+                    Insets in = insets();
+                    w = Math.max(1, area.width - in.left - in.right);
+                    h = Math.max(1, area.height - in.top - in.bottom);
+                } else {
+                    w = this.windowedWidth;
+                    h = this.windowedHeight;
+                }
+
+                Display.setDisplayMode(new DisplayMode(w, h));
+                if (fullscreenNow) {
+                    Display.setFullscreen(false);
+                }
+
+                if (want == DisplayType.MAXIMIZED) {
+                    Rectangle area = workArea();
+                    Display.setLocation(area.x, area.y);
+                } else if (this.hasWindowedPosition) {
+                    Display.setLocation(this.windowedX, this.windowedY);
+                }
+            }
+            Display.setVSyncEnabled(GameSettings.isVsyncEnabled());
+            this.applied = want;
+        }
+
+        recompute();
+    }
+
+    /** The desktop area a maximized window may use (excludes the taskbar / dock). */
+    private static Rectangle workArea() {
+        return GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+    }
+
+    /** Title bar and border sizes of a normal window on this system (LWJGL 2 cannot report its own). */
+    private Insets insets() {
+        if (this.decorationInsets == null) {
+            Insets in = new Insets(0, 0, 0, 0);
+            try {
+                JFrame probe = new JFrame();
+                probe.addNotify();
+                in = probe.getInsets();
+                probe.dispose();
+            } catch (Throwable ignored) {
+                // headless or no peer: assume none
+            }
+            this.decorationInsets = in;
+        }
+        return this.decorationInsets;
+    }
+
+    /** Works out the logical size and the viewport rectangle from the current window and layout. */
+    public void recompute() {
+        int sw = Display.getWidth();
+        int sh = Display.getHeight();
+        if (sw < 1 || sh < 1) {
+            return; // minimised: keep the old layout
+        }
+
+        DisplayType type = GameSettings.getDisplayType();
+        if (type == DisplayType.WINDOWED && !Display.isFullscreen()) {
+            this.windowedWidth = sw;
+            this.windowedHeight = sh;
+        }
+
+        LayoutMode mode = type == DisplayType.FULLSCREEN ? GameSettings.getFullscreenMode()
+                : type == DisplayType.MAXIMIZED ? GameSettings.getMaximizedMode()
+                : LayoutMode.EXPAND;
+
+        if (mode == LayoutMode.EXPAND) {
+            this.logicalWidth = sw;
+            this.logicalHeight = sh;
+            this.scale = 1.0f;
+            this.vpW = sw;
+            this.vpH = sh;
+        } else {
+            this.logicalWidth = BASE_WIDTH;
+            this.logicalHeight = BASE_HEIGHT;
+
+            float fitScale = Math.min(sh / (float) BASE_HEIGHT, sw / (float) BASE_WIDTH);
+            if (mode == LayoutMode.FIT) {
+                // Whole numbers only, so a game pixel is always N x N screen pixels. Below 1x the
+                // game shrinks to fit (the only time the scale is fractional).
+                this.scale = fitScale >= 1.0f ? (float) Math.floor(fitScale) : fitScale;
+            } else {
+                this.scale = Math.min(1.0f, fitScale);
+            }
+            this.vpW = Math.round(BASE_WIDTH * this.scale);
+            this.vpH = Math.round(BASE_HEIGHT * this.scale);
+        }
+
+        this.vpX = (sw - this.vpW) / 2;
+        this.vpY = (sh - this.vpH) / 2;
+    }
+
+    /** Start of a frame: black everywhere, then restrict all drawing to the game area. */
+    public void beginFrame() {
+        glViewport(0, 0, Display.getWidth(), Display.getHeight());
+        glDisable(GL_SCISSOR_TEST);
+        glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClearColor(0.5F, 0.8F, 1.0F, 1.0F); // the game's normal clear colour
+
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(this.vpX, this.vpY, this.vpW, this.vpH);
+        glViewport(this.vpX, this.vpY, this.vpW, this.vpH);
+    }
+
+    /** End of a frame (before Display.update()). */
+    public void endFrame() {
+        glDisable(GL_SCISSOR_TEST);
+    }
+
+    /** glViewport in logical coordinates (origin bottom-left of the game area). */
+    public void viewport(int x, int y, int w, int h) {
+        glViewport(glX(x), glY(y), size(w), size(h));
+    }
+
+    /** Logical x -> window pixel x. */
+    public int glX(int x) {
+        return this.vpX + Math.round(x * this.scale);
+    }
+
+    /** Logical y (bottom-up) -> window pixel y. */
+    public int glY(int y) {
+        return this.vpY + Math.round(y * this.scale);
+    }
+
+    /** Logical length -> window pixels. */
+    public int size(int value) {
+        return Math.round(value * this.scale);
+    }
+
+    /** Raw window mouse x -> logical UI x. */
+    public int toLogicalX(int rawX) {
+        return (int) ((rawX - this.vpX) / this.scale);
+    }
+
+    /** Raw window mouse y (bottom-up) -> logical UI y (top-down). */
+    public int toLogicalY(int rawY) {
+        return this.logicalHeight - (int) ((rawY - this.vpY) / this.scale) - 1;
+    }
+}

@@ -4,23 +4,35 @@ import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.interfaces.UiStyle;
 import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.Button;
+import com.nikohalfkino.rubydung.interfaces.widget.ChoiceRow;
+import com.nikohalfkino.rubydung.interfaces.widget.Column;
 import com.nikohalfkino.rubydung.interfaces.widget.Label;
 import com.nikohalfkino.rubydung.interfaces.widget.Panel;
+import com.nikohalfkino.rubydung.interfaces.widget.Row;
 import com.nikohalfkino.rubydung.interfaces.widget.Slider;
 import com.nikohalfkino.rubydung.interfaces.widget.Toggle;
 import com.nikohalfkino.rubydung.util.GameSettings;
+import com.nikohalfkino.rubydung.util.GameSettings.DisplayType;
+import com.nikohalfkino.rubydung.util.GameSettings.LayoutMode;
 import org.lwjgl.opengl.Display;
 
-/** Video settings, laid out like the Options screen: one panel with a dim header per section. */
+import java.util.function.Function;
+
+/** Video settings in two columns, like the Voice screen: Display + Frame Rate | World + Overlay. */
 public class VideoSettingsScreen extends MenuScreen {
 
-    private static final float PANEL_WIDTH   = UiStyle.PANEL_WIDTH;
     private static final float PANEL_PADDING = 20.0f;
     private static final float PANEL_TOP     = 90.0f;
 
     private static final float ITEM_GAP    = 8.0f;
     private static final float HEADER_GAP  = 6.0f;
     private static final float SECTION_GAP = 16.0f;
+
+    private static final float COLUMN_WIDTH = 300.0f;
+    private static final float COLUMN_GAP   = 20.0f;
+    private static final float FULL_WIDTH   = COLUMN_WIDTH * 2 + COLUMN_GAP;
+
+    private static final float MODE_GAP = 4.0f;
 
     /** FPS cap slider: FPS_MIN..(FPS_UNLIMITED_AT - FPS_STEP) in steps, then "Unlimited" at the end. */
     private static final int FPS_MIN = 30;
@@ -31,8 +43,8 @@ public class VideoSettingsScreen extends MenuScreen {
     private static final int PIXEL_MIN = 2;
     private static final int PIXEL_MAX = 12;
 
-    private final Toggle vsyncToggle;
-    private final Toggle pixelationToggle;
+    private Toggle vsyncToggle;
+    private Toggle pixelationToggle;
 
     public VideoSettingsScreen(RubyDung game) {
         super(game);
@@ -47,69 +59,146 @@ public class VideoSettingsScreen extends MenuScreen {
         panel.setShadowAlpha(1.0f);
         panel.setCrossAlign(0.0f);
 
-        // — Frame rate ————————————————————————————————————————
-        panel.add(new Label("Frame Rate").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
+        Row columns = panel.add(new Row(COLUMN_GAP), SECTION_GAP);
+        columns.setCrossAlign(0.0f);   // both columns hang from the top
 
-        this.vsyncToggle = panel.add(new Toggle("VSync", GameSettings.isVsyncEnabled(), Toggle.LabelSide.LEFT)
-                .setRowWidth(PANEL_WIDTH)
+        columns.add(buildLeftColumn());
+        columns.add(buildRightColumn());
+
+        panel.add(new Button("Done", FULL_WIDTH, UiStyle.BUTTON_HEIGHT, true)
+                .onClick(this::goBack));
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Left column: Display + Frame Rate
+    // ---------------------------------------------------------------------------------------
+
+    private Column buildLeftColumn() {
+        Column col = new Column(ITEM_GAP);
+        col.setCrossAlign(0.0f);
+
+        // — Display ———————————————————————————————————————————
+        col.add(new Label("Display").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
+
+        // Windowed -> Maximized -> Fullscreen. F11 jumps in and out of fullscreen.
+        col.add(new Button(() -> "Window: " + typeName(GameSettings.getDisplayType()),
+                COLUMN_WIDTH, UiStyle.BUTTON_HEIGHT, true)
+                .onClick(() -> {
+                    DisplayType[] types = DisplayType.values();
+                    GameSettings.setDisplayType(types[(GameSettings.getDisplayType().ordinal() + 1) % types.length]);
+                    GameSettings.save();
+                    this.game.applyDisplay();
+                }), SECTION_GAP);
+
+        // Each of these has its own layout; a change applies at once if that one is in use.
+        col.add(new Label("Maximized Layout").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
+        col.add(layoutRow(GameSettings.getMaximizedMode(), m -> {
+            GameSettings.setMaximizedMode(m);
+            return GameSettings.getDisplayType() == DisplayType.MAXIMIZED;
+        }), SECTION_GAP);
+
+        col.add(new Label("Fullscreen Layout").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
+        col.add(layoutRow(GameSettings.getFullscreenMode(), m -> {
+            GameSettings.setFullscreenMode(m);
+            return GameSettings.isFullscreen();
+        }), SECTION_GAP);
+
+        // — Frame rate ————————————————————————————————————————
+        col.add(new Label("Frame Rate").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
+
+        this.vsyncToggle = new Toggle("VSync", GameSettings.isVsyncEnabled(), Toggle.LabelSide.LEFT)
+                .setRowWidth(COLUMN_WIDTH)
                 .onChange(on -> {
                     GameSettings.setVsyncEnabled(on);
                     Display.setVSyncEnabled(on);
                     GameSettings.save();
-                }));
+                });
+        col.add(this.vsyncToggle);
 
         // Greyed out and unclickable while VSync is on, since VSync already caps the frame rate.
         // Steps of FPS_STEP; the last step is "Unlimited".
-        Slider fpsCap = panel.add(new Slider("FPS Cap", PANEL_WIDTH, UiStyle.ROW_HEIGHT,
-                        FPS_MIN, FPS_UNLIMITED_AT, initialFpsSlider(), true)
-                        .setFormatter(v -> {
-                            int cap = snapFps(v);
-                            return cap == GameSettings.UNCAPPED_FPS ? "Unlimited" : String.valueOf(cap);
-                        })
-                        .onChange(v -> GameSettings.setFpsCap(snapFps(v)))
-                        .onCommit(GameSettings::save),
-                ITEM_GAP);
+        Slider fpsCap = new Slider("FPS Cap", COLUMN_WIDTH, UiStyle.ROW_HEIGHT,
+                FPS_MIN, FPS_UNLIMITED_AT, initialFpsSlider(), true)
+                .setFormatter(v -> {
+                    int cap = snapFps(v);
+                    return cap == GameSettings.UNCAPPED_FPS ? "Unlimited" : String.valueOf(cap);
+                })
+                .onChange(v -> GameSettings.setFpsCap(snapFps(v)))
+                .onCommit(GameSettings::save);
         fpsCap.setEnabledWhen(() -> !this.vsyncToggle.getValue());
+        col.add(fpsCap, ITEM_GAP);
 
-        // Explains the greyed-out button. The line is empty (not hidden) while VSync is off, so
-        // the layout below it doesn't jump when VSync is toggled.
-        panel.add(new Label(() -> this.vsyncToggle.getValue() ? "The FPS cap is ignored while VSync is on." : "")
-                .setColor(UiStyle.TEXT_DIM), SECTION_GAP);
+        // Empty (not hidden) while VSync is off so the layout doesn't jump.
+        col.add(new Label(() -> this.vsyncToggle.getValue() ? "FPS cap is ignored while VSync is on." : "")
+                .setColor(UiStyle.TEXT_DIM));
+
+        return col;
+    }
+
+    /**
+     * Fit / Expand / Bordered buttons. {@code apply} stores the pick and returns whether the window
+     * has to be re-laid out right now (i.e. this layout is the one in use).
+     */
+    private ChoiceRow<LayoutMode> layoutRow(LayoutMode current, Function<LayoutMode, Boolean> apply) {
+        ChoiceRow<LayoutMode> row = new ChoiceRow<LayoutMode>(COLUMN_WIDTH, UiStyle.BUTTON_HEIGHT, MODE_GAP)
+                .option("Fit", LayoutMode.FIT)
+                .option("Expand", LayoutMode.EXPAND)
+                .option("Bordered", LayoutMode.BORDERED)
+                .onChange(m -> {
+                    boolean active = apply.apply(m);
+                    GameSettings.save();
+                    if (active) {
+                        this.game.applyDisplay();
+                    }
+                });
+        row.select(current);
+        return row;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Right column: World + Overlay
+    // ---------------------------------------------------------------------------------------
+
+    private Column buildRightColumn() {
+        Column col = new Column(ITEM_GAP);
+        col.setCrossAlign(0.0f);
 
         // — World ————————————————————————————————————————————
-        panel.add(new Label("World").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
+        col.add(new Label("World").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
-        this.pixelationToggle = panel.add(new Toggle("Pixelation", GameSettings.isPixelationEnabled(), Toggle.LabelSide.LEFT)
-                .setRowWidth(PANEL_WIDTH)
+        this.pixelationToggle = new Toggle("Pixelation", GameSettings.isPixelationEnabled(), Toggle.LabelSide.LEFT)
+                .setRowWidth(COLUMN_WIDTH)
                 .onChange(on -> {
                     GameSettings.setPixelationEnabled(on);
                     GameSettings.save();
-                }));
+                });
+        col.add(this.pixelationToggle);
 
         // Greyed out and unclickable while pixelation is off.
-        Slider pixelSize = panel.add(new Slider("Pixel Size", PANEL_WIDTH, UiStyle.ROW_HEIGHT,
-                        PIXEL_MIN, PIXEL_MAX, initialPixelSlider(), true)
-                        .setFormatter(v -> snapPixelSize(v) + "x")
-                        .onChange(v -> GameSettings.setPixelSize(snapPixelSize(v)))
-                        .onCommit(GameSettings::save),
-                SECTION_GAP);
+        Slider pixelSize = new Slider("Pixel Size", COLUMN_WIDTH, UiStyle.ROW_HEIGHT,
+                PIXEL_MIN, PIXEL_MAX, initialPixelSlider(), true)
+                .setFormatter(v -> snapPixelSize(v) + "x")
+                .onChange(v -> GameSettings.setPixelSize(snapPixelSize(v)))
+                .onCommit(GameSettings::save);
         pixelSize.setEnabledWhen(() -> this.pixelationToggle.getValue());
+        col.add(pixelSize, SECTION_GAP);
 
         // — Overlay ———————————————————————————————————————————
-        panel.add(new Label("Overlay").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
+        col.add(new Label("Overlay").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
-        panel.add(new Toggle("Show FPS", GameSettings.isShowFpsInHud(), Toggle.LabelSide.LEFT)
-                        .setRowWidth(PANEL_WIDTH)
-                        .onChange(on -> {
-                            GameSettings.setShowFpsInHud(on);
-                            GameSettings.save();
-                        }),
-                SECTION_GAP);
+        col.add(new Toggle("Show FPS", GameSettings.isShowFpsInHud(), Toggle.LabelSide.LEFT)
+                .setRowWidth(COLUMN_WIDTH)
+                .onChange(on -> {
+                    GameSettings.setShowFpsInHud(on);
+                    GameSettings.save();
+                }));
 
-        // — Done ——————————————————————————————————————————————
-        panel.add(new Button("Done", PANEL_WIDTH, UiStyle.BUTTON_HEIGHT, true)
-                .onClick(this::goBack));
+        return col;
     }
+
+    // ---------------------------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------------------------
 
     /** Slider position -> FPS cap: rounded to FPS_STEP, and the top of the track means no cap. */
     private static int snapFps(float value) {
@@ -133,6 +222,17 @@ public class VideoSettingsScreen extends MenuScreen {
 
     private static float initialPixelSlider() {
         return Math.max(PIXEL_MIN, Math.min(PIXEL_MAX, GameSettings.getPixelSize()));
+    }
+
+    private static String typeName(DisplayType type) {
+        switch (type) {
+            case MAXIMIZED:
+                return "Maximized";
+            case FULLSCREEN:
+                return "Fullscreen (F11)";
+            default:
+                return "Windowed";
+        }
     }
 
     private void goBack() {

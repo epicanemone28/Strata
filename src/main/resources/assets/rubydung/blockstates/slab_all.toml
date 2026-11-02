@@ -1,0 +1,30 @@
+# Template for a slab that uses one texture on every face. A tile's own file extends it and only
+# names the texture:
+#
+#   parent = "slab_all"
+#   [textures]
+#   all = "bricks"
+#
+# half: "bottom" and "top" are single halves, "both" is the full block they merge into (see SlabTile).
+# Side faces keep the part of the texture they cover, so a slab lines up with the full block.
+
+[textures]
+all = "missing"
+
+[properties]
+half = ["bottom", "top", "both"]
+
+[[state]]
+condition = { half = "bottom" }
+model = "&_bottom"
+elements = [ { from = [0, 0, 0], to = [16, 8, 16], faces = { down = { texture = "#all", cullface = "down" }, up = { texture = "#all" }, south = { texture = "#all", cullface = "south" }, north = { texture = "#all", cullface = "north" }, west = { texture = "#all", cullface = "west" }, east = { texture = "#all", cullface = "east" } } } ]
+
+[[state]]
+condition = { half = "top" }
+model = "&_top"
+elements = [ { from = [0, 8, 0], to = [16, 16, 16], faces = { down = { texture = "#all" }, up = { texture = "#all", cullface = "up" }, south = { texture = "#all", cullface = "south" }, north = { texture = "#all", cullface = "north" }, west = { texture = "#all", cullface = "west" }, east = { texture = "#all", cullface = "east" } } } ]
+
+[[state]]
+condition = { half = "both" }
+model = "&_both"
+elements = [ { from = [0, 0, 0], to = [16, 16, 16], faces = { down = { texture = "#all", cullface = "down" }, up = { texture = "#all", cullface = "up" }, south = { texture = "#all", cullface = "south" }, north = { texture = "#all", cullface = "north" }, west = { texture = "#all", cullface = "west" }, east = { texture = "#all", cullface = "east" } } } ]

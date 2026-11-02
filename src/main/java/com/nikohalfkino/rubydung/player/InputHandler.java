@@ -87,6 +87,12 @@ public class InputHandler {
             char character = Keyboard.getEventCharacter();
             boolean pressed = Keyboard.getEventKeyState();
 
+            // F11 works everywhere: in menus, in the console, with a text box focused.
+            if (key == Keyboard.KEY_F11 && pressed) {
+                this.game.toggleFullscreen();
+                continue;
+            }
+
             if (key == KeyBinding.CONSOLE.getKey() && pressed) {
                 console.toggle();
                 continue;

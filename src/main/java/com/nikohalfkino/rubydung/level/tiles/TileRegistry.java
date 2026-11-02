@@ -8,20 +8,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Central catalogue of every tile in the game.
- *
- * <p>Registration order determines tile ids (via the sequential counter in
- * {@link Tile}'s constructor) and the order tiles appear in the tile selector.
- * Ids can shift freely across releases: worlds are saved with a tile palette
- * (see TilePalette), so reordering, inserting or removing tiles here never
- * corrupts a save.  Two rules:
- * <ul>
- *   <li>AIR must stay first (id 0 means "empty" throughout the level code).
- *   <li>TilePalette.LEGACY_ORDER is a frozen copy of the old order for
- *       pre-palette saves; leave it alone.
- * </ul>
- */
 public final class TileRegistry {
 
     private TileRegistry() {}
@@ -30,12 +16,8 @@ public final class TileRegistry {
     private static final Map<String, Tile>   BY_NAME       = new HashMap<>();
     private static       List<Tile>          placeableTiles;
 
-    // -------------------------------------------------------------------------
-    // Tile catalogue
-
     public static final Tile AIR = register(new Tile("air").setSolid(false).setPlaceable(false));
 
-    // terrain
     public static final Tile GRASS       = register(new Tile("grass"));
     public static final Tile SAND        = register(new Tile("sand"));
     public static final Tile GRAVEL      = register(new Tile("gravel"));
@@ -43,36 +25,32 @@ public final class TileRegistry {
     public static final Tile COBBLESTONE = register(new Tile("cobblestone"));
     public static final Tile SLATE       = register(new Tile("slate"));
 
-    // bricks
     public static final Tile BRICKS             = register(new Tile("bricks"));
+    public static final Tile BRICKS_SLAB        = register(new SlabTile("bricks_slab").setIconHalf("bottom"));
     public static final Tile BRICKS_LARGE       = register(new Tile("bricks_large"));
+    public static final Tile BRICKS_LARGE_SLAB  = register(new SlabTile("bricks_large_slab").setIconHalf("bottom"));
     public static final Tile STONE_BRICKS       = register(new Tile("stone_bricks"));
+    public static final Tile STONE_BRICKS_SLAB       = register(new SlabTile("stone_bricks_slab").setIconHalf("bottom"));
     public static final Tile STONE_BRICKS_LARGE = register(new Tile("stone_bricks_large"));
+    public static final Tile STONE_BRICKS_LARGE_SLAB = register(new SlabTile("stone_bricks_large_slab").setIconHalf("bottom"));
 
-    // A 64x48 sheet laid over the world: the pattern continues across neighbouring blocks.
     public static final Tile STONE_TILES = register(new WrappedTile("stone_tiles"));
 
-    // pillars & columns
     public static final Tile MARBLE = register(new Tile("marble"));
 
-    // Rotatable like LOG. Textures and the axis -> orientation table are data: see
-    // assets/rubydung/blockstates/<name>.toml (these all extend axis_column.toml).
     public static final Tile PILLAR_TOP    = register(new RotatableTile("pillar_top"));
     public static final Tile PILLAR        = register(new RotatableTile("pillar"));
     public static final Tile PILLAR_BOTTOM = register(new RotatableTile("pillar_bottom"));
 
     public static final Tile COLUMN = register(new ColumnTile("column"));
 
-    // statues & large decorations
     public static final Tile STATUE = register(new StatueTile("statue"));
     public static final Tile BOULDER = register(new BoulderTile("boulder"));
     public static final Tile ROCK = register(new RockTile("rock"));
     public static final Tile BARREL  = register(new BarrelTile("barrel"));
 
-    // metal
     public static final Tile METAL = register(new Tile("metal"));
 
-    // Self-cull faces are the model's own faces (TOP/BOTTOM = the end caps), however it lies.
     public static final Tile METAL_GIRDER = register(
             new RotatableTile("metal_girder")
                     .setTransparent(true)
@@ -81,27 +59,22 @@ public final class TileRegistry {
 
     public static final Tile METAL_GRATE = register(
             new SlabTile("metal_grate")
-                    .setIconHalf("top")   // data 0 is "both" (old worlds), so the icon asks for the top half
+                    .setIconHalf("top")
                     .setTransparent(true)
                     .setSelfCull(Tile.FACE_NORTH, Tile.FACE_SOUTH, Tile.FACE_EAST, Tile.FACE_WEST)
     );
 
-    // Thin panes that extend vertically (top / middle / bottom slices of a 16x48 texture) and can
-    // cross slabs. Shape and rules: PaneTile + blockstates/pane.toml; each pane only adds textures.
     public static final Tile METAL_BARS = register(new PaneTile("metal_bars"));
 
     public static final Tile GOLD = register(new Tile("gold"));
 
-    // wood
     public static final Tile LOG = register(
             new RotatableTile("log").setTransparent(true)
     );
     public static final Tile PLANKS = register(new Tile("planks"));
 
-    // Bottom and top half are two states of one tile: assets/rubydung/blockstates/wood_slab.toml
     public static final Tile WOOD_SLAB = register(new SlabTile("wood_slab"));
     public static final Tile WOOD   = register(new Tile("wood"));
-    // glass & lighting
     public static final Tile GLASS = register(
             new Tile("glass").setTransparent(true).setSelfCullAll()
     );
@@ -111,7 +84,6 @@ public final class TileRegistry {
             new LamppostTile("lamppost").setLightRadius(10.0F)
     );
 
-    // trees
     public static final Tile TREE_SAPLING = register(
             new TreeTile("tree_sapling", TreeTile.TreeType.SAPLING)
     );
@@ -122,11 +94,8 @@ public final class TileRegistry {
             new TreeTile("tree_large", TreeTile.TreeType.LARGE)
     );
 
-    /** Convenience alias for the most common tree variant. */
     public static final Tile TREE = TREE_MEDIUM;
 
-    // doors: one tile per colour and state. The open ones are only ever created by interacting with
-    // the closed ones (see DimensionalDoorTile.setOpen), so they stay out of the tile selector.
     static {
         for (DoorColor color : DoorColor.values()) {
             register(new DimensionalDoorTile(color, false));
@@ -134,23 +103,16 @@ public final class TileRegistry {
         }
     }
 
-    // not placeable by the player (kept out of the tile selector)
     public static final Tile PATH = register(new Tile("path").setPlaceable(false));
 
-    // -------------------------------------------------------------------------
-    // Lookups
-
-    /** Returns the tile with the given name, or {@code null} if not found. */
     public static Tile byName(String name) {
         return BY_NAME.get(name);
     }
 
-    /** All registered tiles, in registration order. */
     public static List<Tile> getTiles() {
         return REGISTRY.entries();
     }
 
-    /** Tiles the player can place, in registration order (the order the tile selector shows them). */
     public static List<Tile> getCycleOrder() {
         if (placeableTiles == null) {
             List<Tile> placeable = new ArrayList<>();
@@ -163,8 +125,6 @@ public final class TileRegistry {
         }
         return placeableTiles;
     }
-
-    // -------------------------------------------------------------------------
 
     private static <T extends Tile> T register(T tile) {
         REGISTRY.register(tile);

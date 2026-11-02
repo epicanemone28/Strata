@@ -21,6 +21,13 @@ public final class GameSettings {
     public static final int MAX_PIXEL_SIZE = 4;
     public static final int DEFAULT_PIXEL_SIZE = 2;
 
+    /** How the game is laid out in the window: Fit = scaled to fit with black bars, Expand = UI fills the
+     *  window, Bordered = 800x600 game centred on black. Maximized and fullscreen each have their own. */
+    public enum LayoutMode { FIT, EXPAND, BORDERED }
+
+    /** Plain resizable window, a window maximized to the desktop work area, or exclusive fullscreen. */
+    public enum DisplayType { WINDOWED, MAXIMIZED, FULLSCREEN }
+
     public static final int UNCAPPED_FPS = 0;
     private static final int[] FPS_CAP_STEPS = {30, 60, 120, 144, 240, UNCAPPED_FPS};
 
@@ -32,6 +39,11 @@ public final class GameSettings {
     private static int pixelSize = DEFAULT_PIXEL_SIZE;
     private static float musicVolume = 0.15f;
     private static String username = DEFAULT_USERNAME;
+    private static DisplayType displayType = DisplayType.WINDOWED;
+    /** The last non-fullscreen state, so F11 can go back to it. Not saved. */
+    private static DisplayType lastWindowType = DisplayType.WINDOWED;
+    private static LayoutMode fullscreenMode = LayoutMode.EXPAND;
+    private static LayoutMode maximizedMode = LayoutMode.EXPAND;
 
     private GameSettings() {
     }
@@ -104,6 +116,41 @@ public final class GameSettings {
         username = cleaned.isEmpty() ? DEFAULT_USERNAME : cleaned;
     }
 
+    public static DisplayType getDisplayType() {
+        return displayType;
+    }
+
+    public static void setDisplayType(DisplayType type) {
+        displayType = type == null ? DisplayType.WINDOWED : type;
+        if (displayType != DisplayType.FULLSCREEN) {
+            lastWindowType = displayType;
+        }
+    }
+
+    public static DisplayType getLastWindowType() {
+        return lastWindowType;
+    }
+
+    public static boolean isFullscreen() {
+        return displayType == DisplayType.FULLSCREEN;
+    }
+
+    public static LayoutMode getFullscreenMode() {
+        return fullscreenMode;
+    }
+
+    public static void setFullscreenMode(LayoutMode mode) {
+        fullscreenMode = mode == null ? LayoutMode.EXPAND : mode;
+    }
+
+    public static LayoutMode getMaximizedMode() {
+        return maximizedMode;
+    }
+
+    public static void setMaximizedMode(LayoutMode mode) {
+        maximizedMode = mode == null ? LayoutMode.EXPAND : mode;
+    }
+
     public static boolean isShowFpsInHud() {
         return showFpsInHud;
     }
@@ -150,6 +197,19 @@ public final class GameSettings {
         setPixelSize(parseInt(props.getProperty("pixelSize"), pixelSize));
         setMusicVolume(parseFloat(props.getProperty("musicVolume"), musicVolume));
 
+        String savedType = props.getProperty("displayType");
+        if (savedType != null) {
+            try {
+                setDisplayType(DisplayType.valueOf(savedType.trim().toUpperCase()));
+            } catch (IllegalArgumentException ignored) {
+                // keep the default
+            }
+        } else if (parseBoolean(props.getProperty("fullscreen"), false)) {
+            setDisplayType(DisplayType.FULLSCREEN); // options.txt from before display types existed
+        }
+        fullscreenMode = parseLayoutMode(props.getProperty("fullscreenMode"), fullscreenMode);
+        maximizedMode = parseLayoutMode(props.getProperty("maximizedMode"), maximizedMode);
+
         String savedName = props.getProperty("username");
         if (savedName != null) {
             setUsername(savedName);
@@ -166,11 +226,25 @@ public final class GameSettings {
         props.setProperty("pixelSize", Integer.toString(pixelSize));
         props.setProperty("musicVolume", Float.toString(musicVolume));
         props.setProperty("username", username);
+        props.setProperty("displayType", displayType.name());
+        props.setProperty("fullscreenMode", fullscreenMode.name());
+        props.setProperty("maximizedMode", maximizedMode.name());
 
         try (FileOutputStream out = new FileOutputStream(OPTIONS_FILE_NAME)) {
             props.store(out, "Strata video/general options - see GameSettings");
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private static LayoutMode parseLayoutMode(String value, LayoutMode fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return LayoutMode.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return fallback;
         }
     }
 

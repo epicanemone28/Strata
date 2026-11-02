@@ -62,6 +62,12 @@ public abstract class Screen {
         }
     }
 
+    /** The logical window size changed (fullscreen toggled / mode switched). Layout is redone every frame. */
+    public void resize(int width, int height) {
+        this.width = width;
+        this.height = height;
+    }
+
     public boolean pausesGame() {
         return true;
     }
