@@ -40,10 +40,68 @@ public class Textures {
     /** Original pixel width of every texture put into the atlas (before any scaling). */
     private static final Map<String, Integer> SOURCE_WIDTHS = new HashMap<>();
 
+    /** Per atlas texture id: the width of one cell, in atlas pixels. */
+    private static final Map<Integer, Integer> ATLAS_CELL_SIZES = new HashMap<>();
+
+    /** Per atlas texture id: the original pixel width of the image in each slot (same order as buildAtlas's names). */
+    private static final Map<Integer, int[]> ATLAS_SLOT_WIDTHS = new HashMap<>();
+
+    /** Width of one cell of the atlas texture {@code atlasId}, in atlas pixels (0 if it is not an atlas built here). */
+    public static int getAtlasCellSize(int atlasId) {
+        Integer size = ATLAS_CELL_SIZES.get(atlasId);
+        return size == null ? 0 : size;
+    }
+
+    /**
+     * Original pixel width of the sprite in {@code slot} of the atlas {@code atlasId} (before it was
+     * scaled up to the cell), or 0 if unknown. The sprite fills the top-left
+     * {@code width * floor(cell / width)} atlas pixels of its cell.
+     */
+    public static int getAtlasSlotSourceWidth(int atlasId, int slot) {
+        int[] widths = ATLAS_SLOT_WIDTHS.get(atlasId);
+        return widths == null || slot < 0 || slot >= widths.length ? 0 : widths[slot];
+    }
+
     /** Original pixel width of an atlas texture, or 0 if the atlas hasn't been built with it yet. */
     public static int getSourceWidth(String resourceName) {
         Integer width = SOURCE_WIDTHS.get(resourceName);
         return width == null ? 0 : width;
+    }
+
+    // -------------------------------------------------------------------------
+    // Sliced textures
+    //
+    // The atlas only holds square cells, but a texture may be any rectangle whose sides are whole
+    // multiples of the cell size: a 16x48 strip is three 16x16 slices, a 64x48 sheet is 4 x 3.
+    // A slice is named "<resource path>@<col>,<row>" (col 0 = left, row 0 = top), and every
+    // slice gets its own atlas slot. A plain name for a non-square image means its first slice.
+
+    private static final Map<String, int[]> SLICE_GRIDS = new HashMap<>();
+
+    private static int gcd(int a, int b) {
+        return b == 0 ? a : gcd(b, a % b);
+    }
+
+    /** Side of one slice of an image of this size (the largest square that tiles it exactly). */
+    private static int sliceSide(int width, int height) {
+        return Math.max(1, gcd(width, height));
+    }
+
+    /** {columns, rows} of slices in the image at {@code resourcePath} ({1, 1} for a square image). */
+    public static int[] sliceGrid(String resourcePath) {
+        int[] grid = SLICE_GRIDS.get(resourcePath);
+        if (grid == null) {
+            BufferedImage image = readImage(resourcePath);
+            int side = sliceSide(image.getWidth(), image.getHeight());
+            grid = new int[]{image.getWidth() / side, image.getHeight() / side};
+            SLICE_GRIDS.put(resourcePath, grid);
+        }
+        return grid.clone();
+    }
+
+    /** The atlas name of one slice of an image. */
+    public static String sliceName(String resourcePath, int col, int row) {
+        return resourcePath + "@" + col + "," + row;
     }
 
     public static float getAtlasExtent(String resourceName) {
@@ -142,19 +200,22 @@ public class Textures {
 
     public static int buildAtlas(String[] resourceNames, int mode) {
         BufferedImage[] images = new BufferedImage[resourceNames.length];
+        Map<String, BufferedImage> sources = new HashMap<>(); // whole images that are cut into slices
         int cellSize = 1;
 
         for (int i = 0; i < resourceNames.length; i++) {
-            BufferedImage image = readImage(resourceNames[i]);
+            BufferedImage image = readAtlasImage(resourceNames[i], sources);
             if (image.getWidth() != image.getHeight()) {
                 throw new IllegalArgumentException("Tile texture '" + resourceNames[i]
-                        + "' must be square, but was " + image.getWidth() + "x" + image.getHeight());
+                        + "' must be square, but was " + image.getWidth() + "x" + image.getHeight()
+                        + " (name a slice of it: path@col,row)");
             }
 
             images[i] = image;
             cellSize = Math.max(cellSize, image.getWidth());
         }
 
+        int[] slotWidths = new int[resourceNames.length];
         BufferedImage atlas = new BufferedImage(resourceNames.length * cellSize, cellSize, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = atlas.createGraphics();
 
@@ -172,11 +233,45 @@ public class Textures {
             graphics.drawImage(images[i], i * cellSize, 0, drawn, drawn, null);
             ATLAS_EXTENTS.put(resourceNames[i], drawn / (float) cellSize);
             SOURCE_WIDTHS.put(resourceNames[i], width);
+            slotWidths[i] = width;
         }
 
         graphics.dispose();
 
-        return loadTexture(atlas, mode);
+        int id = loadTexture(atlas, mode);
+        ATLAS_CELL_SIZES.put(id, cellSize);
+        ATLAS_SLOT_WIDTHS.put(id, slotWidths);
+        return id;
+    }
+
+    /** An atlas entry's image: the whole image, or the cut-out square for a "path@col,row" slice. */
+    private static BufferedImage readAtlasImage(String name, Map<String, BufferedImage> sources) {
+        int at = name.lastIndexOf('@');
+        if (at < 0) {
+            return readImage(name);
+        }
+
+        String path = name.substring(0, at);
+        int comma = name.indexOf(',', at);
+        int col, row;
+        try {
+            col = Integer.parseInt(name.substring(at + 1, comma));
+            row = Integer.parseInt(name.substring(comma + 1));
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("Bad texture slice '" + name + "' (expected path@col,row)");
+        }
+
+        BufferedImage whole = sources.get(path);
+        if (whole == null) {
+            whole = readImage(path);
+            sources.put(path, whole);
+        }
+        int side = sliceSide(whole.getWidth(), whole.getHeight());
+        if (col < 0 || row < 0 || (col + 1) * side > whole.getWidth() || (row + 1) * side > whole.getHeight()) {
+            throw new IllegalArgumentException("Slice " + col + "," + row + " is outside " + path + " ("
+                    + whole.getWidth() / side + " x " + whole.getHeight() / side + " slices)");
+        }
+        return whole.getSubimage(col * side, row * side, side, side);
     }
 
     static BufferedImage readImage(String resourceName) {

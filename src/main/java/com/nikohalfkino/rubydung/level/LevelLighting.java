@@ -1,0 +1,485 @@
+package com.nikohalfkino.rubydung.level;
+
+import com.nikohalfkino.rubydung.level.tiles.Tile;
+import com.nikohalfkino.rubydung.phys.AABB;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+
+class LevelLighting {
+
+    private static final int LIGHT_SCRATCH_SIZE =
+            (2 * Level.MAX_LIGHT_RADIUS + 1)
+                    * (2 * Level.MAX_LIGHT_RADIUS + 1)
+                    * (2 * Level.MAX_LIGHT_RADIUS + 1);
+
+    /**
+     * How far (in columns) around a shadowed cell to look for open sky. 2 = the surrounding 5x5
+     * columns. Bigger values make the open-air fade wider but cost (2R+1)^2 lookups per shadowed sample.
+     */
+    private static final int OPEN_SKY_RADIUS = 2;
+
+    /**
+     * How much of a shadow's depth is filled back in when every surrounding column is open to the
+     * sky (0 = shadows never fade, 1 = they vanish completely). A shadow with no open columns
+     * around it keeps its full darkness.
+     */
+    private static final float OPEN_SHADOW_LIFT = 0.6F;
+
+    /** calcLightDepths regions bigger than this many columns (world generation etc.) notify in bulk. */
+    private static final long BULK_COLUMN_THRESHOLD = 256;
+
+    private static final int[][] LIGHT_DIRECTIONS = {
+            {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}
+    };
+
+    private static final class LightSource {
+        final int x, y, z;
+        final float radius;
+
+        LightSource(int x, int y, int z, float radius) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.radius = radius;
+        }
+
+        int cubeRadius() {
+            return (int) Math.ceil(this.radius);
+        }
+    }
+
+    private final Level level;
+
+    final int[] lightDepths;
+    private final byte[] blockLight;
+    private final ArrayList<LightSource> lightSources = new ArrayList<>();
+
+    private final boolean[] lightVisited = new boolean[LIGHT_SCRATCH_SIZE];
+    private final int[] lightQueue    = new int[LIGHT_SCRATCH_SIZE];
+
+    private float   skyAmbient = 1.0F;
+    private boolean fullBright = false;
+
+    LevelLighting(Level level) {
+        this.level      = level;
+        this.lightDepths = new int[level.width * level.height];
+        this.blockLight  = new byte[level.width * level.height * level.depth];
+    }
+
+    void setSkyAmbient(float ambient) {
+        this.skyAmbient = ambient;
+    }
+
+    float getSkyAmbient() {
+        return this.skyAmbient;
+    }
+
+    boolean isFullBright() {
+        return this.fullBright;
+    }
+
+    void setFullBright(boolean fullBright) {
+        this.fullBright = fullBright;
+    }
+
+    void calcLightDepths(int minX, int minZ, int maxX, int maxZ) {
+        boolean bulk = (long) maxX * maxZ > BULK_COLUMN_THRESHOLD;
+        int unionLo = Integer.MAX_VALUE;
+        int unionHi = Integer.MIN_VALUE;
+
+        for (int x = minX; x < minX + maxX; x++) {
+            for (int z = minZ; z < minZ + maxZ; z++) {
+                int prevDepth = this.lightDepths[x + z * this.level.width];
+
+                int depth = this.level.depth - 1;
+                while (depth > 0 && !isLightBlocker(x, depth, z)) {
+                    depth--;
+                }
+
+                this.lightDepths[x + z * this.level.width] = depth;
+
+                if (prevDepth != depth) {
+                    int lo = Math.min(prevDepth, depth);
+                    int hi = Math.max(prevDepth, depth);
+                    notifyColumn(x, z, lo, hi);
+
+                    if (bulk) {
+                        unionLo = Math.min(unionLo, lo);
+                        unionHi = Math.max(unionHi, hi);
+                    } else {
+                        notifyOpenSkyNeighbours(x, z, lo, hi);
+                    }
+                }
+            }
+        }
+
+        // Large updates: rather than notifying 25 columns per changed column, notify the whole
+        // region (plus the open-sky margin around it) once, over the combined height range.
+        if (bulk && unionLo <= unionHi) {
+            int r = OPEN_SKY_RADIUS;
+            for (int x = Math.max(0, minX - r); x < Math.min(this.level.width, minX + maxX + r); x++) {
+                for (int z = Math.max(0, minZ - r); z < Math.min(this.level.height, minZ + maxZ + r); z++) {
+                    notifyColumn(x, z, unionLo, unionHi);
+                }
+            }
+        }
+    }
+
+    private void notifyColumn(int x, int z, int minY, int maxY) {
+        for (LevelListener l : this.level.levelListeners) {
+            l.lightColumnChanged(x, z, minY, maxY);
+        }
+    }
+
+    /**
+     * A column's sky exposure changed, which changes how open the sky is around every shadowed cell
+     * within OPEN_SKY_RADIUS columns of it, so those columns need re-lighting too (the changed
+     * column itself has already been notified).
+     */
+    private void notifyOpenSkyNeighbours(int x, int z, int minY, int maxY) {
+        int r = OPEN_SKY_RADIUS;
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dz = -r; dz <= r; dz++) {
+                int nx = x + dx;
+                int nz = z + dz;
+                if ((dx == 0 && dz == 0)
+                        || nx < 0 || nz < 0 || nx >= this.level.width || nz >= this.level.height) {
+                    continue;
+                }
+                notifyColumn(nx, nz, minY, maxY);
+            }
+        }
+    }
+
+    boolean isLightBlocker(int x, int y, int z) {
+        Tile tile = Tile.byId(this.level.getTile(x, y, z));
+        if (tile != null && tile.castsShadow()) {
+            return true;
+        }
+        return this.level.getSubTiles().castsShadowAt(x, y, z);
+    }
+
+    float getSkyLight(int x, int y, int z) {
+        if (x < 0 || y < 0 || z < 0 || x >= this.level.width || y >= this.level.depth || z >= this.level.height) {
+            return 1.0F;
+        }
+
+        float column = getColumnSkyLight(x, y, z);
+        if (column >= 1.0F) {
+            return 1.0F;
+        }
+
+        // Shadowed: sky light still scatters in sideways from open columns nearby, so the more of the
+        // surrounding columns are open to the sky, the more of the shadow is filled back in.
+        float lift = OPEN_SHADOW_LIFT * getSkyOpenness(x, y, z);
+        return column + (1.0F - column) * lift;
+    }
+
+    /**
+     * Fraction (0..1) of the columns around this one that have a clear view of the sky down to
+     * height y. Columns outside the world count as open. The column itself is not counted.
+     */
+    private float getSkyOpenness(int x, int y, int z) {
+        int r = OPEN_SKY_RADIUS;
+        int width = this.level.width;
+        int length = this.level.height;
+
+        int open = 0;
+        int total = 0;
+        for (int dz = -r; dz <= r; dz++) {
+            for (int dx = -r; dx <= r; dx++) {
+                if (dx == 0 && dz == 0) {
+                    continue;
+                }
+                total++;
+
+                int nx = x + dx;
+                int nz = z + dz;
+                // lightDepths holds the height of each column's topmost light blocker.
+                if (nx < 0 || nz < 0 || nx >= width || nz >= length
+                        || this.lightDepths[nx + nz * width] <= y) {
+                    open++;
+                }
+            }
+        }
+        return open / (float) total;
+    }
+
+    /** Sky light from this cell's own column only (what getSkyLight was before neighbours mattered). */
+    private float getColumnSkyLight(int x, int y, int z) {
+        if (shadowCoversOwnCell(x, y, z)) {
+            return Level.SHADOW_DARKEST;
+        }
+
+        int maxDistance = Math.min(Level.SHADOW_FADE_DISTANCE, this.level.depth - 1 - y);
+
+        MultiTileInstance self = this.level.getMultiTile(x, y, z);
+
+        for (int distance = 1; distance <= maxDistance; distance++) {
+            if (isLightBlocker(x, y + distance, z)
+                    && (self == null || !self.contains(x, y + distance, z))) {
+                float t = (distance - 1) / (float) Level.SHADOW_FADE_DISTANCE;
+                return Level.SHADOW_DARKEST + (1.0F - Level.SHADOW_DARKEST) * t;
+            }
+        }
+
+        return 1.0F;
+    }
+
+    private boolean shadowCoversOwnCell(int x, int y, int z) {
+        int id = this.level.getTile(x, y, z);
+        if (id == 0 && this.level.getSubTiles().isEmpty()) {
+            return false;
+        }
+
+        Tile host = Tile.byId(id);
+        if (host != null && host != Tile.AIR && !host.occludesNeighbours() && host.castsShadow()
+                && !host.isBillboard() && !host.isMultiTile()) {
+            for (AABB b : host.getOccupancyBoxes(x, y, z, this.level.getData(x, y, z))) {
+                if (coversTopOfCell(b, y)) {
+                    return true;
+                }
+            }
+        }
+        for (SubTile subTile : this.level.getSubTiles().at(x, y, z)) {
+            Tile tile = Tile.byId(subTile.tileId);
+            if (tile != null && tile.castsShadow()) {
+                for (AABB b : this.level.getSubTiles().occupancy(subTile, x, y, z)) {
+                    if (coversTopOfCell(b, y)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean coversTopOfCell(AABB b, int y) {
+        return b.maxY >= y + 1.0 - SubTiles.EPSILON
+                && (b.maxX - b.minX) * (b.maxZ - b.minZ) >= 0.5;
+    }
+
+    float getBillboardDrop(int x, int y, int z) {
+        if (y <= 0) {
+            return 0.0F;
+        }
+        int belowId = this.level.getTile(x, y - 1, z);
+        if (belowId == 0 && !this.level.getSubTiles().has(x, y - 1, z)) {
+            return 0.0F;
+        }
+        Tile below = Tile.byId(belowId);
+        if (below != null && below.occludesNeighbours() && !this.level.getSubTiles().has(x, y - 1, z)) {
+            return 0.0F;
+        }
+
+        double centreX = x + 0.5;
+        double centreZ = z + 0.5;
+        double top = -1.0;
+        for (AABB b : this.level.getSubTiles().cellOccupancy(x, y - 1, z)) {
+            if (centreX > b.minX && centreX < b.maxX && centreZ > b.minZ && centreZ < b.maxZ) {
+                top = Math.max(top, b.maxY);
+            }
+        }
+        if (top < 0.0) {
+            return 0.0F;
+        }
+        double relative = top - (y - 1);
+        return relative > 0.0 && relative < 1.0 - SubTiles.EPSILON ? (float) (1.0 - relative) : 0.0F;
+    }
+
+    float getBrightness(int x, int y, int z) {
+        if (this.fullBright) {
+            return 1.0F;
+        }
+        return getSkyLight(x, y, z) * this.skyAmbient;
+    }
+
+    boolean hasLightSources() {
+        return !this.lightSources.isEmpty();
+    }
+
+    float getBlockLight(int x, int y, int z) {
+        if (x < 0 || y < 0 || z < 0 || x >= this.level.width || y >= this.level.depth || z >= this.level.height) {
+            return 0.0F;
+        }
+        int index = (y * this.level.height + z) * this.level.width + x;
+        return (this.blockLight[index] & 0xFF) / 255.0F;
+    }
+
+    boolean blocksBlockLight(int x, int y, int z) {
+        Tile tile = Tile.byId(this.level.getTile(x, y, z));
+        return tile != null && tile.blocksLight();
+    }
+
+    void rebuildBlockLight() {
+        Arrays.fill(this.blockLight, (byte) 0);
+        this.lightSources.clear();
+
+        for (int y = 0; y < this.level.depth; y++) {
+            for (int z = 0; z < this.level.height; z++) {
+                for (int x = 0; x < this.level.width; x++) {
+                    Tile tile = Tile.byId(this.level.getTile(x, y, z));
+                    if (tile != null && tile.emitsLight() && !this.level.isMultiTilePart(x, y, z)) {
+                        this.lightSources.add(new LightSource(x, y, z, tile.getLightRadius()));
+                    }
+                }
+            }
+        }
+
+        for (LightSource source : this.lightSources) {
+            spreadLight(source);
+        }
+    }
+
+    private void spreadLight(LightSource source) {
+        int r    = source.cubeRadius();
+        int size = 2 * r + 1;
+        float radius   = source.radius;
+        float radiusSq = radius * radius;
+
+        Arrays.fill(this.lightVisited, 0, size * size * size, false);
+
+        int head = 0, tail = 0;
+        int origin = (r * size + r) * size + r;
+        this.lightVisited[origin] = true;
+        this.lightQueue[tail++]   = origin;
+        storeLight(source.x, source.y, source.z, 255);
+
+        while (head < tail) {
+            int current = this.lightQueue[head++];
+            int lx = current % size;
+            int lz = (current / size) % size;
+            int ly = current / (size * size);
+
+            for (int[] dir : LIGHT_DIRECTIONS) {
+                int nlx = lx + dir[0];
+                int nly = ly + dir[1];
+                int nlz = lz + dir[2];
+
+                if (nlx < 0 || nly < 0 || nlz < 0 || nlx >= size || nly >= size || nlz >= size) {
+                    continue;
+                }
+
+                int dx = nlx - r, dy = nly - r, dz = nlz - r;
+                float distSq = dx * dx + dy * dy + dz * dz;
+                if (distSq >= radiusSq) {
+                    continue;
+                }
+
+                int next = (nly * size + nlz) * size + nlx;
+                if (this.lightVisited[next]) {
+                    continue;
+                }
+
+                int wx = source.x + dx;
+                int wy = source.y + dy;
+                int wz = source.z + dz;
+                if (wx < 0 || wy < 0 || wz < 0
+                        || wx >= this.level.width || wy >= this.level.depth || wz >= this.level.height) {
+                    continue;
+                }
+
+                this.lightVisited[next] = true;
+
+                if (blocksBlockLight(wx, wy, wz)) {
+                    continue;
+                }
+
+                float t     = 1.0F - (float) Math.sqrt(distSq) / radius;
+                int   value = (int) (t * t * 255.0F + 0.5F);
+                if (value > 0) {
+                    storeLight(wx, wy, wz, value);
+                }
+
+                this.lightQueue[tail++] = next;
+            }
+        }
+    }
+
+    private void storeLight(int x, int y, int z, int value) {
+        int index = (y * this.level.height + z) * this.level.width + x;
+        if ((this.blockLight[index] & 0xFF) < value) {
+            this.blockLight[index] = (byte) value;
+        }
+    }
+
+    void updateBlockLight(int x, int y, int z, Tile oldTile, Tile newTile,
+                          boolean oldWasPart, boolean newIsPart) {
+        float oldRadius = !oldWasPart && oldTile != null && oldTile.emitsLight()
+                ? oldTile.getLightRadius() : 0.0F;
+        float newRadius = !newIsPart && newTile != null && newTile.emitsLight()
+                ? newTile.getLightRadius() : 0.0F;
+        boolean opacityChanged =
+                (oldTile != null && oldTile.blocksLight()) != (newTile != null && newTile.blocksLight());
+
+        if (oldRadius > 0.0F) {
+            for (int i = 0; i < this.lightSources.size(); i++) {
+                LightSource s = this.lightSources.get(i);
+                if (s.x == x && s.y == y && s.z == z) {
+                    this.lightSources.remove(i);
+                    break;
+                }
+            }
+        }
+        if (newRadius > 0.0F) {
+            this.lightSources.add(new LightSource(x, y, z, newRadius));
+        }
+
+        if (oldRadius == 0.0F && newRadius == 0.0F && !opacityChanged) {
+            return;
+        }
+
+        ArrayList<LightSource> affected = new ArrayList<>();
+        if (oldRadius > 0.0F) {
+            affected.add(new LightSource(x, y, z, oldRadius));
+        }
+        for (LightSource s : this.lightSources) {
+            int dx = s.x - x, dy = s.y - y, dz = s.z - z;
+            if (dx * dx + dy * dy + dz * dz < s.radius * s.radius) {
+                affected.add(s);
+            }
+        }
+        if (affected.isEmpty()) {
+            return;
+        }
+
+        for (LightSource a : affected) {
+            int r = a.cubeRadius();
+            for (int cy = Math.max(0, a.y - r); cy <= Math.min(this.level.depth  - 1, a.y + r); cy++) {
+                for (int cz = Math.max(0, a.z - r); cz <= Math.min(this.level.height - 1, a.z + r); cz++) {
+                    int row  = (cy * this.level.height + cz) * this.level.width;
+                    int fromX = Math.max(0, a.x - r);
+                    int toX   = Math.min(this.level.width - 1, a.x + r);
+                    Arrays.fill(this.blockLight, row + fromX, row + toX + 1, (byte) 0);
+                }
+            }
+        }
+
+        for (LightSource s : this.lightSources) {
+            for (LightSource a : affected) {
+                int reach = s.cubeRadius() + a.cubeRadius();
+                if (Math.abs(s.x - a.x) <= reach
+                        && Math.abs(s.y - a.y) <= reach
+                        && Math.abs(s.z - a.z) <= reach) {
+                    spreadLight(s);
+                    break;
+                }
+            }
+        }
+
+        for (LightSource a : affected) {
+            int r    = a.cubeRadius() + 1;
+            int minY = Math.max(0, a.y - r);
+            int maxY = Math.min(this.level.depth - 1, a.y + r);
+
+            for (int cx = Math.max(0, a.x - r); cx <= Math.min(this.level.width  - 1, a.x + r); cx++) {
+                for (int cz = Math.max(0, a.z - r); cz <= Math.min(this.level.height - 1, a.z + r); cz++) {
+                    for (LevelListener listener : this.level.levelListeners) {
+                        listener.lightColumnChanged(cx, cz, minY, maxY);
+                    }
+                }
+            }
+        }
+    }
+}

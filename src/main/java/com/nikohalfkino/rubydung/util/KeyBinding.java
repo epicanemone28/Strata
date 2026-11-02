@@ -59,8 +59,6 @@ public class KeyBinding {
     public static final KeyBinding PLACE_BLOCK = new KeyBinding("place_block", "Place Block", Device.MOUSE, 1, true);
     public static final KeyBinding PICK_BLOCK = new KeyBinding("pick_block", "Pick Block", Keyboard.KEY_LMENU, false);
     public static final KeyBinding INTERACT = new KeyBinding("interact", "Interact", Keyboard.KEY_E, false);
-    // Default is G, not Tab: Tab now opens the inventory (see INVENTORY below).
-    public static final KeyBinding CYCLE_TREE = new KeyBinding("cycle_tree", "Cycle Tile Type", Keyboard.KEY_G, false);
 
     // --- Interface. All compared via getKey() (keyboard only) in InputHandler, and INVENTORY / CHAT
     // are also compared by InventoryScreen / ChatScreen so the same key closes / is ignored on open. ---

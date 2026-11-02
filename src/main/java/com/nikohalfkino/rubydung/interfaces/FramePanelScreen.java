@@ -2,6 +2,7 @@ package com.nikohalfkino.rubydung.interfaces;
 
 import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
+import com.nikohalfkino.rubydung.interfaces.widget.Button;
 import com.nikohalfkino.rubydung.interfaces.widget.Widget;
 
 /**
@@ -16,7 +17,15 @@ import com.nikohalfkino.rubydung.interfaces.widget.Widget;
  */
 public abstract class FramePanelScreen extends Screen implements FrameScreen {
 
+    /** Height of the corner button ("Done" / "Quit"), in real pixels; its width is the panel's. */
+    private static final float CORNER_BUTTON_HEIGHT = 28.0F;
+
+    /** Distance from the bottom of the world view to the middle of the bar under it (the chat input's centre line). */
+    private static final float BOTTOM_BAR_CENTER = 32.0F;
+
     protected final RubyDung game;
+
+    private Button cornerButton;
 
     /** Set by GameRenderer every frame from the frame's current (animated) layout. */
     protected GameFrame.Layout layout;
@@ -34,6 +43,28 @@ public abstract class FramePanelScreen extends Screen implements FrameScreen {
     /** Whether the frame has finished sliding open. */
     protected boolean isFrameOpen() {
         return this.layout != null && this.layout.openness >= 1.0F;
+    }
+
+    /**
+     * Adds a button in the bottom-right corner of the frame: in the bar under the world view,
+     * as wide as the right-hand panel and level with the chat input line. It is pinned
+     * to the frame every frame, so it slides in and out with the panel. Call once, in the
+     * constructor ("Done" for screens you just close, "Quit" for the pause menu).
+     */
+    protected final Button addCornerButton(String label, Runnable onClick) {
+        this.cornerButton = add(new Button(label, 0.0F, CORNER_BUTTON_HEIGHT, true)
+                .onClick(onClick), Anchor.TOP_LEFT, 0, 0);
+        return this.cornerButton;
+    }
+
+    private void placeCornerButton() {
+        if (this.cornerButton == null) {
+            return;
+        }
+
+        // As wide as the panel above it, flush with its left and right edges.
+        float y = this.layout.viewY + this.layout.viewHeight + BOTTOM_BAR_CENTER - CORNER_BUTTON_HEIGHT / 2.0F;
+        place(this.cornerButton, this.layout.panelX, y, this.layout.panelWidth, CORNER_BUTTON_HEIGHT);
     }
 
     /** Called every frame while a layout exists, before the widgets are measured. */
@@ -83,6 +114,7 @@ public abstract class FramePanelScreen extends Screen implements FrameScreen {
     @Override
     protected void layoutRoot() {
         if (this.layout != null) {
+            placeCornerButton();
             placeWidgets();
         }
         this.root.layoutRoot(this.font, 0, 0, this.game.getWidth(), this.game.getHeight());

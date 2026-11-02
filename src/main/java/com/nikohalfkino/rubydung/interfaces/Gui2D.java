@@ -9,7 +9,15 @@ public final class Gui2D {
     private Gui2D() {
     }
 
+    /**
+     * How many begin() calls are open. Widgets such as TextInput call begin()/end() themselves
+     * while a Screen already has one open, so only the outermost end() may restore the 3D state.
+     */
+    private static int depth = 0;
+
     public static void begin(int width, int height) {
+        depth++;
+
         glMatrixMode(GL_PROJECTION);
         glPushMatrix();
         glLoadIdentity();
@@ -114,16 +122,42 @@ public final class Gui2D {
         glEnd();
     }
 
-    public static void end() {
-        glDisable(GL_BLEND);
+    /**
+     * Like {@link #drawTexture}, but only the part of the texture between (u0, v0) and (u1, v1)
+     * (each 0..1) is stretched over the rectangle - e.g. to leave out a sprite's empty border.
+     */
+    public static void drawTextureRegion(String texturePath, float x, float y, float width, float height,
+                                         float u0, float v0, float u1, float v1) {
+        int textureId = Textures.loadTexture(texturePath, GL_NEAREST);
+
+        glEnable(GL_TEXTURE_2D);
+        Textures.bind(textureId);
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-        glEnable(GL_CULL_FACE);
+
+        glBegin(GL_QUADS);
+        glTexCoord2f(u0, v0); glVertex2f(x, y);
+        glTexCoord2f(u1, v0); glVertex2f(x + width, y);
+        glTexCoord2f(u1, v1); glVertex2f(x + width, y + height);
+        glTexCoord2f(u0, v1); glVertex2f(x, y + height);
+        glEnd();
+    }
+
+    public static void end() {
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
         glMatrixMode(GL_PROJECTION);
         glPopMatrix();
         glMatrixMode(GL_MODELVIEW);
         glPopMatrix();
 
-        glEnable(GL_DEPTH_TEST);
+        depth = Math.max(0, depth - 1);
+
+        // A nested end() leaves the 2D state alone: restoring culling here would make every
+        // widget drawn afterwards (their quads are clockwise in this projection) vanish.
+        if (depth == 0) {
+            glDisable(GL_BLEND);
+            glEnable(GL_CULL_FACE);
+            glEnable(GL_DEPTH_TEST);
+        }
     }
 }

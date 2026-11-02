@@ -1,0 +1,36 @@
+# Metal grate: a transparent slab. It is one tile with three states, like wood_slab, but "both"
+# (the full block) is listed first so it is data 0: a grate placed before this became a slab
+# stays a full block when an old world is loaded, and the tile icon shows the full block.
+#
+# Registered in TileRegistry as a SlabTile (setTransparent, self-cull on the four sides).
+# Models are defined inline, so there are no model files. uv is left out: it is worked out from
+# the element's bounds, so the sides of a half show the matching half of the texture.
+
+[textures]
+top    = "metal_grate"
+side   = "metal_grate_side"
+bottom = "metal_grate"
+
+[properties]
+half = ["top", "both", "bottom"]
+
+[[state]]
+condition = { half = "both" }
+model     = "&_both"
+elements  = [
+    { from = [0, 0, 0], to = [16, 16, 16], faces = { down = { texture = "#bottom", cullface = "down" }, up = { texture = "#top", cullface = "up" }, north = { texture = "#side", cullface = "north" }, south = { texture = "#side", cullface = "south" }, west = { texture = "#side", cullface = "west" }, east = { texture = "#side", cullface = "east" } } }
+]
+
+[[state]]
+condition = { half = "bottom" }
+model     = "&_bottom"
+elements  = [
+    { from = [0, 0, 0], to = [16, 8, 16], faces = { down = { texture = "#bottom", cullface = "down" }, up = { texture = "#top" }, north = { texture = "#side", cullface = "north" }, south = { texture = "#side", cullface = "south" }, west = { texture = "#side", cullface = "west" }, east = { texture = "#side", cullface = "east" } } }
+]
+
+[[state]]
+condition = { half = "top" }
+model     = "&_top"
+elements  = [
+    { from = [0, 8, 0], to = [16, 16, 16], faces = { down = { texture = "#bottom" }, up = { texture = "#top", cullface = "up" }, north = { texture = "#side", cullface = "north" }, south = { texture = "#side", cullface = "south" }, west = { texture = "#side", cullface = "west" }, east = { texture = "#side", cullface = "east" } } }
+]

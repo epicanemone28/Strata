@@ -5,7 +5,7 @@ import com.nikohalfkino.rubydung.level.Level;
 
 import com.nikohalfkino.rubydung.level.LevelIO;
 import com.nikohalfkino.rubydung.level.LevelRenderer;
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
 import com.nikohalfkino.rubydung.level.WorldManager;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
 import com.nikohalfkino.rubydung.util.SaveQueue;
@@ -184,6 +184,18 @@ public class GameSession {
     private void captureState() {
         this.level.setPlayerPosition(this.player.x, this.player.y, this.player.z, this.player.yRotation, this.player.xRotation);
         this.level.setPlayerFlightState(this.player.flying, this.player.noClip, this.player.flySpeedMultiplier);
+    }
+
+    /** Drops the current world (the caller saves first) so {@link #hasWorld()} is false again. */
+    public void leaveWorld() {
+        if (this.levelRenderer != null) {
+            this.levelRenderer.dispose();
+        }
+
+        this.levelRenderer = null;
+        this.playerInteraction = null;
+        this.player = null;
+        this.level = null;
     }
 
     public void dispose() {

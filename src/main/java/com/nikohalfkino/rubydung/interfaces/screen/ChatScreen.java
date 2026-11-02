@@ -80,6 +80,8 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
                 ChatScreen::nickColor,
                 CHAT_SCALE).setSelf(this.chat::getNick), Anchor.TOP_LEFT, 0, 0);
         this.userList.setVisibleWhen(this::isFrameOpen);
+
+        addCornerButton("Done", this.game::closeScreen);
     }
 
     @Override
@@ -396,7 +398,11 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
                     this.game.getFont(),
                     prompt()
             );
+            return;
         }
+
+        // Anything else: the widgets (the Done button).
+        super.mouseClicked(mouseX, mouseY);
     }
 
     private void drawInputLine(Font font, int mouseX, int mouseY) {

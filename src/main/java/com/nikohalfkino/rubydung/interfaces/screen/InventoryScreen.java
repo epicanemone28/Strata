@@ -7,8 +7,8 @@ import com.nikohalfkino.rubydung.interfaces.widget.PanelSection;
 import com.nikohalfkino.rubydung.interfaces.TileIconRenderer;
 import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.SlotGridWidget;
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
-import com.nikohalfkino.rubydung.level.Tiles.TreeTile;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
+import com.nikohalfkino.rubydung.level.tiles.TreeTile;
 import com.nikohalfkino.rubydung.render.Font;
 import com.nikohalfkino.rubydung.util.KeyBinding;
 import org.lwjgl.input.Keyboard;
@@ -52,6 +52,8 @@ public class InventoryScreen extends FramePanelScreen {
 
         addGrid("Palette", tiles);
         addGrid("Props", props);
+
+        addCornerButton("Done", this.game::closeScreen);
     }
 
     private void addGrid(String title, List<Tile> items) {

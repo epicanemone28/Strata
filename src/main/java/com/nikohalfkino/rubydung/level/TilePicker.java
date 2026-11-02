@@ -1,7 +1,7 @@
 package com.nikohalfkino.rubydung.level;
 
-import com.nikohalfkino.rubydung.HitResult;
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
+import com.nikohalfkino.rubydung.player.HitResult;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
 import com.nikohalfkino.rubydung.phys.AABB;
 
 import java.util.List;
@@ -24,14 +24,25 @@ public final class TilePicker {
         public final int face;
         /** The box that was struck, in world coordinates. */
         public final AABB box;
+        /** SubTile.id of the sub-tile that was struck, -1 for the cell's normal tile. */
+        public final int overlayId;
 
         Result(double t, double x, double y, double z, int face, AABB box) {
+            this(t, x, y, z, face, box, -1);
+        }
+
+        Result(double t, double x, double y, double z, int face, AABB box, int overlayId) {
             this.t = t;
             this.x = x;
             this.y = y;
             this.z = z;
             this.face = face;
             this.box = box;
+            this.overlayId = overlayId;
+        }
+
+        Result forOverlay(int id) {
+            return new Result(this.t, this.x, this.y, this.z, this.face, this.box, id);
         }
     }
 
@@ -45,16 +56,25 @@ public final class TilePicker {
                               double ox, double oy, double oz,
                               double dx, double dy, double dz, double maxT) {
         Tile tile = Tile.byId(level.getTile(x, y, z));
-        if (tile == null) {
-            return null;
+        Result best = null;
+
+        // The cell's normal tile (air has no shape: it must not answer with a whole-cell box).
+        if (tile != null && tile != Tile.AIR) {
+            for (AABB box : tile.getPickBoxes(level, x, y, z)) {
+                Result r = intersect(box, ox, oy, oz, dx, dy, dz);
+                if (r != null && r.t <= maxT && (best == null || r.t < best.t)) {
+                    best = r;
+                }
+            }
         }
 
-        Result best = null;
-        List<AABB> boxes = tile.getPickBoxes(level, x, y, z);
-        for (AABB box : boxes) {
-            Result r = intersect(box, ox, oy, oz, dx, dy, dz);
-            if (r != null && r.t <= maxT && (best == null || r.t < best.t)) {
-                best = r;
+        // Tiles sharing the cell: whichever the ray reaches first wins.
+        for (SubTile subTile : level.getSubTiles().at(x, y, z)) {
+            for (AABB box : level.getSubTiles().occupancy(subTile, x, y, z)) {
+                Result r = intersect(box, ox, oy, oz, dx, dy, dz);
+                if (r != null && r.t <= maxT && (best == null || r.t < best.t)) {
+                    best = r.forOverlay(subTile.id);
+                }
             }
         }
         return best;
@@ -72,15 +92,28 @@ public final class TilePicker {
             return;
         }
         Tile start = Tile.byId(level.getTile(hit.x, hit.y, hit.z));
-        if (start == null || start == Tile.AIR || start.isBillboard()
+        boolean shared = level.getSubTiles().has(hit.x, hit.y, hit.z);
+        if (start == null || (start == Tile.AIR && !shared) || start.isBillboard()
                 || level.getMultiTile(hit.x, hit.y, hit.z) != null) {
             return;
         }
 
-        // A tile that fills its cell was already hit correctly by the cell stepping.
-        List<AABB> shape = start.getPickBoxes(level, hit.x, hit.y, hit.z);
-        if (shape.size() == 1 && isWholeCell(shape.get(0), hit.x, hit.y, hit.z)) {
-            return;
+        // A tile that fills its cell was already hit correctly by the cell stepping (cell and face),
+        // but the exact point is still recorded: placement needs it to tell the upper half of the
+        // face from the lower, so a slab placed against the upper half of a block becomes a top slab.
+        if (!shared) {
+            List<AABB> shape = start.getPickBoxes(level, hit.x, hit.y, hit.z);
+            if (shape.size() == 1 && isWholeCell(shape.get(0), hit.x, hit.y, hit.z)) {
+                double[] dir = CameraRay.direction();
+                Result r = intersect(shape.get(0), CameraRay.eyeX(), CameraRay.eyeY(), CameraRay.eyeZ(),
+                        dir[0], dir[1], dir[2]);
+                // Only trust the camera ray if it struck the same face the stepping did (it can be a
+                // frame old); otherwise leave the hit exactly as it was.
+                if (r != null && r.face == hit.face) {
+                    hit.withPoint(r.x, r.y, r.z, shape.get(0));
+                }
+                return;
+            }
         }
 
         double ox = CameraRay.eyeX(), oy = CameraRay.eyeY(), oz = CameraRay.eyeZ();
@@ -123,8 +156,9 @@ public final class TilePicker {
                 }
             } else {
                 Tile tile = Tile.byId(level.getTile(cx, cy, cz));
-                if (tile != null && tile != Tile.AIR && tile.isSolid()) {
-                    if (tile.isBillboard() || level.getMultiTile(cx, cy, cz) != null) {
+                boolean solidHost = tile != null && tile != Tile.AIR && tile.isSolid();
+                if (solidHost || level.getSubTiles().has(cx, cy, cz)) {
+                    if (solidHost && (tile.isBillboard() || level.getMultiTile(cx, cy, cz) != null)) {
                         return; // not ours to judge: keep the original hit
                     }
                     Result r = pick(level, cx, cy, cz, ox, oy, oz, dx, dy, dz, limit);
@@ -165,6 +199,7 @@ public final class TilePicker {
         hit.cellY = y;
         hit.cellZ = z;
         hit.face = r.face;
+        hit.overlayId = r.overlayId;
         hit.withPoint(r.x, r.y, r.z, r.box);
     }
 

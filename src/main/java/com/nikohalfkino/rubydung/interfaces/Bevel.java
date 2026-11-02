@@ -31,6 +31,20 @@ public final class Bevel {
     }
 
     /**
+     * The raised look of a button or a floating panel: a dark outline plus a bevel (light top/left,
+     * dark bottom/right), both drawn INSIDE the given rectangle. Takes 2 UI units on every side.
+     */
+    public static void raisedFrame(float x, float y, float w, float h, int tint) {
+        raisedFrame(x, y, w, h, red(tint), green(tint), blue(tint));
+    }
+
+    public static void raisedFrame(float x, float y, float w, float h, float tr, float tg, float tb) {
+        float u = GameFrame.UI_SCALE;
+        ring(x, y, w, h, u, false, OUTLINE, OUTLINE, tr, tg, tb);
+        ring(x + u, y + u, w - 2 * u, h - 2 * u, u, false, FRAME_LIGHT, FRAME_SHADOW, tr, tg, tb);
+    }
+
+    /**
      * Draws a bevelled border of thickness t. Top/left strips use the first grey, bottom/right
      * strips the second (both multiplied by the tint), and the two mixed corners (top-right,
      * bottom-left) are split along the diagonal, one UI unit at a time, so the bevel mitres

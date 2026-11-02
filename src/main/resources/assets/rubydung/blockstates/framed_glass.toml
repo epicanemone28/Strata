@@ -1,0 +1,6 @@
+parent = "pane"
+
+[textures]
+top    = "framed_glass@0,0"
+middle = "framed_glass@0,1"
+bottom = "framed_glass@0,2"

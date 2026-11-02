@@ -155,20 +155,27 @@ public class Slider extends Widget {
     protected void draw(Font font, int mouseX, int mouseY) {
         updateMouse(mouseX, mouseY);
 
-        Gui2D.drawNineSlice(TRACK_TEXTURE, this.x, this.y, this.width, this.height, TRACK_TEX_SIZE, TRACK_TEX_SIZE, TRACK_BORDER);
+        boolean enabled = isEnabled();
+
+        Gui2D.drawNineSlice(TRACK_TEXTURE, this.x, this.y, this.width, this.height,
+                TRACK_TEX_SIZE, TRACK_TEX_SIZE, TRACK_BORDER, enabled ? 1.0f : 0.35f);
 
         float t = (this.value - this.minValue) / (this.maxValue - this.minValue);
         float thumbX = this.x + t * (this.width - THUMB_SIZE);
         float thumbY = this.y + (this.height - THUMB_SIZE) / 2.0f;
         Gui2D.drawTexture(THUMB_TEXTURE, thumbX, thumbY, THUMB_SIZE, THUMB_SIZE);
+        if (!enabled) {
+            Gui2D.fillRect(thumbX, thumbY, THUMB_SIZE, THUMB_SIZE, 0.0f, 0.0f, 0.0f, 0.65f);
+        }
 
         String text = this.label + ": " + formatValue();
         int textWidth = font.width(text);
         int drawX = (int) (this.x + (this.width - textWidth) / 2.0f);
         int drawY = (int) (this.y + (this.height - LABEL_HEIGHT) / 2.0f);
 
-        boolean hovered = isHovered(mouseX, mouseY);
-        int color = (hovered || this.dragging) ? UiStyle.TEXT_HOVER : UiStyle.TEXT;
+        boolean hovered = enabled && isHovered(mouseX, mouseY);
+        int color = !enabled ? UiStyle.TEXT_DISABLED
+                : (hovered || this.dragging) ? UiStyle.TEXT_HOVER : UiStyle.TEXT;
         font.drawString(text, drawX, drawY, color);
     }
 

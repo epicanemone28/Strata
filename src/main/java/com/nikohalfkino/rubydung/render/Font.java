@@ -124,6 +124,8 @@ public class Font {
         float green = ((color >> 8) & 0xFF) / 255.0F;
         float blue = (color & 0xFF) / 255.0F;
 
+        boolean blendWasOn = glIsEnabled(GL_BLEND);
+
         glEnable(GL_TEXTURE_2D);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -141,7 +143,9 @@ public class Font {
         glEnd();
 
         glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        glDisable(GL_BLEND);
+        if (!blendWasOn) {
+            glDisable(GL_BLEND);
+        }
     }
 
     private void drawGlyph(char character, float x, float y) {

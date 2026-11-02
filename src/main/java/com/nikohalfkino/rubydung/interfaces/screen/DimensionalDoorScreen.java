@@ -1,9 +1,11 @@
 package com.nikohalfkino.rubydung.interfaces.screen;
 
 import com.nikohalfkino.rubydung.RubyDung;
+import com.nikohalfkino.rubydung.interfaces.Bevel;
 import com.nikohalfkino.rubydung.interfaces.DoorIcons;
 import com.nikohalfkino.rubydung.interfaces.FramePanelScreen;
 import com.nikohalfkino.rubydung.interfaces.FramePatternProvider;
+import com.nikohalfkino.rubydung.interfaces.GameFrame;
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
 import com.nikohalfkino.rubydung.interfaces.NoisePattern;
 import com.nikohalfkino.rubydung.interfaces.UiStyle;
@@ -14,16 +16,14 @@ import com.nikohalfkino.rubydung.interfaces.widget.PanelSection;
 import com.nikohalfkino.rubydung.interfaces.widget.Widget;
 import com.nikohalfkino.rubydung.level.DoorRegistry;
 import com.nikohalfkino.rubydung.level.Level;
-import com.nikohalfkino.rubydung.level.Tiles.DimensionalDoorTile;
-import com.nikohalfkino.rubydung.level.Tiles.DoorColor;
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
+import com.nikohalfkino.rubydung.level.tiles.DimensionalDoorTile;
+import com.nikohalfkino.rubydung.level.tiles.DoorColor;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
 import com.nikohalfkino.rubydung.level.WorldManager;
 import com.nikohalfkino.rubydung.render.Font;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
@@ -44,11 +44,9 @@ import java.util.Set;
  */
 public class DimensionalDoorScreen extends FramePanelScreen implements FramePatternProvider {
 
-    private static final SimpleDateFormat LAST_PLAYED_FORMAT = new SimpleDateFormat("MMM d, HH:mm");
-
-    // Same row metrics as WorldListScreen.
+    // Same row metrics and look as WorldListScreen.
     private static final int ROW_WIDTH = (int) UiStyle.PANEL_WIDTH;
-    private static final int ROW_HEIGHT = 32;
+    private static final int ROW_HEIGHT = 36;
     private static final int ROW_GAP = 4;
     private static final int TOTAL_WORLD_SLOTS = 10;
     private static final int TITLE_Y = 15;
@@ -57,9 +55,20 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
     /** Distance from the bottom of the world view to the world name in the bar below it. */
     private static final int BOTTOM_BAR_Y_OFFSET = 20;
 
-    private static final int DOOR_ICON_SIZE = ROW_HEIGHT - 8;
+    /** Text inside a row, measured from the row's left / top edge. */
+    private static final int TEXT_X = 10;
+    private static final int TEXT_Y = 10;
+
+    /** Door badges: 14px of art at the UI's 2x scale, right-aligned in the row like the world list's. */
+    private static final int DOOR_ICON_SIZE = 14 * GameFrame.UI_SCALE;
     private static final int DOOR_ICON_GAP = 4;
+    private static final int BADGE_MARGIN = 4;
+    private static final int NAME_BADGE_GAP = 8;
     private static final float DIMMED = 0.3F;
+
+    // Sunken slot bevel greys, the same as the world list's rows and the inventory slots.
+    private static final int SLOT_SHADOW = 12;
+    private static final int SLOT_LIGHT = 112;
 
     private static final int SWATCH_SIZE = 34;
     private static final int SWATCH_GAP = 6;
@@ -129,6 +138,8 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
         this.panel = add(new Column(6.0f), Anchor.TOP_LEFT, 0, 0);
         this.panel.add(new Label("Door colour").setColor(UiStyle.TEXT_DIM));
         this.panel.add(new ColorPicker());
+
+        addCornerButton("Done", this.game::closeScreen);
     }
 
     @Override
@@ -267,7 +278,10 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
                 float sy = swatchY(i);
 
                 boolean hover = selectable && i == indexAt(mouseX, mouseY);
-                Gui2D.fillRect(sx, sy, SWATCH_SIZE, SWATCH_SIZE, 0.0f, 0.0f, 0.0f, hover ? 0.45f : 0.3f);
+                float shade = hover ? 0.10f : 0.0f;
+                Gui2D.fillRect(sx, sy, SWATCH_SIZE, SWATCH_SIZE, shade, shade, shade, 1.0f);
+                Bevel.ring(sx, sy, SWATCH_SIZE, SWATCH_SIZE, GameFrame.UI_SCALE, false,
+                        SLOT_SHADOW, SLOT_LIGHT, 1.0f, 1.0f, 1.0f);
 
                 if (color == filter) {
                     Gui2D.fillRect(sx, sy, SWATCH_SIZE, 2, 1.0f, 1.0f, 1.0f, 0.9f);
@@ -382,6 +396,32 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
         Gui2D.end();
     }
 
+    /** The sunken slot look shared with the world list: a solid inset with the inventory's bevel. */
+    private static void drawSlot(float x, float y, float shade, float bevelStrength) {
+        Gui2D.fillRect(x, y, ROW_WIDTH, ROW_HEIGHT, shade, shade, shade, 1.0f);
+        Bevel.ring(x, y, ROW_WIDTH, ROW_HEIGHT, GameFrame.UI_SCALE, false, SLOT_SHADOW, SLOT_LIGHT,
+                bevelStrength, bevelStrength, bevelStrength);
+    }
+
+    /** Width the door badges take from the row's right edge, margin included (0 = no doors). */
+    private static int badgesWidth(WorldEntry world) {
+        int count = world.doors.size();
+        return count == 0 ? 0 : count * DOOR_ICON_SIZE + (count - 1) * DOOR_ICON_GAP + BADGE_MARGIN;
+    }
+
+    /** The text cut short with "..." so it fits in maxWidth pixels. */
+    private static String fit(Font font, String text, int maxWidth) {
+        if (font.width(text) <= maxWidth) {
+            return text;
+        }
+        String ellipsis = "...";
+        String cut = text;
+        while (!cut.isEmpty() && font.width(cut + ellipsis) > maxWidth) {
+            cut = cut.substring(0, cut.length() - 1);
+        }
+        return cut + ellipsis;
+    }
+
     private void drawWorldRow(Font font, int slot) {
         WorldEntry world = this.worlds.get(slot);
         boolean eligible = isEligible(world);
@@ -390,27 +430,24 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
         int rx = rowX();
         int ry = rowY(slot);
 
-        Gui2D.fillRect(rx, ry, ROW_WIDTH, ROW_HEIGHT, 0.0f, 0.0f, 0.0f, rowHovered ? 0.45f : 0.3f);
+        drawSlot(rx, ry, rowHovered ? 0.10f : 0.0f, 1.0f);
         if (slot == this.selected) {
             int tint = getFrameTint();
             Gui2D.fillRect(rx, ry, 3, ROW_HEIGHT,
                     ((tint >> 16) & 0xFF) / 255.0f, ((tint >> 8) & 0xFF) / 255.0f, (tint & 0xFF) / 255.0f, 1.0f);
         }
 
+        // The name gets whatever width the badges leave, and ends in "..." if it doesn't fit.
         int nameColor = !eligible ? 0x666666 : rowHovered ? UiStyle.TEXT_HOVER : UiStyle.TEXT;
-        font.drawString(world.name, rx + 8, ry + 8, nameColor);
-
-        int nameWidth = font.width(world.name);
-        String lastPlayed = "  (" + LAST_PLAYED_FORMAT.format(new Date(world.lastPlayed)) + ")";
-        font.drawString(lastPlayed, rx + 8 + nameWidth, ry + 8, eligible ? UiStyle.TEXT_DIM : 0x555555);
+        int nameSpace = ROW_WIDTH - TEXT_X - NAME_BADGE_GAP - badgesWidth(world);
+        font.drawString(fit(font, world.name, nameSpace), rx + TEXT_X, ry + TEXT_Y, nameColor);
 
         // This world's doors on the right, brightest where they match the colour being looked for.
-        int iconX = rx + ROW_WIDTH - 8 - DOOR_ICON_SIZE;
-        List<DoorColor> doors = new ArrayList<>(world.doors);
-        Collections.reverse(doors);
-        for (DoorColor color : doors) {
-            DoorIcons.draw(color, false, iconX, ry + 4, DOOR_ICON_SIZE, doorMatches(color) ? 1.0f : DIMMED);
-            iconX -= DOOR_ICON_SIZE + DOOR_ICON_GAP;
+        int iconX = rx + ROW_WIDTH - badgesWidth(world);
+        int iconY = ry + (ROW_HEIGHT - DOOR_ICON_SIZE) / 2;
+        for (DoorColor color : world.doors) {
+            DoorIcons.draw(color, false, iconX, iconY, DOOR_ICON_SIZE, doorMatches(color) ? 1.0f : DIMMED);
+            iconX += DOOR_ICON_SIZE + DOOR_ICON_GAP;
         }
     }
 
@@ -418,8 +455,8 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
         int rx = rowX();
         int ry = rowY(slot);
 
-        Gui2D.fillRect(rx, ry, ROW_WIDTH, ROW_HEIGHT, 0.0f, 0.0f, 0.0f, 0.15f);
+        drawSlot(rx, ry, 0.0f, 0.5f);
         String emptyLabel = "- Empty World Slot " + (slot + 1) + " -";
-        font.drawString(emptyLabel, rx + (ROW_WIDTH - font.width(emptyLabel)) / 2, ry + 8, 0x555555);
+        font.drawString(emptyLabel, rx + (ROW_WIDTH - font.width(emptyLabel)) / 2, ry + TEXT_Y, 0x777777);
     }
 }

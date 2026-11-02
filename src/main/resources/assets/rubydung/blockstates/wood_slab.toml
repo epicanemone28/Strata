@@ -8,7 +8,7 @@
 all = "planks"
 
 [properties]
-half = ["bottom", "top", "both"]
+half = ["top", "both", "bottom"]
 
 [[state]]
 condition = { half = "bottom" }

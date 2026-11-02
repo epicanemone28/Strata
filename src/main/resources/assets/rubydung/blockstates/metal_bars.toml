@@ -1,0 +1,6 @@
+parent = "pane"
+
+[textures]
+top    = "metal_bars@0,0"
+middle = "metal_bars@0,1"
+bottom = "metal_bars@0,2"

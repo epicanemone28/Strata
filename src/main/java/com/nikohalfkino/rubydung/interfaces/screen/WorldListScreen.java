@@ -1,61 +1,215 @@
 package com.nikohalfkino.rubydung.interfaces.screen;
 
 import com.nikohalfkino.rubydung.RubyDung;
-import com.nikohalfkino.rubydung.interfaces.DoorIcons;
+import com.nikohalfkino.rubydung.interfaces.Bevel;
+import com.nikohalfkino.rubydung.interfaces.GameFrame;
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
 import com.nikohalfkino.rubydung.interfaces.UiStyle;
+import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.Button;
-import com.nikohalfkino.rubydung.interfaces.widget.Column;
+import com.nikohalfkino.rubydung.interfaces.widget.Group;
+import com.nikohalfkino.rubydung.interfaces.widget.Label;
+import com.nikohalfkino.rubydung.interfaces.widget.Panel;
+import com.nikohalfkino.rubydung.interfaces.widget.Row;
+import com.nikohalfkino.rubydung.interfaces.widget.Shadow;
 import com.nikohalfkino.rubydung.interfaces.widget.Widget;
 import com.nikohalfkino.rubydung.level.DoorRegistry;
-import com.nikohalfkino.rubydung.level.Tiles.DoorColor;
+import com.nikohalfkino.rubydung.level.tiles.DoorColor;
 import com.nikohalfkino.rubydung.level.WorldManager;
+import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
 import com.nikohalfkino.rubydung.render.Font;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public class WorldListScreen extends MenuScreen {
 
-    private static final SimpleDateFormat LAST_PLAYED_FORMAT = new SimpleDateFormat("MMM d, HH:mm");
-
     private static final float ROW_WIDTH = UiStyle.PANEL_WIDTH;
-    private static final float ROW_HEIGHT = 32.0f;
+    /** Tall enough for a 28px badge with room above and below, inside the row's bevel. */
+    private static final float ROW_HEIGHT = 36.0f;
     private static final float ROW_GAP = 4.0f;
-    private static final float DELETE_ZONE_WIDTH = 70.0f;
     private static final int TOTAL_WORLD_SLOTS = 10;
 
-    private static final float BUTTON_SPACING = 8.0f;
+    /** Space between the panel's bevel and its contents. */
+    private static final float PANEL_PADDING = 20.0f;
+    /** Space between the heading and the first row. */
+    private static final float HEADING_GAP = 14.0f;
+    /** Space between the last row and the buttons. */
+    private static final float BUTTONS_GAP = 14.0f;
 
-    private static final float DOOR_ICON_SIZE = ROW_HEIGHT - 8.0f;
-    private static final float DOOR_ICON_GAP = 4.0f;
+    /** Three buttons share the width of a row, so their outer edges line up with it. */
+    private static final float BUTTON_WIDTH = 130.0f;
+    private static final float BUTTON_ROW_GAP = (ROW_WIDTH - 3 * BUTTON_WIDTH) / 2.0f;
+
+    /** Text inside a row, measured from the row's left edge / top edge. */
+    private static final float TEXT_X = 10.0f;
+    private static final float TEXT_Y = 10.0f;
+
+    /** Opacity of both panels' black drop shadows (1 = solid black). */
+    private static final float SHADOW_ALPHA = 1.0f;
+
+    // The "Info" tab: a second panel tucked behind the right edge of the main one.
+    private static final float INFO_WIDTH = 232.0f;
+    private static final float INFO_HEIGHT = 260.0f;
+    /** How far the tab slides in behind the main panel, so it reads as attached to it. */
+    private static final float INFO_OVERLAP = 14.0f;
+    /** How far below the main panel's top edge the tab starts. */
+    private static final float INFO_TOP = 40.0f;
+    private static final float INFO_PADDING = 22.0f;
+    private static final int INFO_TEXT_WIDTH = (int) (INFO_WIDTH - 2 * INFO_PADDING);
+    private static final float INFO_GAP = 4.0f;
+    private static final float INFO_SECTION_GAP = 12.0f;
+    private static final SimpleDateFormat INFO_DATE_FORMAT = new SimpleDateFormat("MMM d, HH:mm");
+
+    // Info card: a square black slot that holds the four detail rows.
+    private static final float INFO_CARD_SIZE = INFO_TEXT_WIDTH; // square
+    private static final float INFO_CARD_PAD = 10.0f;
+    private static final float INFO_CARD_LINE_GAP = 2.0f;
+    private static final float INFO_CARD_SECTION_GAP = 6.0f;
+
+    /** Space kept free between a row's name and its badges. */
+    private static final float NAME_BADGE_GAP = 8.0f;
+
+    // Door badges: 16x16 sprites whose art is a 14x14 square in the top-left corner (the right and
+    // bottom two pixels are empty). Only the art is drawn (at the UI's 2x scale), so BADGE_SIZE is
+    // exactly the area it occupies.
+    private static final String BADGE_PATH = "/assets/rubydung/textures/gui/";
+    private static final int BADGE_SPRITE_PIXELS = 16;
+    private static final int BADGE_ART_PIXELS = 14;
+    private static final float BADGE_SIZE = BADGE_ART_PIXELS * GameFrame.UI_SCALE;
+    private static final float BADGE_GAP = 4.0f;
+    private static final float BADGE_MARGIN = 4.0f;
+
+    // Row bevel greys: the same sunken look as the inventory slots (dark top/left, light bottom/right).
+    private static final int ROW_SHADOW = 12;
+    private static final int ROW_LIGHT = 112;
 
     private final List<WorldRow> rows = new ArrayList<>();
+    private final Button deleteButton;
 
     private List<WorldManager.WorldInfo> worlds = new ArrayList<>();
     private String pendingDelete = null;
 
+    /** The world shown in the Info tab: the one last hovered (null = none yet). */
+    private WorldManager.WorldInfo infoWorld = null;
+    private Set<DoorColor> infoDoors = EnumSet.noneOf(DoorColor.class);
+
+    /** While true, clicking a world asks to delete it instead of opening it. */
+    private boolean deleteMode = false;
+
     public WorldListScreen(RubyDung game) {
         super(game);
 
-        onEscape(() -> game.openScreen(new TitleScreen(game)));
+        onEscape(() -> {
+            if (this.deleteMode) {
+                setDeleteMode(false);
+            } else {
+                game.openScreen(new TitleScreen(game));
+            }
+        });
 
-        addTitle("Select World", 15.0f);
+        // A stage holds the Info tab and the main panel, drawn back to front: the main panel's
+        // shadow, then the Info tab (which therefore covers that shadow), then the main panel,
+        // which overlaps the tab's left edge. The stage is exactly as big as the main panel, so
+        // the tab sticks out of its right side; shifting the stage left by half of that keeps the
+        // pair centred in the window.
+        Group stage = add(new Group(), Anchor.CENTER, -(INFO_WIDTH - INFO_OVERLAP) / 2.0f, 0);
 
-        Column list = addColumn(ROW_GAP, 45.0f);
+        // The main panel's own shadow is switched off; the Shadow widget draws it in the back layer.
+        Panel panel = new Panel(ROW_GAP);
+        panel.setPadding(PANEL_PADDING);
+        panel.setShadow(false);
+
+        stage.add(new Shadow(panel, SHADOW_ALPHA));
+        stage.add(buildInfoTab(), Anchor.TOP_RIGHT, INFO_WIDTH - INFO_OVERLAP, INFO_TOP);
+        stage.add(panel, Anchor.TOP_LEFT, 0, 0);
+
+        // Heading: swaps to a red one in delete mode (the hidden one takes no space).
+        Label heading = panel.add(new Label("Select World"), HEADING_GAP);
+        heading.setVisibleWhen(() -> !this.deleteMode);
+        Label deleteHeading = panel.add(new Label("Select a World to Delete").setColor(UiStyle.TEXT_ERROR), HEADING_GAP);
+        deleteHeading.setVisibleWhen(() -> this.deleteMode);
+
         for (int i = 0; i < TOTAL_WORLD_SLOTS; i++) {
-            this.rows.add(list.add(new WorldRow(i + 1)));
+            this.rows.add(panel.add(new WorldRow(i + 1)));
         }
-        // Original spacing between the last row and the buttons: row gap + 10.
-        this.rows.get(TOTAL_WORLD_SLOTS - 1).setGapAfter(ROW_GAP + 10.0f);
+        this.rows.get(TOTAL_WORLD_SLOTS - 1).setGapAfter(BUTTONS_GAP);
 
-        list.add(new Button("New World").onClick(() -> game.openScreen(new CreateWorldScreen(game))), BUTTON_SPACING);
-        list.add(new Button("Back").onClick(() -> game.openScreen(new TitleScreen(game))));
+        Row buttons = panel.add(new Row(BUTTON_ROW_GAP));
+        buttons.add(new Button("New World", BUTTON_WIDTH, UiStyle.BUTTON_HEIGHT, true)
+                .onClick(() -> game.openScreen(new CreateWorldScreen(game))));
+
+        this.deleteButton = buttons.add(new Button("Delete", BUTTON_WIDTH, UiStyle.BUTTON_HEIGHT, true)
+                .onClick(() -> setDeleteMode(!this.deleteMode)));
+        this.deleteButton.setEnabledWhen(() -> !this.worlds.isEmpty());
+
+        buttons.add(new Button("Back", BUTTON_WIDTH, UiStyle.BUTTON_HEIGHT, true)
+                .onClick(() -> game.openScreen(new TitleScreen(game))));
+    }
+
+    /** The "Info" panel: details of the world the mouse is over, or a hint when there isn't one yet. */
+    private Panel buildInfoTab() {
+        Panel info = new Panel(INFO_GAP);
+        info.setSize(INFO_WIDTH, INFO_HEIGHT);
+        info.setPadding(INFO_PADDING);
+        info.setCrossAlign(0.5f);   // centres the "Info" heading
+        info.setShadowAlpha(SHADOW_ALPHA);
+
+        info.add(new Label("Info"), INFO_SECTION_GAP);
+
+        Label hint = info.add(new Label("Hover over a world\nto see its details")
+                .setMaxWidth(INFO_TEXT_WIDTH).setColor(UiStyle.TEXT_DIM));
+        hint.setVisibleWhen(() -> this.infoWorld == null);
+
+        InfoCard card = info.add(new InfoCard());
+        card.setVisibleWhen(() -> this.infoWorld != null);
+
+        return info;
+    }
+
+    /** The regular door's badge is door.png; every other colour has a sprite named after it (blue.png, ...). */
+    /** Draws a badge's art (the top-left 14x14 of its sprite) with its top-left corner at (x, y). */
+    private static void drawBadge(DoorColor color, float x, float y) {
+        float art = BADGE_ART_PIXELS / (float) BADGE_SPRITE_PIXELS;
+        Gui2D.drawTextureRegion(badgeTexture(color), x, y, BADGE_SIZE, BADGE_SIZE, 0.0f, 0.0f, art, art);
+    }
+
+    private static String badgeTexture(DoorColor color) {
+        String name = color == DoorColor.REGULAR ? "door" : color.name().toLowerCase(Locale.ROOT);
+        return BADGE_PATH + name + ".png";
+    }
+
+    @Override
+    public void render(int mouseX, int mouseY) {
+        updateInfo(mouseX, mouseY);
+        super.render(mouseX, mouseY);
+    }
+
+    /**
+     * Points the Info tab at the hovered world. Moving over the gaps between rows keeps the last
+     * world, so the tab doesn't flicker; moving onto a button clears it.
+     */
+    private void updateInfo(int mouseX, int mouseY) {
+        Widget hit = this.root.pick(mouseX, mouseY);
+
+        if (hit instanceof WorldRow) {
+            setInfoWorld(((WorldRow) hit).world);
+        } else if (hit instanceof Button) {
+            setInfoWorld(null);
+        }
+    }
+
+    private void setInfoWorld(WorldManager.WorldInfo world) {
+        if (world == this.infoWorld) {
+            return;
+        }
+        this.infoWorld = world;
+        this.infoDoors = world == null ? EnumSet.noneOf(DoorColor.class) : DoorRegistry.colors(world.name);
     }
 
     @Override
@@ -64,12 +218,24 @@ public class WorldListScreen extends MenuScreen {
         refresh();
     }
 
+    private void setDeleteMode(boolean deleteMode) {
+        this.deleteMode = deleteMode;
+        this.pendingDelete = null;
+        this.deleteButton.setSelected(deleteMode);
+    }
+
     private void refresh() {
         this.worlds = WorldManager.listWorlds();
         this.pendingDelete = null;
+        setInfoWorld(null);
 
         for (int i = 0; i < this.rows.size(); i++) {
             this.rows.get(i).setWorld(i < this.worlds.size() ? this.worlds.get(i) : null);
+        }
+
+        // Nothing left to delete: leave delete mode.
+        if (this.worlds.isEmpty() && this.deleteMode) {
+            setDeleteMode(false);
         }
     }
 
@@ -82,13 +248,13 @@ public class WorldListScreen extends MenuScreen {
         super.mouseClicked(mouseX, mouseY);
     }
 
-    /** One slot of the list: a saved world (click to play, right side to delete) or an empty placeholder. */
+    /** One slot of the list: a saved world (click to play, or to delete in delete mode) or an empty placeholder. */
     private final class WorldRow extends Widget {
 
         private final int slotNumber;
         private WorldManager.WorldInfo world;
 
-        /** Colours of the dimensional doors in this world, shown on the right of the row. */
+        /** Colours of the dimensional doors in this world, shown as badges on the right of the row. */
         private Set<DoorColor> doors = EnumSet.noneOf(DoorColor.class);
 
         WorldRow(int slotNumber) {
@@ -108,20 +274,15 @@ public class WorldListScreen extends MenuScreen {
             return this.world != null;
         }
 
-        private boolean inDeleteZone(int mouseX, int mouseY) {
-            return mouseX >= this.x + ROW_WIDTH - DELETE_ZONE_WIDTH && mouseX <= this.x + ROW_WIDTH
-                    && mouseY >= this.y && mouseY <= this.y + ROW_HEIGHT;
-        }
-
         @Override
         public void onMouseClicked(int mouseX, int mouseY) {
-            if (this.world.name.equals(pendingDelete)) {
+            if (!deleteMode) {
+                game.loadWorld(this.world.name);
+            } else if (this.world.name.equals(pendingDelete)) {
                 WorldManager.delete(this.world.name);
                 refresh();
-            } else if (inDeleteZone(mouseX, mouseY)) {
-                pendingDelete = this.world.name;
             } else {
-                game.loadWorld(this.world.name);
+                pendingDelete = this.world.name;
             }
         }
 
@@ -134,47 +295,189 @@ public class WorldListScreen extends MenuScreen {
             }
         }
 
+        /** The sunken slot look shared by every row: a dark inset with the inventory's bevel. */
+        private void drawSlot(float r, float g, float b, float fillAlpha, float bevelStrength) {
+            float u = GameFrame.UI_SCALE;
+
+            Gui2D.fillRect(this.x, this.y, ROW_WIDTH, ROW_HEIGHT, r, g, b, fillAlpha);
+            Bevel.ring(this.x, this.y, ROW_WIDTH, ROW_HEIGHT, u, false, ROW_SHADOW, ROW_LIGHT,
+                    bevelStrength, bevelStrength, bevelStrength);
+        }
+
         private void drawWorld(Font font, int mouseX, int mouseY) {
+            float u = GameFrame.UI_SCALE;
+
             if (this.world.name.equals(pendingDelete)) {
                 Gui2D.fillRect(this.x, this.y, ROW_WIDTH, ROW_HEIGHT, 0.35f, 0.1f, 0.1f, 0.9f);
+                Bevel.ring(this.x, this.y, ROW_WIDTH, ROW_HEIGHT, u, false, ROW_SHADOW, ROW_LIGHT, 1.0f, 0.6f, 0.6f);
                 String prompt = "Are you sure? (Click again to confirm)";
-                font.drawString(prompt, (int) (this.x + 8), (int) (this.y + 8), 0xFFAAAA);
+                font.drawString(prompt, (int) (this.x + TEXT_X), (int) (this.y + TEXT_Y), 0xFFAAAA);
                 return;
             }
 
-            boolean deleteHovered = inDeleteZone(mouseX, mouseY);
-            boolean rowHovered = !deleteHovered && contains(mouseX, mouseY);
+            boolean hovered = contains(mouseX, mouseY);
 
-            float alpha = (rowHovered || deleteHovered) ? 0.45f : 0.3f;
-            Gui2D.fillRect(this.x, this.y, ROW_WIDTH, ROW_HEIGHT, 0.0f, 0.0f, 0.0f, alpha);
+            // Slots are solid black; hovering lifts them to a dark grey so there is still feedback.
+            // In delete mode the slots are tinted red so it's obvious clicking won't open them.
+            if (deleteMode) {
+                drawSlot(0.30f, 0.04f, 0.04f, hovered ? 0.55f : 0.40f, 1.0f);
+            } else {
+                float shade = hovered ? 0.10f : 0.0f;
+                drawSlot(shade, shade, shade, 1.0f, 1.0f);
+            }
 
-            int nameColor = rowHovered ? UiStyle.TEXT_HOVER : UiStyle.TEXT;
-            font.drawString(this.world.name, (int) (this.x + 8), (int) (this.y + 8), nameColor);
+            int nameColor;
+            if (deleteMode) {
+                nameColor = hovered ? UiStyle.TEXT_ERROR : UiStyle.TEXT_DANGER;
+            } else {
+                nameColor = hovered ? UiStyle.TEXT_HOVER : UiStyle.TEXT;
+            }
+            // The name gets whatever width the badges leave, and ends in "..." if it doesn't fit.
+            int nameSpace = (int) (ROW_WIDTH - TEXT_X - NAME_BADGE_GAP - badgesWidth());
+            String name = fit(font, this.world.name, nameSpace);
+            font.drawString(name, (int) (this.x + TEXT_X), (int) (this.y + TEXT_Y), nameColor);
 
-            int nameWidth = font.width(this.world.name);
-            String lastPlayed = "  (" + LAST_PLAYED_FORMAT.format(new Date(this.world.lastPlayed)) + ")";
-            font.drawString(lastPlayed, (int) (this.x + 8 + nameWidth), (int) (this.y + 8), UiStyle.TEXT_DIM);
+            drawBadges();
+        }
 
-            String deleteLabel = "Delete";
-            int deleteWidth = font.width(deleteLabel);
-            int deleteColor = deleteHovered ? UiStyle.TEXT_HOVER : UiStyle.TEXT_DANGER;
-            font.drawString(deleteLabel, (int) (this.x + ROW_WIDTH - deleteWidth - 8), (int) (this.y + 8), deleteColor);
+        /** Width the badges take from the right edge of the row, margin included (0 = no doors). */
+        private float badgesWidth() {
+            int count = this.doors.size();
+            return count == 0 ? 0.0f : count * BADGE_SIZE + (count - 1) * BADGE_GAP + BADGE_MARGIN;
+        }
 
-            // The world's doors, to the left of "Delete".
-            float iconX = this.x + ROW_WIDTH - deleteWidth - 8 - DOOR_ICON_GAP - DOOR_ICON_SIZE - 4;
-            List<DoorColor> doorList = new ArrayList<>(this.doors);
-            Collections.reverse(doorList);
-            for (DoorColor color : doorList) {
-                DoorIcons.draw(color, false, iconX, this.y + 4, DOOR_ICON_SIZE, 1.0f);
-                iconX -= DOOR_ICON_SIZE + DOOR_ICON_GAP;
+        /** The text cut short with "..." so it fits in maxWidth pixels. */
+        private String fit(Font font, String text, int maxWidth) {
+            if (font.width(text) <= maxWidth) {
+                return text;
+            }
+            String ellipsis = "...";
+            String cut = text;
+            while (!cut.isEmpty() && font.width(cut + ellipsis) > maxWidth) {
+                cut = cut.substring(0, cut.length() - 1);
+            }
+            return cut + ellipsis;
+        }
+
+        /** The world's door badges, always shown, right-aligned and vertically centred in the row. */
+        private void drawBadges() {
+            if (this.doors.isEmpty()) {
+                return;
+            }
+
+            float badgeX = this.x + ROW_WIDTH - badgesWidth();
+            float badgeY = this.y + (ROW_HEIGHT - BADGE_SIZE) / 2.0f;
+
+            for (DoorColor color : this.doors) {
+                drawBadge(color, badgeX, badgeY);
+                badgeX += BADGE_SIZE + BADGE_GAP;
             }
         }
 
         private void drawEmpty(Font font) {
-            Gui2D.fillRect(this.x, this.y, ROW_WIDTH, ROW_HEIGHT, 0.0f, 0.0f, 0.0f, 0.15f);
+            drawSlot(0.0f, 0.0f, 0.0f, 1.0f, 0.5f);
             String emptyLabel = "- Empty World Slot " + this.slotNumber + " -";
             int labelWidth = font.width(emptyLabel);
-            font.drawString(emptyLabel, (int) (this.x + (ROW_WIDTH - labelWidth) / 2.0f), (int) (this.y + 8), 0x555555);
+            font.drawString(emptyLabel, (int) (this.x + (ROW_WIDTH - labelWidth) / 2.0f), (int) (this.y + TEXT_Y), 0x777777);
         }
+    }
+
+    /**
+     * The square info card shown in the Info tab when a world is hovered.
+     * Draws a black bevelled slot (same look as world rows) and lists four sections:
+     * World Type, Last Played, Doors, and Size.
+     *
+     * Assumes WorldInfo carries: worldType, worldSize, timeMode, sizeBytes.
+     */
+    private final class InfoCard extends Widget {
+
+        InfoCard() {
+            setSize(INFO_CARD_SIZE, INFO_CARD_SIZE);
+        }
+
+        @Override
+        protected void draw(Font font, int mouseX, int mouseY) {
+            float u = GameFrame.UI_SCALE;
+
+            // Black fill + sunken bevel (same as world rows).
+            Gui2D.fillRect(this.x, this.y, INFO_CARD_SIZE, INFO_CARD_SIZE, 0f, 0f, 0f, 0.72f);
+            Bevel.ring(this.x, this.y, INFO_CARD_SIZE, INFO_CARD_SIZE, u, false,
+                    ROW_SHADOW, ROW_LIGHT, 1f, 1f, 1f);
+
+            float tx = this.x + INFO_CARD_PAD;
+            float ty = this.y + INFO_CARD_PAD;
+            float lh = UiStyle.LINE_HEIGHT;
+
+            // — World Type ————————————————————————
+            font.drawString("World Type", (int) tx, (int) ty, UiStyle.TEXT_DIM);
+            ty += lh + INFO_CARD_LINE_GAP;
+            String worldTypeStr = formatWorldType(infoWorld);
+            font.drawString(worldTypeStr.isEmpty() ? "-" : worldTypeStr,
+                    (int) tx, (int) ty,
+                    worldTypeStr.isEmpty() ? UiStyle.TEXT_DISABLED : UiStyle.TEXT);
+            ty += lh + INFO_CARD_SECTION_GAP;
+
+            // — Last Played ————————————————————————
+            font.drawString("Last Played", (int) tx, (int) ty, UiStyle.TEXT_DIM);
+            ty += lh + INFO_CARD_LINE_GAP;
+            font.drawString(INFO_DATE_FORMAT.format(new Date(infoWorld.lastPlayed)),
+                    (int) tx, (int) ty, UiStyle.TEXT);
+            ty += lh + INFO_CARD_SECTION_GAP;
+
+            // — Doors ——————————————————————————————
+            font.drawString("Doors", (int) tx, (int) ty, UiStyle.TEXT_DIM);
+            ty += lh + INFO_CARD_LINE_GAP;
+            if (infoDoors.isEmpty()) {
+                font.drawString("None", (int) tx, (int) ty, UiStyle.TEXT_DISABLED);
+            } else {
+                float bx = tx;
+                for (DoorColor color : infoDoors) {
+                    drawBadge(color, bx, ty);
+                    bx += BADGE_SIZE + BADGE_GAP;
+                }
+            }
+            ty += BADGE_SIZE + INFO_CARD_SECTION_GAP;
+
+            // — Size ———————————————————————————————
+            font.drawString("Size", (int) tx, (int) ty, UiStyle.TEXT_DIM);
+            ty += lh + INFO_CARD_LINE_GAP;
+            font.drawString(formatSize(infoWorld.sizeBytes), (int) tx, (int) ty, UiStyle.TEXT);
+        }
+    }
+
+    /** Formats a world's type, size, and time mode into a single summary string. */
+    private static String formatWorldType(WorldManager.WorldInfo w) {
+        List<String> parts = new ArrayList<>();
+
+        if (w.worldType != null) {
+            parts.add(w.worldType == LevelGenerator.WorldType.NATURAL ? "Natural" : "Flat");
+        }
+
+        if (w.worldSize != null) {
+            switch (w.worldSize) {
+                case TINY:    parts.add("Tiny");    break;
+                case DEFAULT: parts.add("Default"); break;
+                case LARGE:   parts.add("Large");   break;
+                case INSANE:  parts.add("XL");      break;
+                default:      parts.add(w.worldSize.name()); break;
+            }
+        }
+
+        if (parts.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < parts.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(parts.get(i));
+        }
+        return sb.toString();
+    }
+
+    /** Formats a byte count as a human-readable disk size. */
+    private static String formatSize(long bytes) {
+        if (bytes < 1024L)             return bytes + " B";
+        if (bytes < 1024L * 1024L)     return String.format("%.1f KB", bytes / 1024.0);
+        return                                String.format("%.1f MB", bytes / (1024.0 * 1024.0));
     }
 }

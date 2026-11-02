@@ -9,21 +9,19 @@ import com.nikohalfkino.rubydung.interfaces.*;
 import com.nikohalfkino.rubydung.interfaces.hud.CenterIndicator;
 import com.nikohalfkino.rubydung.interfaces.hud.CrosshairHud;
 import com.nikohalfkino.rubydung.interfaces.hud.DebugHud;
+import com.nikohalfkino.rubydung.interfaces.hud.HandHud;
 import com.nikohalfkino.rubydung.interfaces.hud.InteractPromptHud;
 import com.nikohalfkino.rubydung.interfaces.hud.SelectedTileHud;
 import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.screen.TitleScreen;
-import com.nikohalfkino.rubydung.level.Chunk;
-import com.nikohalfkino.rubydung.level.Level;
-import com.nikohalfkino.rubydung.level.LevelRenderer;
-import com.nikohalfkino.rubydung.level.Tiles.DoorColor;
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
-import com.nikohalfkino.rubydung.level.WorldManager;
+import com.nikohalfkino.rubydung.level.*;
+import com.nikohalfkino.rubydung.level.tiles.DoorColor;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
 import com.nikohalfkino.rubydung.player.DoorTravel;
 import com.nikohalfkino.rubydung.player.Player;
 import com.nikohalfkino.rubydung.player.PlayerInteraction;
-import com.nikohalfkino.rubydung.player.input.InputHandler;
+import com.nikohalfkino.rubydung.player.InputHandler;
 import com.nikohalfkino.rubydung.render.Font;
 import com.nikohalfkino.rubydung.render.GameRenderer;
 import com.nikohalfkino.rubydung.render.ScreenshotManager;
@@ -32,6 +30,7 @@ import com.nikohalfkino.rubydung.util.AutosaveSettings;
 import com.nikohalfkino.rubydung.util.GameSettings;
 import com.nikohalfkino.rubydung.util.KeyBinding;
 import com.nikohalfkino.rubydung.util.SaveQueue;
+import com.nikohalfkino.rubydung.util.Timer;
 import org.lwjgl.LWJGLException;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -47,7 +46,7 @@ import static org.lwjgl.opengl.GL11.*;
 public class RubyDung implements Runnable {
 
     public static final String GAME_NAME = "Strata";
-    public static final String GAME_VERSION = "0.1.2";
+    public static final String GAME_VERSION = "v0.2.0";
 
     public static final String GAME_TITLE = GAME_NAME + " " + GAME_VERSION;
 
@@ -56,7 +55,7 @@ public class RubyDung implements Runnable {
     /** Game ticks per second (the Timer's rate); autosave intervals are counted in ticks. */
     private static final int TICKS_PER_SECOND = 60;
 
-    private final Timer timer = new Timer(TICKS_PER_SECOND);
+    private final com.nikohalfkino.rubydung.util.Timer timer = new Timer(TICKS_PER_SECOND);
 
     private final int width = 800;
     private final int height = 600;
@@ -200,6 +199,8 @@ public class RubyDung implements Runnable {
 
         this.font = new Font("/assets/rubydung/font/default.png");
 
+        // First, so everything else on the HUD draws on top of the hand.
+        this.hud.register(new HandHud(this), Anchor.BOTTOM_RIGHT, 0, 0);
         this.hud.register(new SelectedTileHud(this));
         this.hud.register(this.debugHud);
         this.hud.register(new CrosshairHud());
@@ -267,6 +268,7 @@ public class RubyDung implements Runnable {
             float startTime
     ) {
         beginWorldClock(worldName, timeMode, startTime);
+        WorldManager.saveWorldSettings(worldName, size, timeMode);
         this.chatLog.reset(worldName);
         this.session.startNewWorld(worldName, type, size);
     }
@@ -296,6 +298,7 @@ public class RubyDung implements Runnable {
             float startTime
     ) {
         beginWorldClock(worldName, timeMode, startTime);
+        WorldManager.saveWorldSettings(worldName, size, timeMode);
         this.chatLog.reset(worldName);
         this.session.startNewWorld(worldName, type, seed, size);
     }
@@ -332,6 +335,24 @@ public class RubyDung implements Runnable {
 
         // Any save (manual, travelling through a door, ...) restarts the autosave countdown.
         this.ticksSinceAutosave = 0;
+    }
+
+    /**
+     * Saves and unloads the current world, then shows the title screen. Without the unload,
+     * hasWorld() stays true and anything that checks it (Options -> Done, the renderer) still
+     * thinks you are in the world you just quit.
+     */
+    public void quitToTitle() {
+        if (hasWorld()) {
+            saveLevel();
+            this.session.leaveWorld();
+        }
+
+        this.pendingArrivalColor = null;
+        this.ticksSinceAutosave = 0;
+        Display.setTitle(GAME_TITLE);
+
+        openScreen(new TitleScreen(this));
     }
 
     /** Saves the world on a timer and tells the player. */

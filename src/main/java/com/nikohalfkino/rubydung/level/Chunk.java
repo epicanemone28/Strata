@@ -1,7 +1,6 @@
 package com.nikohalfkino.rubydung.level;
 
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
-import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Tessellator;
 import com.nikohalfkino.rubydung.render.Textures;
@@ -142,6 +141,25 @@ public class Chunk {
                             int direction = this.level.getData(x, y, z);
                             tile.render(TESSELLATOR, this.level, layer, x, y, z, TOTAL_ATLAS_SLOTS, direction);
                         }
+                    }
+
+                    // Tiles sharing this cell with its normal tile, each drawn shifted by its own offset.
+                    for (SubTile subTile : this.level.getSubTiles().at(x, y, z)) {
+                        Tile shared = Tile.byId(subTile.tileId);
+                        if (shared == null || shared.isBillboard()) {
+                            continue;
+                        }
+                        TESSELLATOR.setOffset(subTile.ox, subTile.oy, subTile.oz);
+                        int clip = SubTile.clipOf(subTile.data);
+                        if (clip != 0) {
+                            // A block sharing the cell with a slab: only its lower or upper half is drawn.
+                            float lo = clip == SubTile.CLIP_BOTTOM ? y : y + 0.5F;
+                            TESSELLATOR.setClipY(y, y + 1.0F, lo + subTile.oy, lo + 0.5F + subTile.oy);
+                        }
+                        shared.render(TESSELLATOR, this.level, layer, x, y, z, TOTAL_ATLAS_SLOTS,
+                                SubTile.baseData(subTile.data));
+                        TESSELLATOR.clearClip();
+                        TESSELLATOR.clearOffset();
                     }
                 }
             }

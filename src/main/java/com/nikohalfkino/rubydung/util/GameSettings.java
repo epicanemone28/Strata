@@ -17,6 +17,10 @@ public final class GameSettings {
     public static final String DEFAULT_USERNAME = "Hakumu";
     public static final int MAX_USERNAME_LENGTH = 16;
 
+    public static final int MIN_PIXEL_SIZE = 2;
+    public static final int MAX_PIXEL_SIZE = 4;
+    public static final int DEFAULT_PIXEL_SIZE = 2;
+
     public static final int UNCAPPED_FPS = 0;
     private static final int[] FPS_CAP_STEPS = {30, 60, 120, 144, 240, UNCAPPED_FPS};
 
@@ -24,6 +28,8 @@ public final class GameSettings {
     private static boolean vsyncEnabled = true;
     private static int fpsCap = 60;
     private static boolean showFpsInHud = true;
+    private static boolean pixelationEnabled = true;
+    private static int pixelSize = DEFAULT_PIXEL_SIZE;
     private static float musicVolume = 0.15f;
     private static String username = DEFAULT_USERNAME;
 
@@ -106,6 +112,22 @@ public final class GameSettings {
         showFpsInHud = show;
     }
 
+    public static boolean isPixelationEnabled() {
+        return pixelationEnabled;
+    }
+
+    public static void setPixelationEnabled(boolean enabled) {
+        pixelationEnabled = enabled;
+    }
+
+    public static int getPixelSize() {
+        return pixelSize;
+    }
+
+    public static void setPixelSize(int size) {
+        pixelSize = Math.max(MIN_PIXEL_SIZE, Math.min(MAX_PIXEL_SIZE, size));
+    }
+
     public static void load() {
         File file = new File(OPTIONS_FILE_NAME);
         if (!file.isFile()) {
@@ -124,6 +146,8 @@ public final class GameSettings {
         vsyncEnabled = parseBoolean(props.getProperty("vsyncEnabled"), vsyncEnabled);
         fpsCap = parseInt(props.getProperty("fpsCap"), fpsCap);
         showFpsInHud = parseBoolean(props.getProperty("showFpsInHud"), showFpsInHud);
+        pixelationEnabled = parseBoolean(props.getProperty("pixelationEnabled"), pixelationEnabled);
+        setPixelSize(parseInt(props.getProperty("pixelSize"), pixelSize));
         setMusicVolume(parseFloat(props.getProperty("musicVolume"), musicVolume));
 
         String savedName = props.getProperty("username");
@@ -138,6 +162,8 @@ public final class GameSettings {
         props.setProperty("vsyncEnabled", Boolean.toString(vsyncEnabled));
         props.setProperty("fpsCap", Integer.toString(fpsCap));
         props.setProperty("showFpsInHud", Boolean.toString(showFpsInHud));
+        props.setProperty("pixelationEnabled", Boolean.toString(pixelationEnabled));
+        props.setProperty("pixelSize", Integer.toString(pixelSize));
         props.setProperty("musicVolume", Float.toString(musicVolume));
         props.setProperty("username", username);
 

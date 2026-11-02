@@ -2,8 +2,7 @@ package com.nikohalfkino.rubydung.level.generation;
 
 import com.nikohalfkino.rubydung.level.Chunk;
 import com.nikohalfkino.rubydung.level.Level;
-import com.nikohalfkino.rubydung.level.LevelRenderer;
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
 
 final class FlatLevelGenerator {
 

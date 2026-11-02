@@ -1,26 +1,41 @@
 package com.nikohalfkino.rubydung.interfaces.screen;
 
-import com.nikohalfkino.rubydung.DayNightCycle;
+import com.nikohalfkino.rubydung.level.DayNightCycle;
 import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.interfaces.UiStyle;
+import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.Button;
 import com.nikohalfkino.rubydung.interfaces.widget.ChoiceRow;
-import com.nikohalfkino.rubydung.interfaces.widget.Column;
 import com.nikohalfkino.rubydung.interfaces.widget.Label;
+import com.nikohalfkino.rubydung.interfaces.widget.Panel;
+import com.nikohalfkino.rubydung.interfaces.widget.Row;
 import com.nikohalfkino.rubydung.interfaces.widget.TextInput;
 import com.nikohalfkino.rubydung.level.WorldManager;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
 
+/**
+ * New-world form, laid out like the Options screen: one panel with a dim header per section
+ * (World, Terrain, Size, Time) and Create / Cancel side by side at the bottom. The seed box only
+ * shows for natural terrain and the time-of-day row only while the clock is frozen; the gaps
+ * around them are adjusted so the sections stay evenly spaced either way.
+ */
 public class CreateWorldScreen extends MenuScreen {
 
     private static final int MAX_NAME_LENGTH = 32;
     private static final int MAX_SEED_LENGTH = 32;
 
-    private static final float PANEL_WIDTH = UiStyle.PANEL_WIDTH;
-    private static final float FIELD_HEIGHT = UiStyle.ROW_HEIGHT;
+    private static final float PANEL_WIDTH   = UiStyle.PANEL_WIDTH;
+    private static final float PANEL_PADDING = 20.0f;
+    private static final float PANEL_TOP     = 90.0f;
+
+    private static final float FIELD_HEIGHT  = UiStyle.ROW_HEIGHT;
     private static final float BUTTON_HEIGHT = UiStyle.BUTTON_HEIGHT;
 
-    private static final float TYPE_GAP = 20.0f;
+    private static final float ITEM_GAP    = 8.0f;
+    private static final float HEADER_GAP  = 6.0f;
+    private static final float SECTION_GAP = 16.0f;
+
+    private static final float TYPE_GAP   = 20.0f;
     private static final float CHOICE_GAP = 12.0f;
 
     // Start times offered when the clock is frozen (0 = midnight, 0.25 = dawn, 0.5 = noon, 0.75 = dusk).
@@ -31,6 +46,7 @@ public class CreateWorldScreen extends MenuScreen {
 
     private final TextInput nameInput;
     private final TextInput seedInput;
+    private final ChoiceRow<LevelGenerator.WorldType> typeRow;
     private final ChoiceRow<DayNightCycle.TimeMode> timeModeRow;
 
     private LevelGenerator.WorldType worldType = LevelGenerator.WorldType.FLAT;
@@ -46,36 +62,54 @@ public class CreateWorldScreen extends MenuScreen {
         setSwallowKeys(true);
         // The name / seed box keeps the keyboard when other buttons are clicked.
         setStickyFocus(true);
-        onEscape(() -> game.openScreen(new WorldListScreen(game)));
+        onEscape(this::cancel);
         onEnter(this::tryCreate);
 
         addTitle("New World");
 
-        // The whole form is one column; rows that are hidden (seed, time of day) leave no gap.
-        Column form = addColumn(0.0f, 90.0f);
+        Panel panel = add(new Panel(ITEM_GAP), Anchor.TOP_CENTER, 0, PANEL_TOP);
+        panel.setPadding(PANEL_PADDING);
+        panel.setShadowAlpha(1.0f);
+        panel.setCrossAlign(0.0f);
 
-        this.nameInput = form.add(new TextInput("Name: ", PANEL_WIDTH, FIELD_HEIGHT, MAX_NAME_LENGTH), 16.0f);
+        // — World —————————————————————————————————————————————
+        panel.add(new Label("World").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
-        ChoiceRow<LevelGenerator.WorldType> typeRow = form.add(
+        this.nameInput = panel.add(
+                new TextInput("Name: ", PANEL_WIDTH, FIELD_HEIGHT, MAX_NAME_LENGTH), SECTION_GAP);
+
+        // — Terrain ———————————————————————————————————————————
+        panel.add(new Label("Terrain").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
+
+        this.typeRow = panel.add(
                 new ChoiceRow<LevelGenerator.WorldType>(PANEL_WIDTH, BUTTON_HEIGHT, TYPE_GAP)
                         .option("Flat", LevelGenerator.WorldType.FLAT)
                         .option("Natural", LevelGenerator.WorldType.NATURAL)
-                        .onChange(this::selectType),
-                CHOICE_GAP);
-        typeRow.select(this.worldType);
+                        .onChange(this::selectType));
+        this.typeRow.select(this.worldType);
+        updateTypeGap();
 
-        ChoiceRow<LevelGenerator.WorldSize> sizeRow = form.add(
+        this.seedInput = panel.add(
+                new TextInput("Seed: ", PANEL_WIDTH, FIELD_HEIGHT, MAX_SEED_LENGTH), SECTION_GAP);
+        this.seedInput.setVisibleWhen(this::showSeedField);
+
+        // — Size ——————————————————————————————————————————————
+        panel.add(new Label("Size").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
+
+        ChoiceRow<LevelGenerator.WorldSize> sizeRow = panel.add(
                 new ChoiceRow<LevelGenerator.WorldSize>(PANEL_WIDTH, BUTTON_HEIGHT, CHOICE_GAP)
                         .option("Tiny", LevelGenerator.WorldSize.TINY)
                         .option("Default", LevelGenerator.WorldSize.DEFAULT)
                         .option("Large", LevelGenerator.WorldSize.LARGE)
                         .option("XL", LevelGenerator.WorldSize.INSANE)
                         .onChange(size -> this.worldSize = size),
-                CHOICE_GAP);
+                SECTION_GAP);
         sizeRow.select(this.worldSize);
 
-        // World time: Real-Time / Normal / Frozen, plus a time-of-day row when frozen.
-        this.timeModeRow = form.add(
+        // — Time: Real-Time / Normal / Frozen, plus a time-of-day row when frozen ————
+        panel.add(new Label("Time").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
+
+        this.timeModeRow = panel.add(
                 new ChoiceRow<DayNightCycle.TimeMode>(PANEL_WIDTH, BUTTON_HEIGHT, CHOICE_GAP)
                         .option("Real-Time", DayNightCycle.TimeMode.REAL_TIME)
                         .option("Normal", DayNightCycle.TimeMode.NORMAL)
@@ -84,24 +118,28 @@ public class CreateWorldScreen extends MenuScreen {
         this.timeModeRow.select(this.timeMode);
         updateTimeModeGap();
 
-        ChoiceRow<Float> timeOfDayRow = form.add(
+        ChoiceRow<Float> timeOfDayRow = panel.add(
                 new ChoiceRow<Float>(PANEL_WIDTH, BUTTON_HEIGHT, CHOICE_GAP)
                         .option("Midnight", TIME_MIDNIGHT)
                         .option("Dawn", TIME_DAWN)
                         .option("Noon", TIME_NOON)
                         .option("Dusk", TIME_DUSK)
                         .onChange(time -> this.frozenStartTime = time),
-                16.0f);
+                SECTION_GAP);
         timeOfDayRow.select(this.frozenStartTime);
         timeOfDayRow.setVisibleWhen(this::showTimeOfDayRow);
 
-        this.seedInput = form.add(new TextInput("Seed: ", PANEL_WIDTH, FIELD_HEIGHT, MAX_SEED_LENGTH), 16.0f);
-        this.seedInput.setVisibleWhen(this::showSeedField);
+        // — Create | Cancel ———————————————————————————————————
+        float buttonWidth = (PANEL_WIDTH - UiStyle.BUTTON_GAP) / 2.0f;
+        Row bottom = panel.add(new Row(UiStyle.BUTTON_GAP), ITEM_GAP);
+        bottom.add(new Button("Create", buttonWidth, BUTTON_HEIGHT, true).onClick(this::tryCreate));
+        bottom.add(new Button("Cancel", buttonWidth, BUTTON_HEIGHT, true).onClick(this::cancel));
 
-        form.add(new Button("Create").onClick(this::tryCreate), 8.0f);
-        form.add(new Button("Cancel").onClick(() -> game.openScreen(new WorldListScreen(game))), 12.0f);
-
-        Label errorLabel = form.add(new Label(() -> this.error).setColor(UiStyle.TEXT_ERROR));
+        // Error line, centred over the panel's content; takes no space until there is an error.
+        Label errorLabel = panel.add(new Label(() -> this.error)
+                .setColor(UiStyle.TEXT_ERROR)
+                .setMaxWidth((int) PANEL_WIDTH));
+        errorLabel.setSize(PANEL_WIDTH, -1.0f);
         errorLabel.setVisibleWhen(() -> this.error != null);
 
         setFocus(this.nameInput);
@@ -117,6 +155,7 @@ public class CreateWorldScreen extends MenuScreen {
 
     private void selectType(LevelGenerator.WorldType type) {
         this.worldType = type;
+        updateTypeGap();
 
         if (!showSeedField() && getFocus() == this.seedInput) {
             setFocus(this.nameInput);
@@ -128,9 +167,18 @@ public class CreateWorldScreen extends MenuScreen {
         updateTimeModeGap();
     }
 
-    /** The time-of-day row sits closer to the mode row than the next section does. */
+    /** The seed box sits close under the type row; without it the next section follows at the section gap. */
+    private void updateTypeGap() {
+        this.typeRow.setGapAfter(showSeedField() ? ITEM_GAP : SECTION_GAP);
+    }
+
+    /** The time-of-day row sits close under the mode row; without it the next item follows at the section gap. */
     private void updateTimeModeGap() {
-        this.timeModeRow.setGapAfter(showTimeOfDayRow() ? CHOICE_GAP : 16.0f);
+        this.timeModeRow.setGapAfter(showTimeOfDayRow() ? ITEM_GAP : SECTION_GAP);
+    }
+
+    private void cancel() {
+        this.game.openScreen(new WorldListScreen(this.game));
     }
 
     private void tryCreate() {

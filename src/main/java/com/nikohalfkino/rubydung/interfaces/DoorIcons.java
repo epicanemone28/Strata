@@ -1,7 +1,7 @@
 package com.nikohalfkino.rubydung.interfaces;
 
-import com.nikohalfkino.rubydung.level.Tiles.DimensionalDoorTile;
-import com.nikohalfkino.rubydung.level.Tiles.DoorColor;
+import com.nikohalfkino.rubydung.level.tiles.DimensionalDoorTile;
+import com.nikohalfkino.rubydung.level.tiles.DoorColor;
 import org.lwjgl.BufferUtils;
 
 import javax.imageio.ImageIO;

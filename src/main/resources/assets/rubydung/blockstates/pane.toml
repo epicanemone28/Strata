@@ -1,0 +1,70 @@
+# Shared by metal_bars, framed_glass, ...: a thin flat pane through the middle of the cell that
+# extends vertically. Used by PaneTile; children only set [textures] (top, middle, bottom):
+#
+#   parent = "pane"
+#   [textures]
+#   top = "my_pane@0,0"       # "name@col,row" = one 16x16 slice of a taller texture (col 0, row 0 = top left)
+#   middle = "my_pane@0,1"
+#   bottom = "my_pane@0,2"
+#
+# "facing" is the only property stored in the world and must come first (FacingTile): a pane facing
+# north or south runs east-west, one facing east or west runs north-south. "part" is worked out
+# from the panes above when drawing (never saved):
+#   top    = a single pane, or the top of a stack
+#   middle = repeats down the stack (also the lower pane of a stack of two)
+#   bottom = the bottom of a stack of three or more
+#
+# The model is flat (zero thickness, two faces); "collision" gives it its slim 2 px hitbox, which
+# is also what the selection outline and ray picking use.
+
+[properties]
+facing = ["north", "east", "south", "west"]
+part   = ["top", "middle", "bottom"]
+
+[[state]]
+condition = { facing = ["north", "south"], part = "top" }
+model     = "&_ew_top"
+collision = [ [0, 0, 7, 16, 16, 9] ]
+elements  = [
+    { from = [0, 0, 8], to = [16, 16, 8], faces = { north = { texture = "#top", uv = [0, 0, 16, 16] }, south = { texture = "#top", uv = [0, 0, 16, 16] } } }
+]
+
+[[state]]
+condition = { facing = ["north", "south"], part = "middle" }
+model     = "&_ew_middle"
+collision = [ [0, 0, 7, 16, 16, 9] ]
+elements  = [
+    { from = [0, 0, 8], to = [16, 16, 8], faces = { north = { texture = "#middle", uv = [0, 0, 16, 16] }, south = { texture = "#middle", uv = [0, 0, 16, 16] } } }
+]
+
+[[state]]
+condition = { facing = ["north", "south"], part = "bottom" }
+model     = "&_ew_bottom"
+collision = [ [0, 0, 7, 16, 16, 9] ]
+elements  = [
+    { from = [0, 0, 8], to = [16, 16, 8], faces = { north = { texture = "#bottom", uv = [0, 0, 16, 16] }, south = { texture = "#bottom", uv = [0, 0, 16, 16] } } }
+]
+
+[[state]]
+condition = { facing = ["east", "west"], part = "top" }
+model     = "&_ns_top"
+collision = [ [7, 0, 0, 9, 16, 16] ]
+elements  = [
+    { from = [8, 0, 0], to = [8, 16, 16], faces = { west = { texture = "#top", uv = [0, 0, 16, 16] }, east = { texture = "#top", uv = [0, 0, 16, 16] } } }
+]
+
+[[state]]
+condition = { facing = ["east", "west"], part = "middle" }
+model     = "&_ns_middle"
+collision = [ [7, 0, 0, 9, 16, 16] ]
+elements  = [
+    { from = [8, 0, 0], to = [8, 16, 16], faces = { west = { texture = "#middle", uv = [0, 0, 16, 16] }, east = { texture = "#middle", uv = [0, 0, 16, 16] } } }
+]
+
+[[state]]
+condition = { facing = ["east", "west"], part = "bottom" }
+model     = "&_ns_bottom"
+collision = [ [7, 0, 0, 9, 16, 16] ]
+elements  = [
+    { from = [8, 0, 0], to = [8, 16, 16], faces = { west = { texture = "#bottom", uv = [0, 0, 16, 16] }, east = { texture = "#bottom", uv = [0, 0, 16, 16] } } }
+]

@@ -1,9 +1,8 @@
 package com.nikohalfkino.rubydung.level;
 
-import com.nikohalfkino.rubydung.HitResult;
-import com.nikohalfkino.rubydung.level.Tiles.BillboardTile;
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
-import com.nikohalfkino.rubydung.player.Player;
+import com.nikohalfkino.rubydung.player.HitResult;
+import com.nikohalfkino.rubydung.level.tiles.BillboardTile;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
 import com.nikohalfkino.rubydung.phys.AABB;
 import com.nikohalfkino.rubydung.render.Frustum;
 import com.nikohalfkino.rubydung.render.Tessellator;
@@ -250,13 +249,13 @@ public class LevelRenderer implements LevelListener {
             // Centre of the tile's whole footprint (the offset is 0 for ordinary 1x1 billboards).
             // It is added here, in world space, so it doesn't swing around with the camera yaw.
             float worldX = x + 0.5F + billboardTile.getPivotOffsetX();
-            float worldY = y;
+            float worldY = y - this.level.getBillboardDrop(x, y, z);   // lowered onto a slab, say
             float worldZ = z + 0.5F + billboardTile.getPivotOffsetZ();
 
             float scale = 1.0F;
             if (scaleByDistance) {
                 double dx = eyeX - worldX;
-                double dy = eyeY - y;
+                double dy = eyeY - worldY;
                 double dz = eyeZ - worldZ;
                 float distance = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
                 scale = BillboardTile.getDistanceScale(distance);
@@ -289,6 +288,13 @@ public class LevelRenderer implements LevelListener {
         TilePicker.refine(this.level, hitResult);
 
         Tile tile = Tile.byId(this.level.getTile(hitResult.x, hitResult.y, hitResult.z));
+        if (hitResult.overlayId >= 0) {
+            // The struck part is a tile sharing the cell, not the cell's normal tile.
+            SubTile shared = this.level.getSubTiles().find(hitResult.x, hitResult.y, hitResult.z, hitResult.overlayId);
+            if (shared != null) {
+                tile = Tile.byId(shared.tileId);
+            }
+        }
         if (tile == null || tile == Tile.AIR) {
             return;
         }
@@ -362,7 +368,7 @@ public class LevelRenderer implements LevelListener {
 
         // Same placement as renderBillboards (the hit position is the object's origin cell).
         float worldX = hitResult.x + 0.5F + billboard.getPivotOffsetX();
-        float worldY = hitResult.y;
+        float worldY = hitResult.y - this.level.getBillboardDrop(hitResult.x, hitResult.y, hitResult.z);
         float worldZ = hitResult.z + 0.5F + billboard.getPivotOffsetZ();
 
         this.tessellator.init();
@@ -435,7 +441,9 @@ public class LevelRenderer implements LevelListener {
     @Override
     public void tileChanged(int x, int y, int z) {
         // The block itself and the faces next to it change right now; only light is allowed to lag.
-        setDirty(x - 1, y - 1, z - 1, x + 1, y + 1, z + 1, true);
+        // Vertically two cells: a stack of metal bars picks its texture slice from up to two
+        // neighbours (see MetalBarsTile), so a change two cells away can alter this cell's look.
+        setDirty(x - 1, y - 2, z - 1, x + 1, y + 2, z + 1, true);
     }
 
     @Override

@@ -2,7 +2,7 @@ package com.nikohalfkino.rubydung.interfaces;
 
 import com.nikohalfkino.rubydung.level.Chunk;
 import com.nikohalfkino.rubydung.level.Level;
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
 import com.nikohalfkino.rubydung.render.Tessellator;
 import com.nikohalfkino.rubydung.render.Textures;
 
@@ -16,6 +16,17 @@ public final class TileIconRenderer {
 
     /** Billboard sprites are drawn this much larger than the cube scale, so they look the same size. */
     private static final float BILLBOARD_SCALE = 44.0F / 32.0F;
+
+    /**
+     * Billboard icons show only a square of this many of the sprite's own pixels, zoomed in to
+     * fill the icon. Sprites have different resolutions, so this is measured in each sprite's
+     * source pixels, not in atlas pixels: a 16px sprite is shown whole, a 32px one shows a
+     * quarter of it, a 64px one a sixteenth.
+     */
+    private static final int SPRITE_CROP_PIXELS = 16;
+
+    /** Where the crop sits vertically in the sprite: 0 = top edge, 0.5 = centred, 1 = bottom edge. */
+    private static final float SPRITE_CROP_VERTICAL = 0.5F;
 
     private static Tessellator tessellator;
 
@@ -31,6 +42,44 @@ public final class TileIconRenderer {
      */
     public static void draw(Tile tile, Level level, float centerX, float centerY, float size,
                             int screenWidth, int screenHeight) {
+        draw(tile, level, centerX, centerY, size, screenWidth, screenHeight, 0.0F);
+    }
+
+    /**
+     * As above, with the icon darkened: {@code darken} is how much black is laid over the icon
+     * (0 = none, 1 = solid black). Only the icon's own pixels are darkened, not the area around it.
+     */
+    public static void draw(Tile tile, Level level, float centerX, float centerY, float size,
+                            int screenWidth, int screenHeight, float darken) {
+        draw(tile, level, centerX, centerY, size, screenWidth, screenHeight, darken, 0.0F);
+    }
+
+    /**
+     * As above, with a cube turned {@code spinDegrees} about its vertical axis (a flat sprite
+     * ignores it). Billboard sprites are cropped.
+     */
+    public static void draw(Tile tile, Level level, float centerX, float centerY, float size,
+                            int screenWidth, int screenHeight, float darken, float spinDegrees) {
+        draw(tile, level, centerX, centerY, size, screenWidth, screenHeight, darken, spinDegrees, true);
+    }
+
+    /** As above; {@code cropSprites} false shows a billboard's whole sprite instead of the zoomed-in crop. */
+    public static void draw(Tile tile, Level level, float centerX, float centerY, float size,
+                            int screenWidth, int screenHeight, float darken, float spinDegrees,
+                            boolean cropSprites) {
+        draw(tile, level, centerX, centerY, size, screenWidth, screenHeight, darken, spinDegrees,
+                cropSprites, 1.0F);
+    }
+
+    /**
+     * As above, with {@code billboardScale} multiplying the size of a billboard's quad (cubes
+     * ignore it). 1 draws the quad at the usual icon size whatever the sprite's resolution; the
+     * hand HUD passes the sprite's size in blocks (times a global factor) so that every sprite
+     * pixel ends up the same size on screen.
+     */
+    public static void draw(Tile tile, Level level, float centerX, float centerY, float size,
+                            int screenWidth, int screenHeight, float darken, float spinDegrees,
+                            boolean cropSprites, float billboardScale) {
         if (tile == null) {
             return;
         }
@@ -68,12 +117,14 @@ public final class TileIconRenderer {
         tessellator.init();
         glTranslatef(centerX, centerY, 0.0F);
 
+        glPushMatrix();   // the icon's own transforms (scale / rotation) end at the flush below
+
         if (tile.isBillboard()) {
-            buildSpriteQuad(tessellator, tile, size * BILLBOARD_SCALE);
+            buildSpriteQuad(tessellator, tile, size * BILLBOARD_SCALE * billboardScale, cropSprites);
         } else {
             glScalef(size, -size, size);
             glRotatef(30.0F, 1.0F, 0.0F, 0.0F);
-            glRotatef(-45.0F, 0.0F, 1.0F, 0.0F);
+            glRotatef(-45.0F + spinDegrees, 0.0F, 1.0F, 0.0F);
             glTranslatef(0.5F, 0.5F, 0.5F);
 
             // Icons ignore the day-night ambient, otherwise normal tiles are nearly black at night.
@@ -81,7 +132,7 @@ public final class TileIconRenderer {
                 level.setFullBright(true);
             }
             try {
-                tile.render(tessellator, level, 0, -1, -1, -1, Chunk.getTotalAtlasSlots());
+                tile.render(tessellator, level, 0, -1, -1, -1, Chunk.getTotalAtlasSlots(), tile.getIconData());
             } finally {
                 if (level != null) {
                     level.setFullBright(false);
@@ -90,6 +141,12 @@ public final class TileIconRenderer {
         }
 
         tessellator.flush();
+
+        glPopMatrix();
+
+        if (darken > 0.0F) {
+            darkenIcon(size, Math.min(1.0F, darken));
+        }
 
         glPopMatrix();
         glMatrixMode(GL_PROJECTION);
@@ -102,6 +159,29 @@ public final class TileIconRenderer {
         setEnabled(GL_BLEND, blendWasOn);
     }
 
+    /**
+     * Lays a translucent black quad over the icon that was just drawn, but only where the icon is.
+     * The icon wrote its depth (the area around it kept the cleared 1.0), so a quad at depth 0.9
+     * passes the GEQUAL test on the icon's pixels and fails everywhere else. (The projection is
+     * 100..300 and the icon sits at 200, i.e. depth 0.5; z = -280 is depth 0.9.)
+     */
+    private static void darkenIcon(float size, float darken) {
+        int depthFunc = glGetInteger(GL_DEPTH_FUNC);
+        float half = size * 1.5F;
+
+        glDepthFunc(GL_GEQUAL);
+        glDisable(GL_TEXTURE_2D);
+        glColor4f(0.0F, 0.0F, 0.0F, darken);
+        glBegin(GL_QUADS);
+        glVertex3f(-half, -half, -80.0F);
+        glVertex3f(half, -half, -80.0F);
+        glVertex3f(half, half, -80.0F);
+        glVertex3f(-half, half, -80.0F);
+        glEnd();
+        glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        glDepthFunc(depthFunc);
+    }
+
     private static void setEnabled(int capability, boolean enabled) {
         if (enabled) {
             glEnable(capability);
@@ -110,20 +190,48 @@ public final class TileIconRenderer {
         }
     }
 
-    private static void buildSpriteQuad(Tessellator t, Tile tile, float size) {
+    private static void buildSpriteQuad(Tessellator t, Tile tile, float size, boolean crop) {
         int slots = Chunk.getTotalAtlasSlots();
-        float u0 = tile.getAtlasSlot(Tile.FACE_NORTH) / (float) slots;
-        float u1 = u0 + 1.0F / slots;
+        int slot = tile.getAtlasSlot(Tile.FACE_NORTH);
+
+        float slotWidth = 1.0F / slots;
+        float u0 = slot * slotWidth;
+        float uSpan = slotWidth;
+        float v0 = 0.0F;
+        float vSpan = 1.0F;
+
+        // The sprite sits in the top-left of its cell, scaled up by a whole number (see
+        // Textures.buildAtlas); crop to SPRITE_CROP_PIXELS of its own pixels inside that area
+        // (or show all of it when crop is false).
+        int atlas = Chunk.getAtlasTexture();
+        int cell = Textures.getAtlasCellSize(atlas);
+        int width = Textures.getAtlasSlotSourceWidth(atlas, slot);
+        if (cell > 0 && width > 0) {
+            float covered = width * Math.max(1, cell / width) / (float) cell;   // fraction of the cell the sprite fills
+            float keep = crop
+                    ? Math.min(SPRITE_CROP_PIXELS, width) / (float) width       // fraction of the sprite shown
+                    : 1.0F;
+
+            float spriteU = slotWidth * covered;
+            uSpan = spriteU * keep;
+            u0 += (spriteU - uSpan) / 2.0F;
+
+            vSpan = covered * keep;
+            v0 = (covered - vSpan) * SPRITE_CROP_VERTICAL;
+        }
+
+        float u1 = u0 + uSpan;
+        float v1 = v0 + vSpan;
         float half = size / 2.0F;
 
         t.color(1.0F, 1.0F, 1.0F, 1.0F);
-        t.texture(u0, 0.0F);
+        t.texture(u0, v0);
         t.vertex(-half, -half, 0.0F);
-        t.texture(u1, 0.0F);
+        t.texture(u1, v0);
         t.vertex(half, -half, 0.0F);
-        t.texture(u1, 1.0F);
+        t.texture(u1, v1);
         t.vertex(half, half, 0.0F);
-        t.texture(u0, 1.0F);
+        t.texture(u0, v1);
         t.vertex(-half, half, 0.0F);
     }
 }

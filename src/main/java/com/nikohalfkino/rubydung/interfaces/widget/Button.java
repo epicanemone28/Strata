@@ -1,5 +1,7 @@
 package com.nikohalfkino.rubydung.interfaces.widget;
 
+import com.nikohalfkino.rubydung.interfaces.Bevel;
+import com.nikohalfkino.rubydung.interfaces.GameFrame;
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
 import com.nikohalfkino.rubydung.interfaces.UiStyle;
 import com.nikohalfkino.rubydung.render.Font;
@@ -25,6 +27,7 @@ public class Button extends Widget {
     private boolean selected = false;
 
     private boolean useNineSlice = false;
+    private boolean beveled = false;
     private String texturePath = DEFAULT_9SLICE_TEXTURE;
 
     public Button(String label, float width, float height) {
@@ -71,6 +74,12 @@ public class Button extends Widget {
         return this.selected;
     }
 
+    /** Draws the button as a raised bevelled slab (see {@link Bevel#raisedFrame}) instead of the texture. */
+    public Button beveled() {
+        this.beveled = true;
+        return this;
+    }
+
     public void setUseNineSlice(boolean useNineSlice) {
         this.useNineSlice = useNineSlice;
     }
@@ -97,7 +106,9 @@ public class Button extends Widget {
         // look "selected" in the first place.
         float buttonBrightness = enabled ? 1.0f : 0.35f;
 
-        if (this.useNineSlice) {
+        if (this.beveled) {
+            drawBeveled(enabled, hovered);
+        } else if (this.useNineSlice) {
             Gui2D.drawNineSlice(this.texturePath, this.x, this.y, this.width, this.height, 20, 20, 6, buttonBrightness);
 
             if (this.selected) {
@@ -136,5 +147,19 @@ public class Button extends Widget {
             color = (hovered || this.selected) ? UiStyle.TEXT_HOVER : UiStyle.TEXT;
         }
         font.drawString(text, drawX, drawY, color);
+    }
+
+    private void drawBeveled(boolean enabled, boolean hovered) {
+        float u = GameFrame.UI_SCALE;
+
+        float base = !enabled ? 0.16f : (hovered ? 0.36f : 0.27f);
+        Gui2D.fillRect(this.x, this.y, this.width, this.height, base, base, base + 0.07f, 1.0f);
+
+        float t = enabled ? 1.0f : 0.5f;
+        Bevel.raisedFrame(this.x, this.y, this.width, this.height, t, t, t);
+
+        if (this.selected) {
+            Gui2D.fillRect(this.x + 2 * u, this.y + this.height - 3 * u, this.width - 4 * u, u, 1.0f, 1.0f, 0.4f, 1.0f);
+        }
     }
 }

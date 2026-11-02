@@ -2,7 +2,7 @@ package com.nikohalfkino.rubydung.player;
 
 import com.nikohalfkino.rubydung.level.DoorRegistry;
 import com.nikohalfkino.rubydung.level.Level;
-import com.nikohalfkino.rubydung.level.Tiles.DoorColor;
+import com.nikohalfkino.rubydung.level.tiles.DoorColor;
 
 /**
  * Arriving in a world through a dimensional door: puts the player in front of one of the world's

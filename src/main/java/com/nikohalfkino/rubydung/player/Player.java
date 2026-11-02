@@ -11,6 +11,9 @@ public class Player {
 
     private static final double EYE_HEIGHT = 1.62D;
 
+    /** Highest ledge the player walks up without jumping (slabs are 0.5, full blocks 1.0). */
+    private static final double STEP_HEIGHT = 0.6D;
+
     private final Level level;
 
     public double x, y, z;
@@ -200,6 +203,9 @@ public class Player {
         double prevY = y;
         double prevZ = z;
 
+        boolean wasOnGround = this.onGround;
+        AABB startBox = this.boundingBox.clone();
+
         List<AABB> aABBs = this.level.getCubes(this.boundingBox.expand(x, y, z));
 
         for (AABB abb : aABBs) {
@@ -217,10 +223,59 @@ public class Player {
         }
         this.boundingBox.move(0.0F, 0.0F, z);
 
-        this.onGround = prevY != y && prevY < 0.0F;
+        // Blocked sideways while standing on the ground (or just having landed): try the same
+        // horizontal move again from STEP_HEIGHT higher and, if that gets further, drop back down
+        // onto whatever is there. This is what lets the player walk up slabs without jumping.
+        boolean stepped = false;
+        boolean landed = prevY < 0.0D && prevY != y;
+        boolean blocked = prevX != x || prevZ != z;
+        if (blocked && (wasOnGround || landed) && !this.flying && y <= 0.0D) {
+            double stepX = prevX;
+            double stepZ = prevZ;
+            AABB stepBox = startBox.clone();
+            List<AABB> stepCubes = this.level.getCubes(startBox.expand(prevX, STEP_HEIGHT, prevZ));
+
+            double up = STEP_HEIGHT;
+            for (AABB abb : stepCubes) {
+                up = abb.clipYCollide(stepBox, up);
+            }
+            stepBox.move(0.0D, up, 0.0D);
+
+            for (AABB abb : stepCubes) {
+                stepX = abb.clipXCollide(stepBox, stepX);
+            }
+            stepBox.move(stepX, 0.0D, 0.0D);
+
+            for (AABB abb : stepCubes) {
+                stepZ = abb.clipZCollide(stepBox, stepZ);
+            }
+            stepBox.move(0.0D, 0.0D, stepZ);
+
+            // Back down by what was climbed, so the player ends up standing on the ledge.
+            double down = -up;
+            for (AABB abb : stepCubes) {
+                down = abb.clipYCollide(stepBox, down);
+            }
+            stepBox.move(0.0D, down, 0.0D);
+
+            double normalDist = x * x + z * z;
+            double stepDist = stepX * stepX + stepZ * stepZ;
+            double climbed = stepBox.minY - startBox.minY;
+
+            if (stepDist > normalDist + 1.0E-9D && climbed > 1.0E-6D) {
+                this.boundingBox = stepBox;
+                x = stepX;
+                z = stepZ;
+                y = climbed;
+                stepped = true;
+                this.motionY = 0.0D;
+            }
+        }
+
+        this.onGround = stepped || (prevY != y && prevY < 0.0F);
 
         if (prevX != x) this.motionX = 0.0D;
-        if (prevY != y) this.motionY = 0.0D;
+        if (prevY != y && !stepped) this.motionY = 0.0D;
         if (prevZ != z) this.motionZ = 0.0D;
 
         this.x = (this.boundingBox.minX + this.boundingBox.maxX) / 2.0D;

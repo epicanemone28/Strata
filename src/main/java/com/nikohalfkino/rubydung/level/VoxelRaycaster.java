@@ -1,7 +1,7 @@
 package com.nikohalfkino.rubydung.level;
 
-import com.nikohalfkino.rubydung.HitResult;
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
+import com.nikohalfkino.rubydung.player.HitResult;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
 import com.nikohalfkino.rubydung.phys.AABB;
 
 public final class VoxelRaycaster {
@@ -62,6 +62,11 @@ public final class VoxelRaycaster {
                     return new HitResult(object.x, object.y, object.z, 0, enteredFace, x, y, z);
                 }
 
+                // Tiles sharing a cell: report the cell, TilePicker.refine finds which one (if any) the ray struck.
+                if (level.getSubTiles().has(x, y, z)) {
+                    return new HitResult(x, y, z, 0, enteredFace, x, y, z);
+                }
+
                 // Tall single-cell tiles that aren't multi-tile objects: target the root, but report the
                 // cell that was actually entered so placing lands next to the part that was clicked.
                 int[] target = resolveTarget(level, x, y, z);
@@ -105,6 +110,12 @@ public final class VoxelRaycaster {
             }
 
             AABB box = tile.getPickAABB(x, rootY, z);
+            if (box != null && tile.isBillboard()) {
+                float drop = level.getBillboardDrop(x, rootY, z);   // the sprite is lowered onto what it stands on
+                if (drop != 0.0F) {
+                    box = new AABB(box.minX, box.minY - drop, box.minZ, box.maxX, box.maxY - drop, box.maxZ);
+                }
+            }
             if (box != null && y >= box.minY && y < box.maxY) {
                 return new int[]{x, rootY, z};
             }

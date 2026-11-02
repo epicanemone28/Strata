@@ -1,6 +1,6 @@
 package com.nikohalfkino.rubydung.util;
 
-import com.nikohalfkino.rubydung.level.Tiles.Tile;
+import com.nikohalfkino.rubydung.level.tiles.Tile;
 
 import java.util.ArrayList;
 import java.util.Collections;

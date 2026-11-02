@@ -1,6 +1,6 @@
 package com.nikohalfkino.rubydung.render;
 
-import com.nikohalfkino.rubydung.DayNightCycle;
+import com.nikohalfkino.rubydung.level.DayNightCycle;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL13;
 

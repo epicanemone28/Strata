@@ -1,8 +1,5 @@
 package com.nikohalfkino.rubydung.level;
 
-import com.nikohalfkino.rubydung.DayNightCycle;
-import com.nikohalfkino.rubydung.interfaces.screen.CreateWorldScreen;
-import com.nikohalfkino.rubydung.interfaces.screen.WorldListScreen;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
 
 import java.io.DataInputStream;
@@ -26,6 +23,8 @@ public final class WorldManager {
     private static final String PALETTE_FILE_NAME = "palette.dat";
     private static final String MULTI_TILES_FILE_NAME = "multitiles.dat";
     private static final String TYPE_FILE_NAME = "type.dat";
+    private static final String SETTINGS_FILE_NAME = "settings.dat";
+    private static final String SUB_TILES_FILE_NAME = "subtiles.dat";
     private static final int MAX_NAME_LENGTH = 32;
 
     private WorldManager() {
@@ -35,10 +34,26 @@ public final class WorldManager {
 
         public final String name;
         public final long lastPlayed;
+        /** null for saves created before settings.dat existed. */
+        public final LevelGenerator.WorldType worldType;
+        /** null for saves created before settings.dat existed. */
+        public final LevelGenerator.WorldSize worldSize;
+        /** null for saves created before settings.dat existed. */
+        public final DayNightCycle.TimeMode timeMode;
+        /** Total byte count of all files in the world's save directory. */
+        public final long sizeBytes;
 
-        public WorldInfo(String name, long lastPlayed) {
+        public WorldInfo(String name, long lastPlayed,
+                         LevelGenerator.WorldType worldType,
+                         LevelGenerator.WorldSize worldSize,
+                         DayNightCycle.TimeMode timeMode,
+                         long sizeBytes) {
             this.name = name;
             this.lastPlayed = lastPlayed;
+            this.worldType = worldType;
+            this.worldSize = worldSize;
+            this.timeMode = timeMode;
+            this.sizeBytes = sizeBytes;
         }
     }
 
@@ -53,7 +68,16 @@ public final class WorldManager {
         for (File entry : entries) {
             File levelFile = new File(entry, LEVEL_FILE_NAME);
             if (entry.isDirectory() && levelFile.isFile()) {
-                worlds.add(new WorldInfo(entry.getName(), levelFile.lastModified()));
+                String name = entry.getName();
+                LevelGenerator.WorldType worldType = loadWorldType(name);
+                int[] settings = loadWorldSettings(name);
+                LevelGenerator.WorldSize worldSize = settings != null
+                        ? worldSizeFromOrdinal(settings[0]) : null;
+                DayNightCycle.TimeMode timeMode = settings != null
+                        ? timeModeFromOrdinal(settings[1]) : null;
+                long sizeBytes = worldDiskSize(entry);
+                worlds.add(new WorldInfo(name, levelFile.lastModified(),
+                        worldType, worldSize, timeMode, sizeBytes));
             }
         }
 
@@ -196,6 +220,70 @@ public final class WorldManager {
         }
     }
 
+    /** Saves the tiles that share cells (SubTiles), by tile name. Written to a temp file and moved into place. */
+    public static void saveWorldSubTiles(String worldName, List<SubTiles.Entry> entries) {
+        File dir = new File(SAVES_DIR, worldName);
+        dir.mkdirs();
+
+        File target = new File(dir, SUB_TILES_FILE_NAME);
+        if (entries.isEmpty()) {
+            target.delete();
+            return;
+        }
+        File temp = new File(dir, SUB_TILES_FILE_NAME + ".tmp");
+
+        try (DataOutputStream dos = new DataOutputStream(new FileOutputStream(temp))) {
+            dos.writeInt(entries.size());
+            for (SubTiles.Entry e : entries) {
+                dos.writeInt(e.x);
+                dos.writeInt(e.y);
+                dos.writeInt(e.z);
+                dos.writeUTF(e.tileName);
+                dos.writeInt(e.data);
+                dos.writeFloat(e.ox);
+                dos.writeFloat(e.oy);
+                dos.writeFloat(e.oz);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        try {
+            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /** Loads saved sub-tiles, or null if the save has none. */
+    public static List<SubTiles.Entry> loadWorldSubTiles(String worldName) {
+        File file = new File(new File(SAVES_DIR, worldName), SUB_TILES_FILE_NAME);
+        if (!file.isFile()) {
+            return null;
+        }
+
+        try (DataInputStream dis = new DataInputStream(new FileInputStream(file))) {
+            int count = dis.readInt();
+            List<SubTiles.Entry> entries = new ArrayList<>(count);
+            for (int i = 0; i < count; i++) {
+                int x = dis.readInt();
+                int y = dis.readInt();
+                int z = dis.readInt();
+                String name = dis.readUTF();
+                int data = dis.readInt();
+                float ox = dis.readFloat();
+                float oy = dis.readFloat();
+                float oz = dis.readFloat();
+                entries.add(new SubTiles.Entry(x, y, z, name, data, ox, oy, oz));
+            }
+            return entries;
+        } catch (IOException e) {
+            System.out.println("Warning: could not read sub-tiles for world \"" + worldName + "\": " + e.getMessage());
+            return null;
+        }
+    }
+
     /** Saves the world type in a tiny file, so loading never has to decompress level.dat just to read it. */
     public static void saveWorldType(String worldName, LevelGenerator.WorldType type) {
         if (type == null) {
@@ -261,6 +349,68 @@ public final class WorldManager {
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * Saves the world's size enum and time mode alongside the other tiny metadata files.
+     * Called once at world creation; read back by {@link #listWorlds()} to populate
+     * {@link WorldInfo#worldSize} and {@link WorldInfo#timeMode}.
+     */
+    public static void saveWorldSettings(String worldName,
+                                         LevelGenerator.WorldSize size,
+                                         DayNightCycle.TimeMode timeMode) {
+        if (size == null || timeMode == null) {
+            return;
+        }
+        File dir = new File(SAVES_DIR, worldName);
+        dir.mkdirs();
+        try (DataOutputStream dos = new DataOutputStream(
+                new FileOutputStream(new File(dir, SETTINGS_FILE_NAME)))) {
+            dos.writeInt(size.ordinal());
+            dos.writeInt(timeMode.ordinal());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Returns {sizeOrdinal, timeModeOrdinal}, or null if settings.dat is absent (old save).
+     */
+    private static int[] loadWorldSettings(String worldName) {
+        File file = new File(new File(SAVES_DIR, worldName), SETTINGS_FILE_NAME);
+        if (!file.isFile()) {
+            return null;
+        }
+        try (DataInputStream dis = new DataInputStream(new FileInputStream(file))) {
+            return new int[]{ dis.readInt(), dis.readInt() };
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static LevelGenerator.WorldSize worldSizeFromOrdinal(int ordinal) {
+        LevelGenerator.WorldSize[] values = LevelGenerator.WorldSize.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : null;
+    }
+
+    private static DayNightCycle.TimeMode timeModeFromOrdinal(int ordinal) {
+        DayNightCycle.TimeMode[] values = DayNightCycle.TimeMode.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : null;
+    }
+
+    /** Total byte count of every file directly inside the world's save directory. */
+    private static long worldDiskSize(File dir) {
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return 0L;
+        }
+        long total = 0L;
+        for (File f : files) {
+            if (f.isFile()) {
+                total += f.length();
+            }
+        }
+        return total;
     }
 
     public static void pruneIncompleteWorlds() {

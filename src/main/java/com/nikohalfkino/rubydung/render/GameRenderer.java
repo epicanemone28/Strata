@@ -1,7 +1,7 @@
 package com.nikohalfkino.rubydung.render;
 
-import com.nikohalfkino.rubydung.DayNightCycle;
-import com.nikohalfkino.rubydung.HitResult;
+import com.nikohalfkino.rubydung.level.DayNightCycle;
+import com.nikohalfkino.rubydung.player.HitResult;
 import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.interfaces.FrameScreen;
 import com.nikohalfkino.rubydung.interfaces.GameFrame;
@@ -31,6 +31,7 @@ public class GameRenderer {
     private final CloudRenderer cloudRenderer = new CloudRenderer();
     private final SkyboxRenderer skyboxRenderer = new SkyboxRenderer();
     private final GameFrame frame = new GameFrame();
+    private final PixelationFilter pixelation = new PixelationFilter();
 
     private static final float FOG_START = -10.0F;
     private static final float FOG_END = 120.0F;
@@ -108,6 +109,8 @@ public class GameRenderer {
             // too small) it fills the whole window.
             int viewWidth = width;
             int viewHeight = height;
+            int viewGlX = 0;
+            int viewGlY = 0;
 
             GameFrame.Layout layout = this.frame.layout(width, height);
             if (layout != null) {
@@ -115,12 +118,21 @@ public class GameRenderer {
 
                 viewWidth = layout.viewWidth;
                 viewHeight = layout.viewHeight;
-                glViewport(layout.viewX, height - layout.viewY - layout.viewHeight, viewWidth, viewHeight);
+                viewGlX = layout.viewX;
+                viewGlY = height - layout.viewY - layout.viewHeight;
+                glViewport(viewGlX, viewGlY, viewWidth, viewHeight);
 
                 // Let the screen know where the panel is right now (it slides in).
                 if (frameScreen != null) {
                     frameScreen.setLayout(layout);
                 }
+            }
+
+            // Pixelation draws the world into a smaller viewport; setupCamera still gets the full
+            // view size so the aspect ratio is right.
+            boolean pixelate = GameSettings.isPixelationEnabled() && GameSettings.getPixelSize() > 1;
+            if (pixelate) {
+                this.pixelation.begin(viewGlX, viewGlY, viewWidth, viewHeight, GameSettings.getPixelSize());
             }
 
             float cameraPartialTicks = playing ? partialTicks : 1.0F;
@@ -160,6 +172,11 @@ public class GameRenderer {
             }
 
             glDisable(GL_FOG);
+
+            // Stretch the low-res world back over the view (the HUD and frame stay full resolution).
+            if (pixelate) {
+                this.pixelation.end();
+            }
 
             // Dither the world while the frame is open (checkerboard of black pixels).
             if (layout != null) {

@@ -1,6 +1,6 @@
 package com.nikohalfkino.rubydung.console.commands;
 
-import com.nikohalfkino.rubydung.DayNightCycle;
+import com.nikohalfkino.rubydung.level.DayNightCycle;
 import com.nikohalfkino.rubydung.RubyDung;
 import com.nikohalfkino.rubydung.console.Command;
 import com.nikohalfkino.rubydung.console.Console;

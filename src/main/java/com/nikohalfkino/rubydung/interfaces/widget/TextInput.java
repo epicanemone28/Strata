@@ -1,5 +1,6 @@
 package com.nikohalfkino.rubydung.interfaces.widget;
 
+import com.nikohalfkino.rubydung.interfaces.Bevel;
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
 import com.nikohalfkino.rubydung.interfaces.UiStyle;
 import com.nikohalfkino.rubydung.render.Font;
@@ -126,7 +127,10 @@ public class TextInput extends Widget {
 
     @Override
     protected void draw(Font font, int mouseX, int mouseY) {
+        Gui2D.begin((int) getRootWidth(), (int) getRootHeight());
         Gui2D.fillRect(this.x, this.y, this.width, this.height, 0.0f, 0.0f, 0.0f, 0.45f);
+        Bevel.sunkenFrame(this.x, this.y, this.width, this.height, 0xFFFFFF);
+        Gui2D.end();
 
         int textX = textX();
         int textY = textY();
