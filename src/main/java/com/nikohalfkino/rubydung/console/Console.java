@@ -37,6 +37,7 @@ public class Console {
         register(new SeedCommand());
         register(new RegenerateCommand());
         register(new TimeCommand());
+        register(new FreecamCommand());
         register(new SingCommand());
 
         println("Type 'help' for a list of commands.");

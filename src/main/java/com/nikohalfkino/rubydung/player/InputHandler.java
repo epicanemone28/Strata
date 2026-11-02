@@ -9,6 +9,7 @@ import com.nikohalfkino.rubydung.interfaces.screen.InventoryScreen;
 import com.nikohalfkino.rubydung.interfaces.screen.PauseScreen;
 import com.nikohalfkino.rubydung.interfaces.Screen;
 import com.nikohalfkino.rubydung.level.tiles.Tile;
+import com.nikohalfkino.rubydung.render.PlayerCamera;
 import com.nikohalfkino.rubydung.util.KeyBinding;
 import com.nikohalfkino.rubydung.util.KeyMap;
 import org.lwjgl.input.Keyboard;
@@ -164,6 +165,13 @@ public class InputHandler {
                 player.flying = false;
             }
             this.game.getCenterIndicator().showMessage(player.noClip ? "Noclip Enabled" : "Noclip Disabled");
+        } else if (key == KeyBinding.CAMERA_VIEW.getKey() && this.game.hasWorld()) {
+            PlayerCamera camera = this.game.getGameRenderer().getPlayerCamera();
+            if (camera.cycleView()) {
+                this.game.getCenterIndicator().showMessage(camera.getView().displayName());
+            } else {
+                this.game.getCenterIndicator().showMessage("Turn off the freecam first");
+            }
         } else if (key == KeyBinding.SCREENSHOT.getKey()) {
             this.game.takeScreenshot(2);
             this.game.getCenterIndicator().showMessage("Screenshot Saved");

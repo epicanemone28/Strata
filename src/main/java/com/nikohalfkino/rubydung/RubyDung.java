@@ -171,6 +171,10 @@ public class RubyDung implements Runnable {
         return this.session.getSelectedTile();
     }
 
+    public GameRenderer getGameRenderer() {
+        return this.gameRenderer;
+    }
+
     public CenterIndicator getCenterIndicator() {
         return this.centerIndicator;
     }

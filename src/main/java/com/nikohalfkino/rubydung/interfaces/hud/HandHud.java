@@ -176,7 +176,9 @@ public class HandHud extends Widget {
 
         setVisibleWhen(() -> game.hasWorld()
                 && (game.getCurrentScreen() == null || game.getCurrentScreen() instanceof FrameScreen)
-                && !game.getConsole().isOpen());
+                && !game.getConsole().isOpen()
+                // The hand is the first-person view of the arm; the player sprite replaces it otherwise.
+                && game.getGameRenderer().getPlayerCamera().isFirstPerson());
     }
 
     /** A fresh action (a click, a key press): break and place swings cancel themselves and start over. */

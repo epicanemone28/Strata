@@ -32,6 +32,8 @@ public class GameRenderer {
     private final SkyboxRenderer skyboxRenderer = new SkyboxRenderer();
     private final GameFrame frame = new GameFrame();
     private final PixelationFilter pixelation = new PixelationFilter();
+    private final PlayerCamera playerCamera = new PlayerCamera();
+    private final PlayerRenderer playerRenderer = new PlayerRenderer();
 
     private static final float FOG_START = -10.0F;
     private static final float FOG_END = 120.0F;
@@ -42,6 +44,10 @@ public class GameRenderer {
 
     public GameRenderer(RubyDung game) {
         this.game = game;
+    }
+
+    public PlayerCamera getPlayerCamera() {
+        return this.playerCamera;
     }
 
     public CloudRenderer getCloudRenderer() {
@@ -82,9 +88,14 @@ public class GameRenderer {
             float motionX = Mouse.getDX();
             float motionY = Mouse.getDY();
 
-            this.game.getPlayer().turn(motionX, motionY);
+            this.playerCamera.turn(this.game.getPlayer(), motionX, motionY);
 
-            pick(partialTicks);
+            if (this.playerCamera.isFreecam()) {
+                // The player isn't aimed in freecam, so nothing is targeted.
+                this.game.getPlayerInteraction().setHitResult(null);
+            } else {
+                pick(partialTicks);
+            }
         }
 
         int width = this.game.getWidth();
@@ -142,11 +153,13 @@ public class GameRenderer {
             }
 
             float cameraPartialTicks = playing ? partialTicks : 1.0F;
-            setupCamera(cameraPartialTicks, viewWidth, viewHeight);
+            this.playerCamera.update(player, this.game.getLevel(), cameraPartialTicks, playing);
+            setupCamera(viewWidth, viewHeight);
 
-            double eyeX = player.prevX + (player.x - player.prevX) * cameraPartialTicks;
-            double eyeY = player.prevY + (player.y - player.prevY) * cameraPartialTicks;
-            double eyeZ = player.prevZ + (player.z - player.prevZ) * cameraPartialTicks;
+            // Where the camera is (the player's eyes in first person).
+            double eyeX = this.playerCamera.getX();
+            double eyeY = this.playerCamera.getY();
+            double eyeZ = this.playerCamera.getZ();
 
             // Update fog color from the day-night cycle.
             float[] fc = cycle.getFogColor();
@@ -168,7 +181,11 @@ public class GameRenderer {
             glEnable(GL_TEXTURE_2D);
             levelRenderer.render(1);
 
-            levelRenderer.renderBillboards(player.yRotation, player.xRotation, eyeX, eyeY, eyeZ);
+            // Before the billboards, so those behind the player are hidden by it.
+            this.playerRenderer.render(this.game.getLevel(), player, this.playerCamera, cameraPartialTicks);
+
+            levelRenderer.renderBillboards(this.playerCamera.getYaw(), this.playerCamera.getPitch(),
+                    eyeX, eyeY, eyeZ);
 
             glDisable(GL_TEXTURE_2D);
 
@@ -207,7 +224,7 @@ public class GameRenderer {
         Display.update();
     }
 
-    private void setupCamera(float partialTicks, int width, int height) {
+    private void setupCamera(int width, int height) {
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
 
@@ -216,7 +233,7 @@ public class GameRenderer {
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
 
-        CameraUtil.moveCameraToPlayer(this.game.getPlayer(), partialTicks);
+        this.playerCamera.apply();
     }
 
     private void pick(float partialTicks) {

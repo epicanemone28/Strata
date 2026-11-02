@@ -9,7 +9,7 @@ import java.util.List;
 
 public class Player {
 
-    private static final double EYE_HEIGHT = 1.62D;
+    public static final double EYE_HEIGHT = 1.62D;
 
     /** Highest ledge the player walks up without jumping (slabs are 0.5, full blocks 1.0). */
     private static final double STEP_HEIGHT = 0.6D;
@@ -28,6 +28,22 @@ public class Player {
     public boolean noClip = false;
 
     public boolean flying = false;
+
+    /**
+     * The way the body (the player sprite) faces, in the same degrees as yRotation. In first person it
+     * is simply the look direction; otherwise it turns toward where the player walks, or toward the
+     * aim while breaking or placing. Independent of where the camera looks.
+     */
+    public float bodyYaw, prevBodyYaw;
+
+    /** Set by PlayerCamera: the body copies yRotation (first person) instead of turning on its own. */
+    public boolean bodyFollowsLook = true;
+
+    /** Set by PlayerCamera in freecam: movement keys are ignored (gravity and collisions still run). */
+    public boolean controlsLocked = false;
+
+    private static final float BODY_TURN_PER_TICK = 40.0F;
+    private static final double BODY_MOVE_EPSILON_SQ = 1.0E-5D;
 
     private static final float BASE_FLY_SPEED = 0.2F;
 
@@ -78,6 +94,8 @@ public class Player {
 
         this.yRotation = yRotation;
         this.xRotation = xRotation;
+        this.bodyYaw = yRotation;
+        this.prevBodyYaw = yRotation;
 
         this.prevX = this.x;
         this.prevY = this.y;
@@ -102,6 +120,54 @@ public class Player {
     }
 
     public void tick() {
+        tickMovement();
+        updateBody();
+    }
+
+    /** Body yaw for rendering, blended between the last two ticks (taking the short way round). */
+    public float getBodyYaw(float partialTicks) {
+        return this.prevBodyYaw + wrapDegrees(this.bodyYaw - this.prevBodyYaw) * partialTicks;
+    }
+
+    private void updateBody() {
+        this.prevBodyYaw = this.bodyYaw;
+
+        if (this.bodyFollowsLook) {
+            this.bodyYaw = this.yRotation;
+            this.prevBodyYaw = this.yRotation;
+            return;
+        }
+
+        float target;
+        double dx = this.x - this.prevX;
+        double dz = this.z - this.prevZ;
+
+        if (!this.controlsLocked && (KeyBinding.BREAK_BLOCK.isDown() || KeyBinding.PLACE_BLOCK.isDown())) {
+            target = this.yRotation; // working on a block: face it
+        } else if (dx * dx + dz * dz > BODY_MOVE_EPSILON_SQ) {
+            // Same convention as the look direction: forward is (sin yaw, -cos yaw).
+            target = (float) Math.toDegrees(Math.atan2(dx, -dz));
+        } else {
+            return;
+        }
+
+        float diff = wrapDegrees(target - this.bodyYaw);
+        diff = Math.max(-BODY_TURN_PER_TICK, Math.min(BODY_TURN_PER_TICK, diff));
+        this.bodyYaw += diff;
+    }
+
+    private static float wrapDegrees(float degrees) {
+        degrees %= 360.0F;
+        if (degrees >= 180.0F) {
+            degrees -= 360.0F;
+        }
+        if (degrees < -180.0F) {
+            degrees += 360.0F;
+        }
+        return degrees;
+    }
+
+    private void tickMovement() {
         this.prevX = this.x;
         this.prevY = this.y;
         this.prevZ = this.z;
@@ -129,6 +195,13 @@ public class Player {
 
         boolean ascendHeld = KeyBinding.JUMP.isDown() || KeyMap.isDown(KeyMap.LWIN) || KeyMap.isDown(KeyMap.RWIN);
         boolean descendHeld = KeyBinding.SNEAK.isDown() || KeyMap.isDown(KeyMap.RSHIFT);
+
+        if (this.controlsLocked) {
+            forward = 0.0F;
+            vertical = 0.0F;
+            ascendHeld = false;
+            descendHeld = false;
+        }
 
         if (this.noClip) {
             flyRelative(vertical, forward, currentFlySpeed);
