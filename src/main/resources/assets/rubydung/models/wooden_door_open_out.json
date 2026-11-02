@@ -1,0 +1,154 @@
+{
+  "textures": {
+    "lower": "wooden_door@0,1",
+    "upper": "wooden_door@0,0"
+  },
+  "elements": [
+    {
+      "from": [
+        7,
+        0,
+        0
+      ],
+      "to": [
+        23,
+        16,
+        2
+      ],
+      "rotation": {
+        "angle": -90,
+        "axis": "y",
+        "origin": [
+          15,
+          0,
+          1
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#lower"
+        },
+        "south": {
+          "uv": [
+            16,
+            0,
+            0,
+            16
+          ],
+          "texture": "#lower"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            2,
+            16
+          ],
+          "texture": "#lower"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            2,
+            16
+          ],
+          "texture": "#lower"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "texture": "#lower"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        16,
+        0
+      ],
+      "to": [
+        23,
+        32,
+        2
+      ],
+      "rotation": {
+        "angle": -90,
+        "axis": "y",
+        "origin": [
+          15,
+          0,
+          1
+        ]
+      },
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#upper"
+        },
+        "south": {
+          "uv": [
+            16,
+            0,
+            0,
+            16
+          ],
+          "texture": "#upper"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            2,
+            16
+          ],
+          "texture": "#upper"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            2,
+            16
+          ],
+          "texture": "#upper"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "texture": "#upper"
+        }
+      }
+    }
+  ],
+  "collision": [
+    [
+      14,
+      0,
+      -7,
+      16,
+      32,
+      9
+    ]
+  ]
+}

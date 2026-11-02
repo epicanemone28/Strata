@@ -75,6 +75,12 @@ public final class TileRegistry {
 
     public static final Tile WOOD_SLAB = register(new SlabTile("wood_slab"));
     public static final Tile WOOD   = register(new Tile("wood"));
+
+    public static final Tile WOODEN_DOOR          = register(new WoodenDoorTile(WoodenDoorTile.Swing.CLOSED));
+    public static final Tile WOODEN_DOOR_OPEN_IN  = register(new WoodenDoorTile(WoodenDoorTile.Swing.IN).setPlaceable(false));
+    public static final Tile WOODEN_DOOR_OPEN_OUT = register(new WoodenDoorTile(WoodenDoorTile.Swing.OUT).setPlaceable(false));
+
+
     public static final Tile GLASS = register(
             new Tile("glass").setTransparent(true).setSelfCullAll()
     );
@@ -102,6 +108,9 @@ public final class TileRegistry {
             register(new DimensionalDoorTile(color, true).setPlaceable(false));
         }
     }
+
+    // A 1x2x1 door standing in the middle of its cell. Closed, open-in and open-out are three tiles
+    // (like the dimensional doors); only the closed one can be placed.
 
     public static final Tile PATH = register(new Tile("path").setPlaceable(false));
 

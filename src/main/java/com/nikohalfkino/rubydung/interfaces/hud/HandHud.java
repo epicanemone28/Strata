@@ -5,6 +5,7 @@ import com.nikohalfkino.rubydung.interfaces.FrameScreen;
 import com.nikohalfkino.rubydung.interfaces.GameFrame;
 import com.nikohalfkino.rubydung.interfaces.TileIconRenderer;
 import com.nikohalfkino.rubydung.interfaces.widget.Widget;
+import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.level.tiles.BillboardTile;
 import com.nikohalfkino.rubydung.level.tiles.Tile;
 import com.nikohalfkino.rubydung.player.Player;
@@ -22,7 +23,9 @@ public class HandHud extends Widget {
     public enum Action {
         BREAK("break", new int[]{1, 2, 3, 4, 3, 2}, 0.050F, 0.00F, 0.04F, -8.0F, false),
         PLACE("place", new int[]{1, 2, 3, 4}, 0.06F, 0.00F, 0.02F, 0.0F, true),
-        INTERACT("interact", new int[]{1, 2, 3, 4, 4, 3, 2, 1}, 0.050F, -0.04F, -0.06F, 0.0F, false);
+        INTERACT("interact", new int[]{1, 2, 3, 4, 4, 3, 2, 1}, 0.050F, -0.04F, -0.06F, 0.0F, false),
+        /** Three raps on a door: a fist with only two frames (hand_knock_1/2.png). */
+        KNOCK("knock", new int[]{1, 2, 1, 2, 1, 2}, 0.090F, 0.00F, -0.02F, 0.0F, false);
 
         final String prefix;
         final int[] frames;
@@ -45,6 +48,25 @@ public class HandHud extends Widget {
 
         float duration() {
             return this.frames.length * this.secondsPerFrame;
+        }
+
+        /** Whether a new swing of this action cuts the running one short and starts over (instead of being ignored until it ends). */
+        boolean restartable() {
+            return this == INTERACT || this == KNOCK;
+        }
+
+        /**
+         * Whether a fresh click cuts the running swing short and starts over. Swings driven by a
+         * held button never do (see {@link HandHud#swingHeld}), so holding plays the animation
+         * through instead of restarting it on every block.
+         */
+        boolean cancelledByClick() {
+            return this == BREAK || this == PLACE;
+        }
+
+        /** Where in the swing (seconds) a click that cancels a running one picks it up: a break skips the wind-up and goes straight to frame 3, the strike. */
+        float cancelStartTime() {
+            return this == BREAK ? 2 * this.secondsPerFrame : 0.0F;
         }
     }
 
@@ -97,10 +119,16 @@ public class HandHud extends Widget {
 
     private static final float SUSTAIN_SECONDS = 0.5F;
 
-    /** The held item is hidden while the breaking animation is on this frame number or later (frames 3 and 4). */
-    private static final int HIDE_ITEM_FROM_BREAK_FRAME = 3;
-
     private static final float MAX_FRAME_SECONDS = 0.1F;
+
+    /** How bright the hand and held block stay at the darkest point of the night (1 = no darkening at all). */
+    private static final float MIN_LIGHT = 0.25F;
+
+    /** How fast the hand's brightness follows the light around the player (so stepping into shade fades, not pops). */
+    private static final float LIGHT_RESPONSE = 6.0F;
+
+    /** At or above this brightness the hand counts as fully lit and uses the clean-edge shader. */
+    private static final float DIM_THRESHOLD = 0.995F;
 
     private static HandHud instance;
 
@@ -122,6 +150,7 @@ public class HandHud extends Widget {
     private float bob;
     private float verticalOffset;
     private float clock;
+    private float lightLevel = -1.0F;   // negative until the first frame, which snaps instead of fading
 
     private Tile shownTile;
     private Tile fromTile;
@@ -133,8 +162,13 @@ public class HandHud extends Widget {
 
         this.idleTexture = Textures.loadTexture(TEXTURE_DIR + "hand_idle.png", GL_NEAREST);
         for (Action action : Action.values()) {
-            int[] textures = new int[4];
-            for (int i = 0; i < 4; i++) {
+            // Not every action has four frames: load as many as its sequence uses.
+            int frameCount = 0;
+            for (int frame : action.frames) {
+                frameCount = Math.max(frameCount, frame);
+            }
+            int[] textures = new int[frameCount];
+            for (int i = 0; i < frameCount; i++) {
                 textures[i] = Textures.loadTexture(TEXTURE_DIR + "hand_" + action.prefix + "_" + (i + 1) + ".png", GL_NEAREST);
             }
             this.actionTextures.put(action, textures);
@@ -145,15 +179,32 @@ public class HandHud extends Widget {
                 && !game.getConsole().isOpen());
     }
 
+    /** A fresh action (a click, a key press): break and place swings cancel themselves and start over. */
     public static void swingCurrent(Action action) {
         if (instance != null) {
-            instance.swing(action);
+            instance.swing(action, true);
+        }
+    }
+
+    /** An action repeated because its button is held down: keeps the running swing going instead of restarting it. */
+    public static void swingHeld(Action action) {
+        if (instance != null) {
+            instance.swing(action, false);
         }
     }
 
     public void swing(Action action) {
+        swing(action, true);
+    }
+
+    private void swing(Action action, boolean fresh) {
         if (this.current == action) {
-            if (action.loops) {
+            if (action.restartable()) {
+                start(action);
+            } else if (fresh && action.cancelledByClick()) {
+                start(action);
+                this.actionTime = action.cancelStartTime();
+            } else if (action.loops) {
                 this.sustain = SUSTAIN_SECONDS;
             } else if (this.actionTime >= action.duration()) {
                 start(action);
@@ -194,12 +245,16 @@ public class HandHud extends Widget {
         float tilt = 0.0F;
         boolean hideHeld = false;
 
+        // Lit like the world around the player: time of day, shade and lamps. 1 = fully lit.
+        float light = updateLight(player, dt);
+        float darken = 1.0F - light;
+
         if (this.current != null) {
             float duration = this.current.duration();
             int index = Math.min(this.current.frames.length - 1, (int) (this.actionTime / this.current.secondsPerFrame));
             int frame = this.current.frames[index];
             texture = this.actionTextures.get(this.current)[frame - 1];
-            hideHeld = this.current == Action.BREAK && frame >= HIDE_ITEM_FROM_BREAK_FRAME;
+            hideHeld = true;   // whatever the hand is doing, it is busy: no block in it
 
             float progress = Math.min(1.0F, this.actionTime / duration);
             if (this.current == Action.BREAK) {
@@ -260,11 +315,11 @@ public class HandHud extends Widget {
                 float t = morphStep();
 
                 drawHeld(this.fromTile, cx, cy, tileSize * (1.0F - smoothstep(t)),
-                        spin + t * MORPH_SPIN_DEGREES, rootWidth, rootHeight);
+                        spin + t * MORPH_SPIN_DEGREES, darken, rootWidth, rootHeight);
                 drawHeld(this.shownTile, cx, cy, tileSize * easeOutBack(t),
-                        spin - (1.0F - t) * MORPH_SPIN_DEGREES, rootWidth, rootHeight);
+                        spin - (1.0F - t) * MORPH_SPIN_DEGREES, darken, rootWidth, rootHeight);
             } else {
-                drawHeld(this.shownTile, cx, cy, tileSize, spin, rootWidth, rootHeight);
+                drawHeld(this.shownTile, cx, cy, tileSize, spin, darken, rootWidth, rootHeight);
             }
         }
 
@@ -272,11 +327,14 @@ public class HandHud extends Widget {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         Textures.bind(texture);
-        glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        glColor4f(light, light, light, 1.0F);
 
         // Rotated at the sprite's own resolution and scaled up with nearest-neighbour (see CleanEdgeShader).
         // If that isn't available the sprite is drawn the plain way below.
-        boolean drawn = this.cleanEdge.draw(textureSize[0], textureSize[1], left, top, spriteHeight, tilt);
+        // The clean-edge shader draws the sprite without the current colour, so it can't be darkened.
+        // While the hand is dimmed it takes the plain path below, which does honour the colour.
+        boolean drawn = light >= DIM_THRESHOLD
+                && this.cleanEdge.draw(textureSize[0], textureSize[1], left, top, spriteHeight, tilt);
 
         if (!drawn) {
             glPushMatrix();
@@ -294,9 +352,38 @@ public class HandHud extends Widget {
             glPopMatrix();
         }
 
+        glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+
         if (!blendWasOn) {
             glDisable(GL_BLEND);
         }
+    }
+
+    /**
+     * Brightness of the hand and held block, worked out the way the terrain shader lights a block
+     * at the player's eyes: the sky light there (shade, caves, roofs) scaled by the time of day,
+     * plus block light from lamps filling in the rest. MIN_LIGHT keeps the hand readable at night.
+     * Eased towards the target so walking into shade fades instead of popping.
+     */
+    private float updateLight(Player player, float dt) {
+        float target = 1.0F;
+        Level level = this.game.getLevel();
+        if (level != null && player != null) {
+            int x = (int) Math.floor(player.x);
+            int y = (int) Math.floor(player.y);
+            int z = (int) Math.floor(player.z);
+
+            float sky = level.getSkyLight(x, y, z) * level.getSkyAmbient();
+            float lit = sky + (1.0F - sky) * level.getBlockLight(x, y, z);
+            target = MIN_LIGHT + (1.0F - MIN_LIGHT) * clamp(lit, 0.0F, 1.0F);
+        }
+
+        if (this.lightLevel < 0.0F) {
+            this.lightLevel = target;
+        } else {
+            this.lightLevel += (target - this.lightLevel) * smoothing(LIGHT_RESPONSE, dt);
+        }
+        return this.lightLevel;
     }
 
     /**
@@ -423,7 +510,7 @@ public class HandHud extends Widget {
         return Math.min(1.0F, (float) Math.floor(this.morph * steps) / (steps - 1.0F));
     }
 
-    private void drawHeld(Tile tile, float centerX, float centerY, float size, float spin,
+    private void drawHeld(Tile tile, float centerX, float centerY, float size, float spin, float darken,
                           float rootWidth, float rootHeight) {
         if (size < 1.0F) {
             return;
@@ -433,7 +520,7 @@ public class HandHud extends Widget {
                 ? ((BillboardTile) tile).getSpriteSize() * HELD_SPRITE_SCALE
                 : 1.0F;
         TileIconRenderer.draw(tile, this.game.getLevel(), centerX, centerY, size,
-                (int) rootWidth, (int) rootHeight, 0.0F, spin, false, spriteScale);
+                (int) rootWidth, (int) rootHeight, darken, spin, false, spriteScale);
     }
 
     /** Rounds a screen position to a multiple of {@link GameFrame#UI_SCALE} real pixels. */

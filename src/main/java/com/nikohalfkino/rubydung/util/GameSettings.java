@@ -38,6 +38,7 @@ public final class GameSettings {
     private static boolean pixelationEnabled = true;
     private static int pixelSize = DEFAULT_PIXEL_SIZE;
     private static float musicVolume = 0.15f;
+    private static float sfxVolume = 0.8f;
     private static String username = DEFAULT_USERNAME;
     private static DisplayType displayType = DisplayType.WINDOWED;
     /** The last non-fullscreen state, so F11 can go back to it. Not saved. */
@@ -89,6 +90,14 @@ public final class GameSettings {
 
     public static void setMusicVolume(float volume) {
         musicVolume = Math.max(0.0f, Math.min(1.0f, volume));
+    }
+
+    public static float getSfxVolume() {
+        return sfxVolume;
+    }
+
+    public static void setSfxVolume(float volume) {
+        sfxVolume = Math.max(0.0f, Math.min(1.0f, volume));
     }
 
     public static String getUsername() {
@@ -196,6 +205,7 @@ public final class GameSettings {
         pixelationEnabled = parseBoolean(props.getProperty("pixelationEnabled"), pixelationEnabled);
         setPixelSize(parseInt(props.getProperty("pixelSize"), pixelSize));
         setMusicVolume(parseFloat(props.getProperty("musicVolume"), musicVolume));
+        setSfxVolume(parseFloat(props.getProperty("sfxVolume"), sfxVolume));
 
         String savedType = props.getProperty("displayType");
         if (savedType != null) {
@@ -225,6 +235,7 @@ public final class GameSettings {
         props.setProperty("pixelationEnabled", Boolean.toString(pixelationEnabled));
         props.setProperty("pixelSize", Integer.toString(pixelSize));
         props.setProperty("musicVolume", Float.toString(musicVolume));
+        props.setProperty("sfxVolume", Float.toString(sfxVolume));
         props.setProperty("username", username);
         props.setProperty("displayType", displayType.name());
         props.setProperty("fullscreenMode", fullscreenMode.name());

@@ -1,8 +1,11 @@
 package com.nikohalfkino.rubydung.player;
 
+import com.nikohalfkino.rubydung.audio.SoundEffects;
+import com.nikohalfkino.rubydung.interfaces.hud.HandHud;
 import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.level.tiles.DimensionalDoorTile;
 import com.nikohalfkino.rubydung.level.tiles.Tile;
+import com.nikohalfkino.rubydung.level.tiles.WoodenDoorTile;
 import com.nikohalfkino.rubydung.util.KeyBinding;
 
 import java.util.List;
@@ -76,6 +79,41 @@ public class PlayerInteraction {
         return tile instanceof DimensionalDoorTile ? new int[]{hit.x, hit.y, hit.z} : null;
     }
 
+    /**
+     * The interact key. Handles the tiles that react straight away (wooden doors open or close).
+     * Returns true if it did something, so the caller can skip its own handling (screens for
+     * dimensional doors and so on).
+     */
+    public boolean interact() {
+        HitResult hit = this.hitTracker.current();
+        if (hit == null || !(this.ctx.targetTile(hit) instanceof WoodenDoorTile)) {
+            return false;
+        }
+
+        WoodenDoorTile.toggle(this.ctx.level, hit.x, hit.y, hit.z, this.ctx.player.x, this.ctx.player.z);
+        HandHud.swingCurrent(HandHud.Action.INTERACT);
+        return true;
+    }
+
+    /** The knock key: raps on the (wooden or dimensional) door under the crosshair if it is closed. Returns true if it did. */
+    public boolean knock() {
+        HitResult hit = this.hitTracker.current();
+        if (hit == null) {
+            return false;
+        }
+
+        Tile tile = this.ctx.targetTile(hit);
+        boolean closedDoor = (tile instanceof WoodenDoorTile && !((WoodenDoorTile) tile).isOpen())
+                || (tile instanceof DimensionalDoorTile && !((DimensionalDoorTile) tile).isOpen());
+        if (!closedDoor) {
+            return false;
+        }
+
+        SoundEffects.play("door_knock");
+        HandHud.swingCurrent(HandHud.Action.KNOCK);
+        return true;
+    }
+
     // Selected tile
 
     public Tile getSelectedTile() {
@@ -105,9 +143,13 @@ public class PlayerInteraction {
         Tile tile = this.ctx.targetTile(hit);
         if (tile != null && tile.id > 0) {
             // An open door can't be placed, so picking one selects its closed form.
-            this.ctx.selectedTile = tile instanceof DimensionalDoorTile
-                    ? ((DimensionalDoorTile) tile).getClosedForm()
-                    : tile;
+            if (tile instanceof DimensionalDoorTile) {
+                this.ctx.selectedTile = ((DimensionalDoorTile) tile).getClosedForm();
+            } else if (tile instanceof WoodenDoorTile) {
+                this.ctx.selectedTile = ((WoodenDoorTile) tile).getClosedForm();
+            } else {
+                this.ctx.selectedTile = tile;
+            }
         }
     }
 

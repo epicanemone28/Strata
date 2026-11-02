@@ -1,4 +1,4 @@
-package com.nikohalfkino.rubydung.audio;
+package com.nikohalfkino.rubydung.audio.tts;
 
 import java.io.BufferedReader;
 import java.io.File;

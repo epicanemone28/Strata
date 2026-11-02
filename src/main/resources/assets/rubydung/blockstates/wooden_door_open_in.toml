@@ -1,0 +1,29 @@
+# wooden_door_open_in: open, leaf swung to the back of the door (hinge on the east edge when facing north)
+# One model file (models/&.json) per tile, turned about Y for each facing; written for facing = north.
+# wooden_door.png is 16x32: upper half = row 0 (@0,0), lower half = row 1 (@0,1).
+
+[textures]
+lower = "wooden_door@0,1"
+upper = "wooden_door@0,0"
+
+[properties]
+facing = ["north", "east", "south", "west"]
+
+[[state]]
+condition = { facing = "north" }
+model = "&"
+
+[[state]]
+condition = { facing = "east" }
+model = "&"
+transform = { ry = 90 }
+
+[[state]]
+condition = { facing = "south" }
+model = "&"
+transform = { ry = 180 }
+
+[[state]]
+condition = { facing = "west" }
+model = "&"
+transform = { ry = 270 }

@@ -26,6 +26,9 @@ public class Button extends Widget {
     private Runnable onClick;
     private boolean selected = false;
 
+    /** Whether the cursor was over the (enabled) button last frame, so the hover sound plays once per entry. */
+    private boolean wasHovered = false;
+
     private boolean useNineSlice = false;
     private boolean beveled = false;
     private String texturePath = DEFAULT_9SLICE_TEXTURE;
@@ -91,6 +94,9 @@ public class Button extends Widget {
 
     @Override
     public void onMouseClicked(int mouseX, int mouseY) {
+        if (isEnabled()) {
+            UiSounds.click();
+        }
         if (this.onClick != null) {
             this.onClick.run();
         }
@@ -100,6 +106,11 @@ public class Button extends Widget {
     protected void draw(Font font, int mouseX, int mouseY) {
         boolean enabled = isEnabled();
         boolean hovered = enabled && isHovered(mouseX, mouseY);
+
+        if (hovered && !this.wasHovered) {
+            UiSounds.hover();
+        }
+        this.wasHovered = hovered;
 
         // Dims the texture/background when disabled. Doesn't affect the outline below, which is
         // its own always-full-strength draw either way, since a disabled button is never meant to

@@ -1,5 +1,6 @@
 package com.nikohalfkino.rubydung.player;
 
+import com.nikohalfkino.rubydung.audio.SoundEffects;
 import com.nikohalfkino.rubydung.interfaces.hud.HandHud;
 import com.nikohalfkino.rubydung.level.tiles.Tile;
 
@@ -106,7 +107,8 @@ final class BlockReplacer {
         }
 
         this.ctx.level.setTile(hit.x, hit.y, hit.z, selected.id, newData);
-        HandHud.swingCurrent(HandHud.Action.PLACE);
+        HandHud.swingHeld(HandHud.Action.PLACE);
+        SoundEffects.playRandom("tile_place", 3);
         return true;
     }
 
@@ -122,6 +124,7 @@ final class BlockReplacer {
         int rotation = this.placer.placementDirection();
 
         this.ctx.level.setTile(hit.x, hit.y, hit.z, 0);
+        rotation = selected.getMultiTileRotation(this.ctx.level, hit.x, hit.y, hit.z, rotation);
 
         if (!this.ctx.level.canPlaceTile(selected, hit.x, hit.y, hit.z, rotation)
                 || this.placer.footprintIntersectsPlayer(hit.x, hit.y, hit.z, rotation)) {
@@ -130,7 +133,8 @@ final class BlockReplacer {
         }
 
         this.ctx.level.setTile(hit.x, hit.y, hit.z, selected.id, rotation);
-        HandHud.swingCurrent(HandHud.Action.PLACE);
+        HandHud.swingHeld(HandHud.Action.PLACE);
+        SoundEffects.playRandom("tile_place", 3);
         return true;
     }
 }

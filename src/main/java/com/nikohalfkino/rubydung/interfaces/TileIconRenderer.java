@@ -134,7 +134,13 @@ public final class TileIconRenderer {
             glScalef(size, -size, size);
             glRotatef(30.0F, 1.0F, 0.0F, 0.0F);
             glRotatef(-45.0F + spinDegrees, 0.0F, 1.0F, 0.0F);
-            glTranslatef(0.5F, 0.5F, 0.5F);
+            // The tile is drawn with its origin cell at (-1, -1, -1), so a 1x1x1 cube needs +0.5 to sit
+            // on the centre. A multi-tile object (a 1x2x1 door...) spans its whole footprint from that
+            // cell, so shift by half the footprint instead and it is centred as a whole.
+            int iconData = tile.getIconData();
+            glTranslatef(1.0F - tile.getSizeX(iconData) / 2.0F,
+                    1.0F - tile.getSizeY() / 2.0F,
+                    1.0F - tile.getSizeZ(iconData) / 2.0F);
 
             // Icons ignore the day-night ambient, otherwise normal tiles are nearly black at night.
             if (level != null) {
@@ -145,7 +151,7 @@ public final class TileIconRenderer {
             // that touch it, so they are dropped. Only tiles that set self-cull faces are affected.
             Tile.setIconSelfFaces(hiddenFaces(spinDegrees));
             try {
-                tile.render(tessellator, level, 0, -1, -1, -1, Chunk.getTotalAtlasSlots(), tile.getIconData());
+                tile.render(tessellator, level, 0, -1, -1, -1, Chunk.getTotalAtlasSlots(), iconData);
             } finally {
                 Tile.setIconSelfFaces(0);
                 if (level != null) {

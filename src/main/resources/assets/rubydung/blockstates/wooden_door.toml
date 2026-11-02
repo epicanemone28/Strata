@@ -1,0 +1,64 @@
+[textures]
+lower = "wooden_door@0,1"
+upper = "wooden_door@0,0"
+
+[properties]
+facing = ["north", "east", "south", "west"]
+pair = ["single", "double", "double_right"]
+
+[[state]]
+condition = { facing = "north", pair = "single" }
+model = "&"
+
+[[state]]
+condition = { facing = "east", pair = "single" }
+model = "&"
+transform = { ry = 90 }
+
+[[state]]
+condition = { facing = "south", pair = "single" }
+model = "&"
+transform = { ry = 180 }
+
+[[state]]
+condition = { facing = "west", pair = "single" }
+model = "&"
+transform = { ry = 270 }
+
+[[state]]
+condition = { facing = "north", pair = "double" }
+model = "&_double_left"
+
+[[state]]
+condition = { facing = "east", pair = "double" }
+model = "&_double_left"
+transform = { ry = 90 }
+
+[[state]]
+condition = { facing = "south", pair = "double" }
+model = "&_double_left"
+transform = { ry = 180 }
+
+[[state]]
+condition = { facing = "west", pair = "double" }
+model = "&_double_left"
+transform = { ry = 270 }
+
+[[state]]
+condition = { facing = "north", pair = "double_right" }
+model = "&_double_right"
+
+[[state]]
+condition = { facing = "east", pair = "double_right" }
+model = "&_double_right"
+transform = { ry = 90 }
+
+[[state]]
+condition = { facing = "south", pair = "double_right" }
+model = "&_double_right"
+transform = { ry = 180 }
+
+[[state]]
+condition = { facing = "west", pair = "double_right" }
+model = "&_double_right"
+transform = { ry = 270 }

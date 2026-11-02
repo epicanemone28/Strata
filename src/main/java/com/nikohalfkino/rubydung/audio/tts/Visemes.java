@@ -1,4 +1,4 @@
-package com.nikohalfkino.rubydung.audio;
+package com.nikohalfkino.rubydung.audio.tts;
 
 import java.util.ArrayList;
 import java.util.List;

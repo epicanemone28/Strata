@@ -59,6 +59,7 @@ public class KeyBinding {
     public static final KeyBinding PLACE_BLOCK = new KeyBinding("place_block", "Place Block", Device.MOUSE, 1, true);
     public static final KeyBinding PICK_BLOCK = new KeyBinding("pick_block", "Pick Block", Keyboard.KEY_LMENU, false);
     public static final KeyBinding INTERACT = new KeyBinding("interact", "Interact", Keyboard.KEY_E, false);
+    public static final KeyBinding KNOCK = new KeyBinding("knock", "Knock", Keyboard.KEY_Q, false);
 
     // --- Interface. All compared via getKey() (keyboard only) in InputHandler, and INVENTORY / CHAT
     // are also compared by InventoryScreen / ChatScreen so the same key closes / is ignored on open. ---

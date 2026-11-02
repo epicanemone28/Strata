@@ -1,6 +1,7 @@
 package com.nikohalfkino.rubydung.interfaces.screen;
 
 import com.nikohalfkino.rubydung.RubyDung;
+import com.nikohalfkino.rubydung.audio.SoundEffects;
 import com.nikohalfkino.rubydung.interfaces.UiStyle;
 import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.Button;
@@ -69,7 +70,15 @@ public class OptionsScreen extends MenuScreen {
         panel.add(new Slider("Music", PANEL_WIDTH, FIELD_HEIGHT,
                 0.0f, 100.0f, Math.round(GameSettings.getMusicVolume() * 100.0f), true)
                 .onChange(v -> GameSettings.setMusicVolume(v / 100.0f))
-                .onCommit(GameSettings::save), SECTION_GAP);
+                .onCommit(GameSettings::save));
+
+        panel.add(new Slider("SFX", PANEL_WIDTH, FIELD_HEIGHT,
+                0.0f, 100.0f, Math.round(GameSettings.getSfxVolume() * 100.0f), true)
+                .onChange(v -> GameSettings.setSfxVolume(v / 100.0f))
+                .onCommit(() -> {
+                    GameSettings.save();
+                    SoundEffects.playRandom("tile_place", 3);   // so you can hear the new level
+                }), SECTION_GAP);
 
         // — Account ———————————————————————————————————————————
         panel.add(new Label("Account").setColor(UiStyle.TEXT_DIM), HEADER_GAP);

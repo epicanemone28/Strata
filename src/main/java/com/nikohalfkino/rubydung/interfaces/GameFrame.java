@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.nikohalfkino.rubydung.audio.SoundEffects;
+
 import static org.lwjgl.opengl.GL11.*;
 
 /**
@@ -249,7 +251,7 @@ public final class GameFrame {
 
     /** As above, with the noise pattern the frame is drawn with (kept while closing, like the sections). */
     public void setTarget(boolean open, List<PanelSection> sections, int tint, NoisePattern pattern) {
-        this.open = open;
+        setOpenState(open);
         if (open) {
             this.pattern = pattern == null ? NoisePattern.STONE : pattern;
             this.sections = (sections == null || sections.isEmpty())
@@ -277,8 +279,16 @@ public final class GameFrame {
                     ? (FrameMouthProvider) screen
                     : null;
         } else {
-            this.open = false;
+            setOpenState(false);
         }
+    }
+
+    /** Sets the target and plays the menu sound when it actually changes (not on every repeated call). */
+    private void setOpenState(boolean open) {
+        if (open != this.open) {
+            SoundEffects.play(open ? "ui/menu_open" : "ui/menu_close");
+        }
+        this.open = open;
     }
 
     /** Single-section form (one slot grid, or one plain panel). Prefer the list overload. */

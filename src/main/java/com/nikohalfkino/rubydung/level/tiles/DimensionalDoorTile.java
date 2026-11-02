@@ -1,5 +1,6 @@
 package com.nikohalfkino.rubydung.level.tiles;
 
+import com.nikohalfkino.rubydung.audio.SoundEffects;
 import com.nikohalfkino.rubydung.level.Level;
 
 /**
@@ -74,5 +75,7 @@ public class DimensionalDoorTile extends BillboardTile {
         // Overwriting any cell of a multi-tile object removes the whole object, then place the other state.
         level.setTile(x, y, z, 0);
         level.setTile(x, y, z, target.id, rotation);
+
+        SoundEffects.play(open ? "door_open" : "door_close");
     }
 }

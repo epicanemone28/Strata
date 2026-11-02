@@ -6,7 +6,7 @@ import com.nikohalfkino.rubydung.interfaces.GameFrame;
 import com.nikohalfkino.rubydung.interfaces.widget.PanelSection;
 import com.nikohalfkino.rubydung.interfaces.TileIconRenderer;
 import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
-import com.nikohalfkino.rubydung.interfaces.widget.SlotGridWidget;
+import com.nikohalfkino.rubydung.interfaces.widget.SlotGrid;
 import com.nikohalfkino.rubydung.level.tiles.Tile;
 import com.nikohalfkino.rubydung.level.tiles.TreeTile;
 import com.nikohalfkino.rubydung.render.Font;
@@ -19,7 +19,7 @@ import java.util.List;
 /**
  * Inventory: while open, {@link GameFrame} shrinks the world view and slides the panel in. The
  * panel has two slot grids, "Palette" (ordinary tiles) and "Props" (billboarded tiles). The frame
- * draws the headings, boxes and empty slots; each grid is a {@link SlotGridWidget} in this
+ * draws the headings, boxes and empty slots; each grid is a {@link SlotGrid} in this
  * screen's widget tree, pinned to its panel section every frame, that draws the icons and
  * highlights and handles clicks. Because it is a Screen, the camera gets no mouse input.
  * <p>
@@ -32,7 +32,7 @@ public class InventoryScreen extends FramePanelScreen {
     private static final int LABEL_COLOR = 0xFFFFFF;
 
     private final List<String> titles = new ArrayList<>();
-    private final List<SlotGridWidget<Tile>> grids = new ArrayList<>();
+    private final List<SlotGrid<Tile>> grids = new ArrayList<>();
     /** Side length (in slots) of each grid; grids are squares sized to their contents. */
     private final List<Integer> sides = new ArrayList<>();
 
@@ -61,7 +61,7 @@ public class InventoryScreen extends FramePanelScreen {
             return;
         }
 
-        SlotGridWidget<Tile> grid = new SlotGridWidget<Tile>()
+        SlotGrid<Tile> grid = new SlotGrid<Tile>()
                 .setItems(items)
                 .selectedWhen(tile -> tile == this.game.getPlayerInteraction().getSelectedTile())
                 .onSelect(tile -> this.game.getPlayerInteraction().setSelectedTile(tile))
@@ -79,7 +79,7 @@ public class InventoryScreen extends FramePanelScreen {
 
     /** Scrolls the grid under the mouse by whole rows (positive = down); the first grid if none is. */
     public void scroll(int rows) {
-        for (SlotGridWidget<Tile> grid : this.grids) {
+        for (SlotGrid<Tile> grid : this.grids) {
             if (grid.contains(this.lastMouseX, this.lastMouseY)) {
                 grid.scroll(rows);
                 return;

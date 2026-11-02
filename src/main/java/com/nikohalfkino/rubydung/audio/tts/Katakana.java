@@ -1,15 +1,15 @@
-package com.nikohalfkino.rubydung.audio;
+package com.nikohalfkino.rubydung.audio.tts;
 
-import static com.nikohalfkino.rubydung.audio.KanaData.DICT;
-import static com.nikohalfkino.rubydung.audio.KanaData.LETTERS;
-import static com.nikohalfkino.rubydung.audio.KanaData.ROWS;
-import static com.nikohalfkino.rubydung.audio.KanaData.SHORT_WORDS;
-import static com.nikohalfkino.rubydung.audio.KanaData.SPELLED;
-import static com.nikohalfkino.rubydung.audio.KanaData.SYMBOLS;
-import static com.nikohalfkino.rubydung.audio.KanaData.VOICED_TH;
-import static com.nikohalfkino.rubydung.audio.KanaData.misc;
-import static com.nikohalfkino.rubydung.audio.NumberWords.digitValue;
-import static com.nikohalfkino.rubydung.audio.NumberWords.readNumber;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.DICT;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.LETTERS;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.ROWS;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.SHORT_WORDS;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.SPELLED;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.SYMBOLS;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.VOICED_TH;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.misc;
+import static com.nikohalfkino.rubydung.audio.tts.NumberWords.digitValue;
+import static com.nikohalfkino.rubydung.audio.tts.NumberWords.readNumber;
 
 import java.text.Normalizer;
 import java.util.Locale;

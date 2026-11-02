@@ -131,6 +131,10 @@ public class InputHandler {
         } else if (key == KeyBinding.CHAT.getKey() && this.game.hasWorld()) {
             this.game.openScreen(new ChatScreen(this.game));
         } else if (key == KeyBinding.INTERACT.getKey()) {
+            // Wooden doors react straight away (and swing the hand themselves).
+            if (this.game.getPlayerInteraction().interact()) {
+                return;
+            }
             if (this.game.getPlayerInteraction().isTargetingInteractable()) {
                 HandHud.swingCurrent(HandHud.Action.INTERACT);
             }
@@ -138,6 +142,8 @@ public class InputHandler {
             if (door != null) {
                 this.game.openScreen(new DimensionalDoorScreen(this.game, door[0], door[1], door[2]));
             }
+        } else if (key == KeyBinding.KNOCK.getKey()) {
+            this.game.getPlayerInteraction().knock();
         } else if (key == KeyBinding.DEBUG_HUD.getKey()) {
             this.game.getDebugHud().toggle();
         } else if (key == KeyBinding.PICK_BLOCK.getKey() || key == Keyboard.KEY_RMENU) {

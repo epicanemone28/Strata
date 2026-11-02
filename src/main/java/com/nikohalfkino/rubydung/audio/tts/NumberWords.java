@@ -1,10 +1,10 @@
-package com.nikohalfkino.rubydung.audio;
+package com.nikohalfkino.rubydung.audio.tts;
 
-import static com.nikohalfkino.rubydung.audio.KanaData.ONES;
-import static com.nikohalfkino.rubydung.audio.KanaData.ORDINALS;
-import static com.nikohalfkino.rubydung.audio.KanaData.SCALES;
-import static com.nikohalfkino.rubydung.audio.KanaData.TENS;
-import static com.nikohalfkino.rubydung.audio.KanaData.misc;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.ONES;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.ORDINALS;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.SCALES;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.TENS;
+import static com.nikohalfkino.rubydung.audio.tts.KanaData.misc;
 
 import java.util.ArrayList;
 import java.util.List;

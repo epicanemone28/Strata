@@ -1,4 +1,4 @@
-package com.nikohalfkino.rubydung.audio;
+package com.nikohalfkino.rubydung.audio.tts;
 
 import javax.sound.sampled.*;
 import java.io.*;

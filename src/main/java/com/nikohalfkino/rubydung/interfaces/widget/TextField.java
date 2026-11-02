@@ -1,4 +1,3 @@
-
 package com.nikohalfkino.rubydung.interfaces.widget;
 
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
@@ -123,7 +122,17 @@ public class TextField {
         return end;
     }
 
+    /** Handles one key. Plays the keypress sound when it changed the text (cursor moves stay silent). */
     public boolean keyTyped(int key, char character) {
+        String before = this.text.toString();
+        boolean handled = handleKey(key, character);
+        if (!before.contentEquals(this.text)) {
+            UiSounds.keyPress();
+        }
+        return handled;
+    }
+
+    private boolean handleKey(int key, char character) {
         boolean ctrl = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL)
                 || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)
                 || Keyboard.isKeyDown(Keyboard.KEY_LMETA)

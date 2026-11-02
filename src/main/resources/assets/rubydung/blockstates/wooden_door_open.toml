@@ -1,0 +1,65 @@
+# wooden_door_open: a 2 px plank standing in the middle of its cell, 1x2x1 (lower + upper cell).
+# Written for facing = north (front towards -Z); the other facings rotate it about Y.
+# Textures: wooden_door.png is 16x32, upper half in row 0, lower half in row 1.
+
+[textures]
+lower = "wooden_door@0,1"
+upper = "wooden_door@0,0"
+
+[properties]
+facing = ["north", "east", "south", "west"]
+part = ["lower", "upper"]
+
+[[state]]
+condition = { facing = "north", part = "lower" }
+model = "&_lower"
+elements = [ { from = [14, 0, 0], to = [16, 16, 16], faces = { down = { texture = "#lower", cullface = "down" }, north = { texture = "#lower", cullface = "north" }, south = { texture = "#lower", cullface = "south" }, west = { texture = "#lower" }, east = { texture = "#lower" } } } ]
+
+
+[[state]]
+condition = { facing = "east", part = "lower" }
+model = "&_lower"
+elements = [ { from = [14, 0, 0], to = [16, 16, 16], faces = { down = { texture = "#lower", cullface = "down" }, north = { texture = "#lower", cullface = "north" }, south = { texture = "#lower", cullface = "south" }, west = { texture = "#lower" }, east = { texture = "#lower" } } } ]
+transform = { ry = 90 }
+
+
+[[state]]
+condition = { facing = "south", part = "lower" }
+model = "&_lower"
+elements = [ { from = [14, 0, 0], to = [16, 16, 16], faces = { down = { texture = "#lower", cullface = "down" }, north = { texture = "#lower", cullface = "north" }, south = { texture = "#lower", cullface = "south" }, west = { texture = "#lower" }, east = { texture = "#lower" } } } ]
+transform = { ry = 180 }
+
+
+[[state]]
+condition = { facing = "west", part = "lower" }
+model = "&_lower"
+elements = [ { from = [14, 0, 0], to = [16, 16, 16], faces = { down = { texture = "#lower", cullface = "down" }, north = { texture = "#lower", cullface = "north" }, south = { texture = "#lower", cullface = "south" }, west = { texture = "#lower" }, east = { texture = "#lower" } } } ]
+transform = { ry = 270 }
+
+
+[[state]]
+condition = { facing = "north", part = "upper" }
+model = "&_upper"
+elements = [ { from = [14, 0, 0], to = [16, 16, 16], faces = { up = { texture = "#upper", cullface = "up" }, north = { texture = "#upper", cullface = "north" }, south = { texture = "#upper", cullface = "south" }, west = { texture = "#upper" }, east = { texture = "#upper" } } } ]
+
+
+[[state]]
+condition = { facing = "east", part = "upper" }
+model = "&_upper"
+elements = [ { from = [14, 0, 0], to = [16, 16, 16], faces = { up = { texture = "#upper", cullface = "up" }, north = { texture = "#upper", cullface = "north" }, south = { texture = "#upper", cullface = "south" }, west = { texture = "#upper" }, east = { texture = "#upper" } } } ]
+transform = { ry = 90 }
+
+
+[[state]]
+condition = { facing = "south", part = "upper" }
+model = "&_upper"
+elements = [ { from = [14, 0, 0], to = [16, 16, 16], faces = { up = { texture = "#upper", cullface = "up" }, north = { texture = "#upper", cullface = "north" }, south = { texture = "#upper", cullface = "south" }, west = { texture = "#upper" }, east = { texture = "#upper" } } } ]
+transform = { ry = 180 }
+
+
+[[state]]
+condition = { facing = "west", part = "upper" }
+model = "&_upper"
+elements = [ { from = [14, 0, 0], to = [16, 16, 16], faces = { up = { texture = "#upper", cullface = "up" }, north = { texture = "#upper", cullface = "north" }, south = { texture = "#upper", cullface = "south" }, west = { texture = "#upper" }, east = { texture = "#upper" } } } ]
+transform = { ry = 270 }
+

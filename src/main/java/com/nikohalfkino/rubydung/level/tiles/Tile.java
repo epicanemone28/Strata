@@ -176,6 +176,15 @@ public class Tile {
         return 0;
     }
 
+    /**
+     * Placement hook for multi-tile objects: the rotation (0..3) the object is really placed with,
+     * given the one the player's look direction chose and the cell (x, y, z) it is going into.
+     * Doors use it to turn into a double door next to another door. Default: unchanged.
+     */
+    public int getMultiTileRotation(Level level, int x, int y, int z, int rotation) {
+        return rotation;
+    }
+
     /** Whether the interact key does something when aimed at this tile (shows the "[E] Interact" prompt). */
     public boolean isInteractable() {
         return false;
@@ -311,6 +320,15 @@ public class Tile {
     public boolean canClipToHalf() {
         return isSolid() && !isBillboard() && !isMultiTile() && occludesNeighbours()
                 && !emitsLight() && !isInteractable() && !(this instanceof SlabTile);
+    }
+
+    /**
+     * Whether the selection overlay of this tile follows {@link #getOutlineAABB} even though it is a
+     * multi-tile object. By default a multi-tile object is outlined by its whole footprint; a door
+     * says true so it is outlined by its real shape instead.
+     */
+    public boolean hasCustomOutline() {
+        return false;
     }
 
     /** The box drawn as the selection outline of this cell (data-aware); defaults to getPickAABB. */

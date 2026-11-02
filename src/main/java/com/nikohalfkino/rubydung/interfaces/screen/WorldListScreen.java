@@ -12,6 +12,7 @@ import com.nikohalfkino.rubydung.interfaces.widget.Label;
 import com.nikohalfkino.rubydung.interfaces.widget.Panel;
 import com.nikohalfkino.rubydung.interfaces.widget.Row;
 import com.nikohalfkino.rubydung.interfaces.widget.Shadow;
+import com.nikohalfkino.rubydung.interfaces.widget.UiSounds;
 import com.nikohalfkino.rubydung.interfaces.widget.Widget;
 import com.nikohalfkino.rubydung.level.DoorRegistry;
 import com.nikohalfkino.rubydung.level.tiles.DoorColor;
@@ -254,6 +255,9 @@ public class WorldListScreen extends MenuScreen {
         private final int slotNumber;
         private WorldManager.WorldInfo world;
 
+        /** Whether the cursor was over this (filled) slot last frame, so the hover sound plays once per entry. */
+        private boolean wasHovered = false;
+
         /** Colours of the dimensional doors in this world, shown as badges on the right of the row. */
         private Set<DoorColor> doors = EnumSet.noneOf(DoorColor.class);
 
@@ -276,6 +280,7 @@ public class WorldListScreen extends MenuScreen {
 
         @Override
         public void onMouseClicked(int mouseX, int mouseY) {
+            UiSounds.click();
             if (!deleteMode) {
                 game.loadWorld(this.world.name);
             } else if (this.world.name.equals(pendingDelete)) {
@@ -288,6 +293,12 @@ public class WorldListScreen extends MenuScreen {
 
         @Override
         protected void draw(Font font, int mouseX, int mouseY) {
+            boolean hoveredNow = this.world != null && contains(mouseX, mouseY);
+            if (hoveredNow && !this.wasHovered) {
+                UiSounds.hover();
+            }
+            this.wasHovered = hoveredNow;
+
             if (this.world == null) {
                 drawEmpty(font);
             } else {

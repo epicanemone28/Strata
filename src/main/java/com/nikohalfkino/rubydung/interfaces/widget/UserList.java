@@ -15,7 +15,7 @@ import java.util.function.Supplier;
  * the "(You!)" tag moves to its own line when it does not fit beside the name. The user names come from a supplier, so the list
  * is always current.
  */
-public class UserListWidget extends Widget {
+public class UserList extends Widget {
 
     private static final int PAD = 6;
     private static final int OP_COLOR = 0x55FF55;
@@ -27,14 +27,14 @@ public class UserListWidget extends Widget {
     private final float scale;
     private Supplier<String> self;
 
-    public UserListWidget(Supplier<List<String>> users, Function<String, Integer> colorOf, float scale) {
+    public UserList(Supplier<List<String>> users, Function<String, Integer> colorOf, float scale) {
         this.users = users;
         this.colorOf = colorOf;
         this.scale = scale;
     }
 
     /** Marks the user whose name {@code self} returns with a "(You!)" tag. */
-    public UserListWidget setSelf(Supplier<String> self) {
+    public UserList setSelf(Supplier<String> self) {
         this.self = self;
         return this;
     }

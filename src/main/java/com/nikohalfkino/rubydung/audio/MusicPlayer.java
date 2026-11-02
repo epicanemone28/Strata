@@ -394,7 +394,8 @@ public final class MusicPlayer {
     }
 
     /** Pull-based Ogg Vorbis decoder producing interleaved float PCM. */
-    private static final class Decoder {
+    /** Package-private so {@link SoundEffects} can reuse it. */
+    static final class Decoder {
 
         int channels;
         int sampleRate;

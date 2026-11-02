@@ -1,8 +1,9 @@
 package com.nikohalfkino.rubydung;
 
-import com.nikohalfkino.rubydung.audio.JTalkSettings;
-import com.nikohalfkino.rubydung.audio.JTalkSpeaker;
+import com.nikohalfkino.rubydung.audio.tts.JTalkSettings;
+import com.nikohalfkino.rubydung.audio.tts.JTalkSpeaker;
 import com.nikohalfkino.rubydung.audio.MusicPlayer;
+import com.nikohalfkino.rubydung.audio.SoundEffects;
 import com.nikohalfkino.rubydung.console.ChatLog;
 import com.nikohalfkino.rubydung.console.Console;
 import com.nikohalfkino.rubydung.interfaces.*;
@@ -36,7 +37,6 @@ import org.lwjgl.LWJGLException;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
-import org.lwjgl.opengl.DisplayMode;
 
 import javax.swing.*;
 import java.util.Queue;
@@ -228,6 +228,7 @@ public class RubyDung implements Runnable {
      * a matching door in the new world, see {@link #finishedLoadingWorld}.
      */
     public void travelThroughDoor(String worldName, DoorColor pickedColor) {
+        SoundEffects.play("door_travel");
         closeScreen();
         saveLevel();
         this.pendingArrivalColor = pickedColor;

@@ -1,5 +1,6 @@
 package com.nikohalfkino.rubydung.player;
 
+import com.nikohalfkino.rubydung.audio.SoundEffects;
 import com.nikohalfkino.rubydung.interfaces.hud.HandHud;
 import com.nikohalfkino.rubydung.level.SubTile;
 import com.nikohalfkino.rubydung.level.SubTiles;
@@ -96,6 +97,8 @@ final class BlockBreaker {
 
         int broken = breakCells(hits, allowance);
         if (broken > 0) {
+            // Held button: keep the running swing going instead of restarting it for every block.
+            HandHud.swingHeld(HandHud.Action.BREAK);
             this.ctx.acted = true;
             this.ctx.actionCooldown = BREAK_DELAY_TICKS - 1;
             if (moving) {
@@ -158,7 +161,7 @@ final class BlockBreaker {
     }
 
     private void breakPart(HitResult hit) {
-        HandHud.swingCurrent(HandHud.Action.BREAK);
+        SoundEffects.playRandom("tile_break", 3);
         if (hit.overlayId >= 0) {
             // A tile sharing the cell: remove just that one; the cell's normal tile stays.
             this.ctx.level.getSubTiles().remove(hit.x, hit.y, hit.z, hit.overlayId);

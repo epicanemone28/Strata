@@ -52,6 +52,9 @@ public class Slider extends Widget {
     private float valueAtPress;
     private boolean dragging = false;
 
+    /** Whether the cursor was over the (enabled) slider last frame, so the hover sound plays once per entry. */
+    private boolean wasHovered = false;
+
     private Consumer<Float> onChange;
     private Runnable onCommit;
     private Function<Float, String> formatter;
@@ -112,6 +115,9 @@ public class Slider extends Widget {
 
     public void mouseClicked(int mouseX, int mouseY) {
         if (isHovered(mouseX, mouseY)) {
+            if (isEnabled()) {
+                UiSounds.click();
+            }
             this.dragging = true;
             this.valueAtPress = this.value;
             setValueFromMouseX(mouseX);
@@ -181,6 +187,11 @@ public class Slider extends Widget {
         int drawY = (int) (this.y + (this.height - LABEL_HEIGHT) / 2.0f);
 
         boolean hovered = enabled && isHovered(mouseX, mouseY);
+        if (hovered && !this.wasHovered) {
+            UiSounds.hover();
+        }
+        this.wasHovered = hovered;
+
         int color = !enabled ? UiStyle.TEXT_DISABLED
                 : (hovered || this.dragging) ? UiStyle.TEXT_HOVER : UiStyle.TEXT;
         font.drawString(text, drawX, drawY, color);

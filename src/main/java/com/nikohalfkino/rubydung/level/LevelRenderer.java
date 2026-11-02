@@ -334,12 +334,13 @@ public class LevelRenderer implements LevelListener {
 
         // A multi-tile object is outlined as a whole: the hit face of its full bounds, not of one cell.
         MultiTileInstance object = this.level.getMultiTile(hitResult.x, hitResult.y, hitResult.z);
-        if (object != null) {
+        if (object != null && !tile.hasCustomOutline()) {
             renderBoxFace(object.x, object.y, object.z,
                     object.x + object.sizeX, object.y + object.sizeY, object.z + object.sizeZ, hitResult.face);
         } else {
             // The box the ray struck (one step of a staircase, a slab), else the tile's outline box.
-            AABB box = hitResult.hitBox;
+            // (A tile with a custom outline, like a door, ignores the single struck box: it wraps the whole shape.)
+            AABB box = tile.hasCustomOutline() ? null : hitResult.hitBox;
             if (box == null) {
                 box = tile.getOutlineAABB(this.level, hitResult.x, hitResult.y, hitResult.z);
             }

@@ -19,7 +19,7 @@ import java.util.function.Predicate;
  * {@link GameFrame.SectionLayout} it sits on. Position it with the usual anchor / offset, or let a
  * {@code FramePanelScreen} do it.
  */
-public class SlotGridWidget<T> extends Widget {
+public class SlotGrid<T> extends Widget {
 
     /** Draws one item's icon, centred on ({@code centerX}, {@code centerY}). Runs outside the 2D pass, so it may use any GL state. */
     public interface IconDrawer<T> {
@@ -46,11 +46,11 @@ public class SlotGridWidget<T> extends Widget {
     private OverlayDrawer<T> overlayDrawer;
     private float iconFraction = DEFAULT_ICON_FRACTION;
 
-    public SlotGridWidget() {
+    public SlotGrid() {
         this(GameFrame.SLOT_PX);
     }
 
-    public SlotGridWidget(int slotSize) {
+    public SlotGrid(int slotSize) {
         this.slotSize = slotSize;
     }
 
@@ -58,36 +58,36 @@ public class SlotGridWidget<T> extends Widget {
     // Configuration
     // ---------------------------------------------------------------------------------------
 
-    public SlotGridWidget<T> setItems(List<T> items) {
+    public SlotGrid<T> setItems(List<T> items) {
         this.items = new ArrayList<>(items);
         clampScroll();
         return this;
     }
 
     /** Which items get the yellow selection outline. */
-    public SlotGridWidget<T> selectedWhen(Predicate<T> selected) {
+    public SlotGrid<T> selectedWhen(Predicate<T> selected) {
         this.selected = selected;
         return this;
     }
 
     /** Called when an item's slot is clicked. */
-    public SlotGridWidget<T> onSelect(Consumer<T> onSelect) {
+    public SlotGrid<T> onSelect(Consumer<T> onSelect) {
         this.onSelect = onSelect;
         return this;
     }
 
-    public SlotGridWidget<T> setIconDrawer(IconDrawer<T> iconDrawer) {
+    public SlotGrid<T> setIconDrawer(IconDrawer<T> iconDrawer) {
         this.iconDrawer = iconDrawer;
         return this;
     }
 
-    public SlotGridWidget<T> setOverlayDrawer(OverlayDrawer<T> overlayDrawer) {
+    public SlotGrid<T> setOverlayDrawer(OverlayDrawer<T> overlayDrawer) {
         this.overlayDrawer = overlayDrawer;
         return this;
     }
 
     /** Icon size as a fraction of the slot size. */
-    public SlotGridWidget<T> setIconFraction(float fraction) {
+    public SlotGrid<T> setIconFraction(float fraction) {
         this.iconFraction = fraction;
         return this;
     }

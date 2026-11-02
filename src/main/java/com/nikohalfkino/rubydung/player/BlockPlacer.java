@@ -1,5 +1,6 @@
 package com.nikohalfkino.rubydung.player;
 
+import com.nikohalfkino.rubydung.audio.SoundEffects;
 import com.nikohalfkino.rubydung.interfaces.hud.HandHud;
 import com.nikohalfkino.rubydung.level.SubTilePlacement;
 import com.nikohalfkino.rubydung.level.tiles.RotatableTile;
@@ -51,6 +52,9 @@ final class BlockPlacer {
     /** Height flown along the column being built that hasn't been paid out as blocks yet. */
     private double columnBank = 0.0;
 
+    /** True while tick() (the place button held down) is running, false for a fresh click. */
+    private boolean holding = false;
+
     private boolean buildActive = false;
     private int buildFace;
     private int buildPlane;
@@ -62,6 +66,7 @@ final class BlockPlacer {
 
     /** Right mouse button pressed: a fresh placement, not part of any drag-build. */
     void handleClick(HitResult hit) {
+        this.holding = false;
         this.buildBudget = 1.0;
         clearBuildLine();
         placeAgainst(hit);
@@ -136,7 +141,7 @@ final class BlockPlacer {
     private boolean placeTile(int x, int y, int z, int face) {
         Tile selected = this.ctx.selectedTile;
         if (selected.isMultiTile()) {
-            int rotation = placementDirection();
+            int rotation = selected.getMultiTileRotation(this.ctx.level, x, y, z, placementDirection());
             if (!this.ctx.level.canPlaceTile(selected, x, y, z, rotation)
                     || footprintIntersectsPlayer(x, y, z, rotation)) {
                 return false;
@@ -253,7 +258,12 @@ final class BlockPlacer {
 
     /** Bookkeeping after any successful placement: spends the budget and extends the drag-build line. */
     private void notePlaced(HitResult hit, int x, int y, int z) {
-        HandHud.swingCurrent(HandHud.Action.PLACE);
+        if (this.holding) {
+            HandHud.swingHeld(HandHud.Action.PLACE);       // held: let the swing play out
+        } else {
+            HandHud.swingCurrent(HandHud.Action.PLACE);    // click: cancels the running swing
+        }
+        SoundEffects.playRandom("tile_place", 3);
         this.buildBudget = Math.max(0.0, this.buildBudget - 1.0);
         this.ctx.acted = true;
 
@@ -327,6 +337,15 @@ final class BlockPlacer {
 
     /** One tick of holding the place button. */
     void tick(List<HitResult> hits, double speed) {
+        this.holding = true;
+        try {
+            tickHeld(hits, speed);
+        } finally {
+            this.holding = false;
+        }
+    }
+
+    private void tickHeld(List<HitResult> hits, double speed) {
         double perTick = TICK_MS / placeDelayMs(speed);
         this.buildBudget = Math.min(this.buildBudget + perTick, 1.0 + perTick);
 

@@ -1,7 +1,7 @@
 package com.nikohalfkino.rubydung.interfaces.screen;
 
 import com.nikohalfkino.rubydung.RubyDung;
-import com.nikohalfkino.rubydung.audio.JTalkSettings;
+import com.nikohalfkino.rubydung.audio.tts.JTalkSettings;
 import com.nikohalfkino.rubydung.interfaces.UiStyle;
 import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.Button;

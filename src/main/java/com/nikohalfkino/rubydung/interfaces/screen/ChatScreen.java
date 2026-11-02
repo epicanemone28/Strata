@@ -1,7 +1,6 @@
 package com.nikohalfkino.rubydung.interfaces.screen;
 
 import com.nikohalfkino.rubydung.RubyDung;
-import com.nikohalfkino.rubydung.audio.Visemes;
 import com.nikohalfkino.rubydung.console.ChatLog;
 import com.nikohalfkino.rubydung.interfaces.FrameMouthProvider;
 import com.nikohalfkino.rubydung.interfaces.FramePanelScreen;
@@ -10,7 +9,7 @@ import com.nikohalfkino.rubydung.interfaces.widget.PanelSection;
 import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.BevelBox;
 import com.nikohalfkino.rubydung.interfaces.widget.TextField;
-import com.nikohalfkino.rubydung.interfaces.widget.UserListWidget;
+import com.nikohalfkino.rubydung.interfaces.widget.UserList;
 import com.nikohalfkino.rubydung.render.Font;
 import com.nikohalfkino.rubydung.util.GameSettings;
 import com.nikohalfkino.rubydung.util.KeyBinding;
@@ -59,7 +58,7 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
     private final BevelBox inputBox;
 
     /** The right-hand user list (a widget filling the panel section). */
-    private final UserListWidget userList;
+    private final UserList userList;
 
     private int scrollLines = 0;
     private int historyIndex = -1;
@@ -75,7 +74,7 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
                 .setFill(0.0F, 0.0F, 0.0F, 0.55F), Anchor.TOP_LEFT, 0, 0);
         this.inputBox.setVisibleWhen(this::isFrameOpen);
 
-        this.userList = add(new UserListWidget(
+        this.userList = add(new UserList(
                 () -> Collections.singletonList(this.chat.getNick()),
                 ChatScreen::nickColor,
                 CHAT_SCALE).setSelf(this.chat::getNick), Anchor.TOP_LEFT, 0, 0);
