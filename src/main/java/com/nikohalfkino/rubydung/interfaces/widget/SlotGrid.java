@@ -10,23 +10,18 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
- * A scrollable grid of slots holding items of type {@code T}. The slot cells themselves are drawn
- * by {@link GameFrame}; this widget draws what goes in them (hover / selection highlight, an icon
- * per item, an optional text overlay) and handles clicking and scrolling.
- * <p>
- * The number of columns and rows comes from the widget's size ({@link #setSize}) divided by the
- * slot size, so it simply fills whatever rectangle it is given - in practice the
- * {@link GameFrame.SectionLayout} it sits on. Position it with the usual anchor / offset, or let a
- * {@code FramePanelScreen} do it.
+ * scrollable grid of slots holding items of type T. GameFrame draws the slot cells, this widget draws what goes in them (hover / selection highlight, icon per item, optional text overlay) and handles clicks and scrolling
+ *
+ * columns and rows come from the widget's size divided by the slot size, so it fills the rectangle it's given (in practice the GameFrame.SectionLayout it sits on)
  */
 public class SlotGrid<T> extends Widget {
 
-    /** Draws one item's icon, centred on ({@code centerX}, {@code centerY}). Runs outside the 2D pass, so it may use any GL state. */
+    /** draws one item's icon centred on (centerX, centerY), runs outside the 2D pass so any GL state is fine */
     public interface IconDrawer<T> {
         void draw(T item, float centerX, float centerY, float size, int windowWidth, int windowHeight);
     }
 
-    /** Draws text / shapes on top of the slot at ({@code slotX}, {@code slotY}). Runs inside the 2D pass. */
+    /** draws text / shapes on top of the slot at (slotX, slotY), runs inside the 2D pass */
     public interface OverlayDrawer<T> {
         void draw(Font font, T item, int slotX, int slotY, int slotSize);
     }
@@ -54,9 +49,7 @@ public class SlotGrid<T> extends Widget {
         this.slotSize = slotSize;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Configuration
-    // ---------------------------------------------------------------------------------------
+    // configuration
 
     public SlotGrid<T> setItems(List<T> items) {
         this.items = new ArrayList<>(items);
@@ -64,13 +57,13 @@ public class SlotGrid<T> extends Widget {
         return this;
     }
 
-    /** Which items get the yellow selection outline. */
+    /** which items get the yellow selection outline */
     public SlotGrid<T> selectedWhen(Predicate<T> selected) {
         this.selected = selected;
         return this;
     }
 
-    /** Called when an item's slot is clicked. */
+    /** called when an item's slot is clicked */
     public SlotGrid<T> onSelect(Consumer<T> onSelect) {
         this.onSelect = onSelect;
         return this;
@@ -86,7 +79,7 @@ public class SlotGrid<T> extends Widget {
         return this;
     }
 
-    /** Icon size as a fraction of the slot size. */
+    /** icon size as a fraction of the slot size */
     public SlotGrid<T> setIconFraction(float fraction) {
         this.iconFraction = fraction;
         return this;
@@ -100,11 +93,9 @@ public class SlotGrid<T> extends Widget {
         return this.rows;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Scrolling / lookup
-    // ---------------------------------------------------------------------------------------
+    // scrolling / lookup
 
-    /** Scrolls by whole rows (positive = down), clamped to the content. */
+    /** whole rows (positive = down), clamped to the content */
     public void scroll(int rowsToScroll) {
         this.scrollRow += rowsToScroll;
         clampScroll();
@@ -124,7 +115,7 @@ public class SlotGrid<T> extends Widget {
         return index < this.items.size() ? this.items.get(index) : null;
     }
 
-    /** Slot number (row by row) under the point, or -1. */
+    // slot number (row by row) under the point, or -1
     private int slotAt(int mouseX, int mouseY) {
         float dx = mouseX - this.x;
         float dy = mouseY - this.y;
@@ -142,9 +133,7 @@ public class SlotGrid<T> extends Widget {
         return (int) this.y + (slot / this.columns) * this.slotSize;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Layout
-    // ---------------------------------------------------------------------------------------
+    // layout
 
     @Override
     public void measure(Font font) {
@@ -154,9 +143,7 @@ public class SlotGrid<T> extends Widget {
         clampScroll();
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Rendering / input
-    // ---------------------------------------------------------------------------------------
+    // rendering / input
 
     @Override
     protected void draw(Font font, int mouseX, int mouseY) {

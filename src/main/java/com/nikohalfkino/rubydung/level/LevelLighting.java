@@ -13,20 +13,13 @@ class LevelLighting {
                     * (2 * Level.MAX_LIGHT_RADIUS + 1)
                     * (2 * Level.MAX_LIGHT_RADIUS + 1);
 
-    /**
-     * How far (in columns) around a shadowed cell to look for open sky. 2 = the surrounding 5x5
-     * columns. Bigger values make the open-air fade wider but cost (2R+1)^2 lookups per shadowed sample.
-     */
+    // columns around a shadowed cell to look for open sky (2 = 5x5), bigger = wider open-air fade but (2R+1)^2 lookups per shadowed sample
     private static final int OPEN_SKY_RADIUS = 2;
 
-    /**
-     * How much of a shadow's depth is filled back in when every surrounding column is open to the
-     * sky (0 = shadows never fade, 1 = they vanish completely). A shadow with no open columns
-     * around it keeps its full darkness.
-     */
+    // how much of a shadow's depth is filled back in when every surrounding column is open to the sky (0 = never fades, 1 = vanishes), no open columns = full darkness
     private static final float OPEN_SHADOW_LIFT = 0.6F;
 
-    /** calcLightDepths regions bigger than this many columns (world generation etc.) notify in bulk. */
+    // calcLightDepths regions bigger than this many columns (world generation etc.) notify in bulk
     private static final long BULK_COLUMN_THRESHOLD = 256;
 
     private static final int[][] LIGHT_DIRECTIONS = {
@@ -132,11 +125,7 @@ class LevelLighting {
         }
     }
 
-    /**
-     * A column's sky exposure changed, which changes how open the sky is around every shadowed cell
-     * within OPEN_SKY_RADIUS columns of it, so those columns need re-lighting too (the changed
-     * column itself has already been notified).
-     */
+    // a column's sky exposure changed, so shadowed cells within OPEN_SKY_RADIUS columns need re-lighting too (the column itself is already notified)
     private void notifyOpenSkyNeighbours(int x, int z, int minY, int maxY) {
         int r = OPEN_SKY_RADIUS;
         for (int dx = -r; dx <= r; dx++) {
@@ -176,10 +165,7 @@ class LevelLighting {
         return column + (1.0F - column) * lift;
     }
 
-    /**
-     * Fraction (0..1) of the columns around this one that have a clear view of the sky down to
-     * height y. Columns outside the world count as open. The column itself is not counted.
-     */
+    // fraction (0..1) of the columns around this one with a clear view of the sky down to height y, outside the world counts as open, the column itself isn't counted
     private float getSkyOpenness(int x, int y, int z) {
         int r = OPEN_SKY_RADIUS;
         int width = this.level.width;
@@ -206,7 +192,7 @@ class LevelLighting {
         return open / (float) total;
     }
 
-    /** Sky light from this cell's own column only (what getSkyLight was before neighbours mattered). */
+    // sky light from this cell's own column only, ignoring neighbours
     private float getColumnSkyLight(int x, int y, int z) {
         if (shadowCoversOwnCell(x, y, z)) {
             return Level.SHADOW_DARKEST;

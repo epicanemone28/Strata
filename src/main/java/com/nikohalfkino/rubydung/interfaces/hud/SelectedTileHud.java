@@ -35,18 +35,12 @@ public class SelectedTileHud extends Widget {
 
     private static final float MAX_FRAME_SECONDS = 0.1F;
 
-    /**
-     * Tiles shown under one shared name, with their own name as the "Type:" line (the same way
-     * trees and doors are). A tile in none of these shows its own name and no type line.
-     */
+    // tiles shown under one shared name with their own name as the "Type:" line (like trees and doors), anything else shows its own name
     private static final Map<Tile, String> GROUP_NAMES = new HashMap<>();
     private static final Map<Tile, String> GROUP_TYPES = new HashMap<>();
 
-    /**
-     * A tile by registry name. Goes through Tile (not TileRegistry directly) on purpose: Tile and
-     * TileRegistry initialise each other, and if TileRegistry is the first one touched, Tile.AIR
-     * and the other Tile.* aliases end up null.
-     */
+    // goes through Tile on purpose: Tile and TileRegistry initialise each other, and if TileRegistry is touched first
+    // Tile.AIR and the other Tile.* aliases end up null
     private static Tile t(String name) {
         Tile tile = Tile.byName(name);
         if (tile == null) {

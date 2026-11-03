@@ -7,13 +7,9 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * Small TOML reader covering what blockstate files need: comments, key = value (dotted keys too),
- * [tables], [[arrays of tables]], strings ("basic" and 'literal'), integers, floats, booleans,
- * arrays (multi-line is fine) and inline tables. Not supported (reported as errors): multi-line
- * strings, dates, hex/octal integers, inf/nan.
+ * small TOML reader covering what blockstate files need: comments, key = value (dotted keys too), [tables], [[arrays of tables]], strings ("basic" and 'literal'), integers, floats, booleans, arrays (multi-line is fine) and inline tables. unsupported (reported as errors): multi-line strings, dates, hex/octal integers, inf/nan
  *
- * <p>Tables become {@code Map<String,Object>} in file order, arrays {@code List<Object>},
- * integers {@code Long}, floats {@code Double}.
+ * tables become Map<String,Object> in file order, arrays List<Object>, integers Long, floats Double
  */
 public final class Toml {
 
@@ -31,9 +27,7 @@ public final class Toml {
         return new Toml(text).document();
     }
 
-    // -------------------------------------------------------------------------
-
-    private Map<String, Object> document() {
+private Map<String, Object> document() {
         Map<String, Object> root = new LinkedHashMap<>();
         Map<String, Object> current = root;
 
@@ -100,7 +94,7 @@ public final class Toml {
         return entry;
     }
 
-    /** The sub-table under key (created if missing). If key is an array of tables, its last entry. */
+    // the sub-table under key (created if missing), if key is an array of tables, its last entry
     @SuppressWarnings("unchecked")
     private Map<String, Object> child(Map<String, Object> table, String key) {
         Object existing = table.get(key);
@@ -133,8 +127,7 @@ public final class Toml {
         target.put(key, value);
     }
 
-    // -------------------------------------------------------------------------
-    // Keys
+    // keys
 
     private List<String> keyPath() {
         List<String> path = new ArrayList<>();
@@ -172,8 +165,7 @@ public final class Toml {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
     }
 
-    // -------------------------------------------------------------------------
-    // Values
+    // values
 
     private Object value() {
         char c = peek();
@@ -341,17 +333,16 @@ public final class Toml {
         return value;
     }
 
-    // -------------------------------------------------------------------------
-    // Whitespace and errors
+    // whitespace and errors
 
-    /** Spaces and tabs only. */
+    // spaces and tabs only
     private void skipSpaces() {
         while (this.pos < this.text.length() && (this.text.charAt(this.pos) == ' ' || this.text.charAt(this.pos) == '\t')) {
             this.pos++;
         }
     }
 
-    /** Whitespace, newlines and comments. */
+    // whitespace, newlines and comments
     private void skipBlank() {
         while (this.pos < this.text.length()) {
             char c = this.text.charAt(this.pos);
@@ -367,7 +358,7 @@ public final class Toml {
         }
     }
 
-    /** After a key/value or header: only a comment may follow on the same line. */
+    // after a key/value or header only a comment may follow on the same line
     private void endOfLine() {
         skipSpaces();
         if (peek() == '#') {

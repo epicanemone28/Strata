@@ -24,7 +24,7 @@ public class HandHud extends Widget {
         BREAK("break", new int[]{1, 2, 3, 4, 3, 2}, 0.050F, 0.00F, 0.04F, -8.0F, false),
         PLACE("place", new int[]{1, 2, 3, 4}, 0.06F, 0.00F, 0.02F, 0.0F, true),
         INTERACT("interact", new int[]{1, 2, 3, 4, 4, 3, 2, 1}, 0.050F, -0.04F, -0.06F, 0.0F, false),
-        /** Three raps on a door: a fist with only two frames (hand_knock_1/2.png). */
+        // three raps on a door, a fist with only two frames (hand_knock_1/2.png)
         KNOCK("knock", new int[]{1, 2, 1, 2, 1, 2}, 0.090F, 0.00F, -0.02F, 0.0F, false);
 
         final String prefix;
@@ -50,32 +50,25 @@ public class HandHud extends Widget {
             return this.frames.length * this.secondsPerFrame;
         }
 
-        /** Whether a new swing of this action cuts the running one short and starts over (instead of being ignored until it ends). */
+        // whether a new swing cuts the running one short and restarts (instead of being ignored until it ends)
         boolean restartable() {
             return this == INTERACT || this == KNOCK;
         }
 
-        /**
-         * Whether a fresh click cuts the running swing short and starts over. Swings driven by a
-         * held button never do (see {@link HandHud#swingHeld}), so holding plays the animation
-         * through instead of restarting it on every block.
-         */
+        // whether a fresh click cuts the running swing short. swings driven by a held button never do (see swingHeld), so holding plays through
         boolean cancelledByClick() {
             return this == BREAK || this == PLACE;
         }
 
-        /** Where in the swing (seconds) a click that cancels a running one picks it up: a break skips the wind-up and goes straight to frame 3, the strike. */
+        // where (seconds) a click that cancels a running swing picks it up, a break skips the wind-up and goes straight to frame 3, the strike
         float cancelStartTime() {
             return this == BREAK ? 2 * this.secondsPerFrame : 0.0F;
         }
     }
 
-    /**
-     * The breaking swing as keyframes: {progress 0-1, tilt in degrees, reachX, reachY} (reach in hand
-     * heights, positive Y is down). Wind up (hand lifts and tips back), strike hard and fast, rebound
-     * a little past rest, then settle. A spline runs through them so there is no stop-start at the keys.
-     * The sprite frames line up with it: frames 3 and 4 (the hit) fall at progress ~0.33-0.67.
-     */
+    // breaking swing keyframes: {progress 0-1, tilt in degrees, reachX, reachY} (reach in hand heights, +Y is down)
+    // wind up, strike hard and fast, rebound a little past rest, settle. a spline runs through them so there's no stop-start at the keys
+    // frames 3 and 4 (the hit) fall at progress ~0.33-0.67
     private static final float[][] BREAK_KEYS = {
             {0.00F,   0.0F,  0.000F,  0.000F},
             {0.22F,   7.0F,  0.012F, -0.030F},   // wind-up
@@ -93,11 +86,8 @@ public class HandHud extends Widget {
     private static final float BLOCK_CENTER_Y = 0.60F;
     private static final float BLOCK_SCALE = 0.20F;
 
-    /**
-     * Held billboards are drawn so every sprite pixel is the same size on screen (a 32px sprite
-     * comes out twice as big as a 16px one), and then all of them are scaled by this factor.
-     * 1 would make a 16px sprite the size of a cube; lower it to shrink every held prop.
-     */
+    // held billboards draw every sprite pixel the same size on screen (a 32px sprite is twice a 16px one), then all get scaled by this
+    // 1 would make a 16px sprite cube-sized, lower it to shrink every held prop
     private static final float HELD_SPRITE_SCALE = 0.25F;
 
     private static final float SPIN_FPS = 10.0F;
@@ -121,13 +111,13 @@ public class HandHud extends Widget {
 
     private static final float MAX_FRAME_SECONDS = 0.1F;
 
-    /** How bright the hand and held block stay at the darkest point of the night (1 = no darkening at all). */
+    // brightness of the hand at the darkest point of night (1 = no darkening)
     private static final float MIN_LIGHT = 0.25F;
 
-    /** How fast the hand's brightness follows the light around the player (so stepping into shade fades, not pops). */
+    // how fast the hand's brightness follows the light around the player (fades instead of popping in shade)
     private static final float LIGHT_RESPONSE = 6.0F;
 
-    /** At or above this brightness the hand counts as fully lit and uses the clean-edge shader. */
+    // at or above this the hand counts as fully lit and uses the clean-edge shader
     private static final float DIM_THRESHOLD = 0.995F;
 
     private static HandHud instance;
@@ -138,7 +128,7 @@ public class HandHud extends Widget {
     private final Map<Action, int[]> actionTextures = new HashMap<>();
     private final Map<Integer, int[]> sizes = new HashMap<>();
 
-    /** Keeps the hand's pixels clean when it is rotated (see CleanEdgeShader). */
+    // keeps the hand's pixels clean when rotated (see CleanEdgeShader)
     private final CleanEdgeShader cleanEdge = new CleanEdgeShader();
 
     private Action current;
@@ -181,14 +171,14 @@ public class HandHud extends Widget {
                 && game.getGameRenderer().getPlayerCamera().isFirstPerson());
     }
 
-    /** A fresh action (a click, a key press): break and place swings cancel themselves and start over. */
+    /** a fresh action (click, key press), break and place swings cancel themselves and restart */
     public static void swingCurrent(Action action) {
         if (instance != null) {
             instance.swing(action, true);
         }
     }
 
-    /** An action repeated because its button is held down: keeps the running swing going instead of restarting it. */
+    /** action repeated because its button is held, keeps the running swing going instead of restarting it */
     public static void swingHeld(Action action) {
         if (instance != null) {
             instance.swing(action, false);
@@ -361,12 +351,8 @@ public class HandHud extends Widget {
         }
     }
 
-    /**
-     * Brightness of the hand and held block, worked out the way the terrain shader lights a block
-     * at the player's eyes: the sky light there (shade, caves, roofs) scaled by the time of day,
-     * plus block light from lamps filling in the rest. MIN_LIGHT keeps the hand readable at night.
-     * Eased towards the target so walking into shade fades instead of popping.
-     */
+    // hand brightness worked out like the terrain shader lights a block at the player's eyes: sky light (shade, caves, roofs) scaled by time of day, plus lamp light
+    // MIN_LIGHT keeps it readable at night, eased towards the target so walking into shade fades instead of popping
     private float updateLight(Player player, float dt) {
         float target = 1.0F;
         Level level = this.game.getLevel();
@@ -388,11 +374,7 @@ public class HandHud extends Widget {
         return this.lightLevel;
     }
 
-    /**
-     * Smoothly interpolates keyframes {t, a, b, c} with a cubic Hermite spline. Tangents are finite
-     * differences across neighbouring keys (zero at the two ends), so speed flows through each key.
-     * Returns {a, b, c} at {@code t}.
-     */
+    // cubic Hermite spline through keyframes {t, a, b, c}, returns {a, b, c} at t. tangents are finite differences across neighbouring keys (zero at the ends)
     private static float[] splineMotion(float[][] keys, float t) {
         int last = keys.length - 1;
         if (t <= keys[0][0]) {
@@ -471,17 +453,14 @@ public class HandHud extends Widget {
         return currentSway();
     }
 
-    /** The sway for the current state, without advancing it (used while paused). */
+    // sway for the current state without advancing it (used while paused)
     private float[] currentSway() {
         float bobX = (float) Math.cos(this.walkPhase) * this.bob * BOB_X;
         float bobY = (float) Math.abs(Math.sin(this.walkPhase)) * this.bob * BOB_Y;
         return new float[]{bobX, bobY + this.verticalOffset};
     }
 
-    /**
-     * The hand is only drawn with no screen or a frame screen (inventory, chat, pause, ...), and
-     * every frame screen freezes the player, so any open screen means the sway holds still.
-     */
+    // the hand only draws with no screen or a frame screen, and every frame screen freezes the player, so any open screen = sway holds still
     private boolean isWorldPaused() {
         return this.game.getCurrentScreen() != null;
     }
@@ -525,7 +504,7 @@ public class HandHud extends Widget {
                 (int) rootWidth, (int) rootHeight, darken, spin, false, spriteScale);
     }
 
-    /** Rounds a screen position to a multiple of {@link GameFrame#UI_SCALE} real pixels. */
+    // rounds to a multiple of GameFrame.UI_SCALE real pixels
     private static float snapToUiPixel(float value) {
         return Math.round(value / GameFrame.UI_SCALE) * (float) GameFrame.UI_SCALE;
     }
@@ -537,7 +516,7 @@ public class HandHud extends Widget {
         return dt;
     }
 
-    /** Width and height of a texture in texels, read once and cached. */
+    // width and height in texels, read once and cached
     private int[] sizeOf(int texture) {
         int[] cached = this.sizes.get(texture);
         if (cached != null) {

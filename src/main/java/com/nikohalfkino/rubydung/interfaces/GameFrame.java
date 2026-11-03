@@ -16,20 +16,15 @@ import com.nikohalfkino.rubydung.audio.SoundEffects;
 import static org.lwjgl.opengl.GL11.*;
 
 /**
- * The in-world window frame: a noise-textured background with an outer bevel around the whole
- * window, a bevelled viewport on the left (where the 3D world is drawn) and a bevelled slot grid
- * on the right. Everything is generated in code.
- * <p>
- * The frame is animated: {@link #setTarget} sets the target state and {@link #update()}
- * (call once per rendered frame) slides towards it. At 0 the frame is invisible and the world
- * fills the window; at 1 the viewport has shrunk to make room for the slot grid, which slides in
- * from the right edge.
- * <p>
- * All sizes below are in "UI units"; one unit is {@link #UI_SCALE} real pixels.
+ * in-world window frame: noise background with bevels, viewport on the left, slot grid on the right, all generated in code
+ *
+ * animated: setTarget sets the state, update() (once per frame) slides towards it. 0 = invisible, 1 = viewport shrunk to make room for the slot grid
+ *
+ * sizes are in "UI units" (UI_SCALE real pixels)
  */
 public final class GameFrame {
 
-    /** Real pixels per UI unit. */
+    /** real pixels per UI unit */
     public static final int UI_SCALE = 2;
 
     // Layout, in UI units.
@@ -40,24 +35,22 @@ public final class GameFrame {
     public static final int GRID_ROWS = 5;
     private static final int FRAME_RING = 2;
 
-    /** Thickness of the bevel around the whole window, in UI units. */
+    // around the whole window, in UI units
     private static final int OUTER_BEVEL = 2;
 
-    /** Real pixel size of one slot. */
     public static final int SLOT_PX = SLOT_SIZE * UI_SCALE;
 
-    /** Below this viewport size (in real pixels) the frame is skipped and the world fills the window. */
+    // below this viewport width (px) the frame is skipped and the world fills the window
     private static final int MIN_VIEW_WIDTH = 160;
     private static final int MIN_VIEW_HEIGHT = 120;
 
-    /** Seconds the open/close animation takes. */
     private static final float ANIM_SECONDS = 0.28F;
 
     // Palette (grey levels, 0..255). The original uses steps of 4.
     private static final int GRAY_STEP = 4;
     private static final int NOISE_MIN = 52;
     private static final int NOISE_MAX = 116;
-    /** How many grey levels darker the slot interiors are than the background. */
+    // grey levels darker than the background
     private static final int SLOT_DARKEN = 36;
     private static final int SLOT_MIN = 16;
 
@@ -74,10 +67,7 @@ public final class GameFrame {
     // Portrait box above the slot grid, in UI units.
     private static final int PORTRAIT_SIZE = 64;
 
-    /**
-     * Portrait frames, in the order of {@code Visemes.Viseme}: idle (mouth closed), A, I, U, E, O.
-     * A screen picks one through {@link FrameMouthProvider}; with no provider the idle frame is used.
-     */
+    // in Visemes.Viseme order: idle, A, I, U, E, O (picked via FrameMouthProvider, idle without one)
     private static final String[] PORTRAIT_FRAMES = {
             "/assets/rubydung/textures/gui/portrait_idle.png",
             "/assets/rubydung/textures/gui/portrait_a.png",
@@ -89,32 +79,29 @@ public final class GameFrame {
 
     // Text in the right-hand panel (username under the portrait, heading over the slots / buttons).
     private static final float TEXT_SCALE = 2.0F;
-    /** Height reserved for one line of heading / username text (the glyphs are 8 * TEXT_SCALE = 16 tall). */
+    // one line of heading / username text (glyphs are 8 * TEXT_SCALE = 16 tall)
     private static final int HEADING_HEIGHT = 18;
-    /** Space between stacked elements of the panel: username, headings and the boxes under them. */
+    // between stacked panel elements
     private static final int PANEL_GAP = 2 * UI_SCALE;
     private static final int NAME_COLOR = 0xFFFF00;
     private static final int TITLE_COLOR = 0xFFFFFF;
 
-    /**
-     * The open/close animation advances in this many discrete steps instead of smoothly, which
-     * gives the choppy, low-frame-rate retro feel. (The 4 steps fit into ANIM_SECONDS.)
-     */
+    // animation advances in this many discrete steps for a choppy retro feel
     private static final int STEPS = 10;
 
-    /** Opacity of the dithered pixels (1 = solid black). */
+    // opacity of the dithered pixels (1 = solid black)
     private static final float DARKEN_ALPHA = 0.4F;
 
     // Noise texture.
-    /** Big tiles repeat less often on screen, so the tiling is harder to spot. */
+    // big tiles repeat less on screen, so the tiling is harder to spot
     private static final int NOISE_SIZE = NoisePattern.TILE_SIZE;
     private static final long NOISE_SEED = 0x57A7AL;
 
-    /** Textures of the pattern currently in use (set by ensureTextures). */
+    // textures of the pattern in use (set by ensureTextures)
     private int noiseTexture = 0;
     private int slotTexture = 0;
 
-    /** Every pattern's textures, generated the first time that pattern is drawn. */
+    // every pattern's textures, generated the first time it's drawn
     private final int[] noiseCache = new int[NoisePattern.values().length];
     private final int[] slotCache = new int[NoisePattern.values().length];
 
@@ -124,13 +111,11 @@ public final class GameFrame {
     private List<PanelSection> sections = Collections.singletonList(
             PanelSection.slots("", GRID_COLUMNS, GRID_ROWS));
 
-    /**
-     * Where the portrait frame comes from (the screen the frame was last opened for, if it
-     * animates the portrait). Kept while closing, like the sections, so the panel slides out intact.
-     */
+    // where the portrait frame comes from
+    // kept while closing so the panel slides out intact
     private FrameMouthProvider mouthSource;
 
-    /** Multiplier applied to the frame's greys, so each screen can give the frame its own colour. */
+    // multiplier on the frame's greys so each screen can tint it
     private float tintR = 1.0F;
     private float tintG = 1.0F;
     private float tintB = 1.0F;
@@ -140,15 +125,15 @@ public final class GameFrame {
     private float openness = 0.0F;
     private long lastNanos = 0L;
 
-    /** One resolved block of the right-hand panel (see {@link PanelSection}), in real pixels. */
+    // one resolved block of the right-hand panel (see PanelSection), real pixels
     public static final class SectionLayout {
         public final String title;
-        /** The box itself (inside the bevel). */
+        /** the box itself (inside the bevel) */
         public final int x, y, width, height;
-        /** Top of the heading text above the box. */
+        /** top of the heading text above the box */
         public final int titleY;
         public final boolean slots;
-        /** Slot grid size; 0 for plain panels. {@code rows} is what actually fits, not the maximum asked for. */
+        /** slot grid size, 0 for plain panels. rows is what actually fits */
         public final int columns, rows;
 
         SectionLayout(String title, int x, int y, int width, int height, int titleY,
@@ -181,7 +166,7 @@ public final class GameFrame {
             return this.y + (slotIndex / this.columns) * SLOT_PX;
         }
 
-        /** Slot number (row by row) under the point, or -1. */
+        /** slot number (row by row) under the point, or -1 */
         public int slotIndexAt(int mouseX, int mouseY) {
             if (!this.slots || this.columns <= 0) {
                 return -1;
@@ -200,19 +185,19 @@ public final class GameFrame {
         }
     }
 
-    /** Pixel rectangles, origin at the top-left of the window. */
+    /** pixel rectangles, origin at the window's top-left */
     public static final class Layout {
         public final int viewX, viewY, viewWidth, viewHeight;
-        /** The right-hand panel's column (portrait and sections are centred in it). */
+        /** the right-hand panel's column (portrait and sections are centred in it) */
         public final int panelX, panelWidth;
-        /** The first section's box. Kept so single-section screens can ignore {@link #sections}. */
+        /** the first section's box, for single-section screens */
         public final int gridX, gridY, gridWidth, gridHeight;
         public final int portraitX, portraitY, portraitSize;
-        /** Top of the username line (under the portrait) and of the first section's heading. */
+        /** top of the username line and of the first section's heading */
         public final int nameY, titleY;
-        /** Every section of the panel, top to bottom, in the order the screen declared them. Never empty. */
+        /** every section top to bottom in declared order, never empty */
         public final List<SectionLayout> sections;
-        /** How far open the frame is (0..1, in animation steps); 1 once the transition is done. */
+        /** 0..1 in animation steps, 1 once the transition is done */
         public final float openness;
 
         Layout(int viewX, int viewY, int viewWidth, int viewHeight,
@@ -240,16 +225,12 @@ public final class GameFrame {
         }
     }
 
-    /**
-     * Sets whether the frame should be open, and (while opening) what the right-hand panel shows.
-     * The panel contents are kept while closing, so the panel slides out the way it came in.
-     * Typical call: {@code frame.setTarget(true, screen.getSections(), screen.getFrameTint())}.
-     */
+    /** opens or closes, panel contents are kept while closing so it slides out the way it came in */
     public void setTarget(boolean open, List<PanelSection> sections, int tint) {
         setTarget(open, sections, tint, NoisePattern.STONE);
     }
 
-    /** As above, with the noise pattern the frame is drawn with (kept while closing, like the sections). */
+    /** same, with the noise pattern to draw with */
     public void setTarget(boolean open, List<PanelSection> sections, int tint, NoisePattern pattern) {
         setOpenState(open);
         if (open) {
@@ -265,10 +246,7 @@ public final class GameFrame {
         }
     }
 
-    /**
-     * Opens the frame for {@code screen} (its sections and tint), or closes it. This is the call
-     * GameRenderer should use: {@code frame.setTarget(true, screen)} / {@code frame.setTarget(false, null)}.
-     */
+    /** uses the screen's sections and tint, this is the one GameRenderer should call */
     public void setTarget(boolean open, FrameScreen screen) {
         if (open && screen != null) {
             NoisePattern pattern = screen instanceof FramePatternProvider
@@ -283,7 +261,7 @@ public final class GameFrame {
         }
     }
 
-    /** Sets the target and plays the menu sound when it actually changes (not on every repeated call). */
+    // plays the menu sound only when the state actually changes
     private void setOpenState(boolean open) {
         if (open != this.open) {
             SoundEffects.play(open ? "ui/menu_open" : "ui/menu_close");
@@ -291,23 +269,19 @@ public final class GameFrame {
         this.open = open;
     }
 
-    /** Single-section form (one slot grid, or one plain panel). Prefer the list overload. */
+    /** single-section form, prefer the list overload */
     public void setTarget(boolean open, boolean showSlots, String title, int tint) {
         setTarget(open, Collections.singletonList(showSlots
                 ? PanelSection.slots(title, GRID_COLUMNS, GRID_ROWS)
                 : PanelSection.fill(title)), tint);
     }
 
-    /** The openness as the player sees it: quantised to {@link #STEPS} steps (0 only when fully closed). */
+    // openness as the player sees it, quantised to STEPS (0 only when fully closed)
     private float stepped() {
         return (float) Math.ceil(this.openness * STEPS - 1.0e-4F) / STEPS;
     }
 
-    /**
-     * Darkens the world view with a checkerboard of filled and empty pixels (a dither, not a
-     * translucent fill). Call with the world viewport active, before drawing the HUD. It starts
-     * sparser while the frame is opening and settles on the full checkerboard.
-     */
+    /** dithers the world view dark (checkerboard, sparser while opening). call with the world viewport active, before the HUD */
     public void renderDarken(int viewWidth, int viewHeight) {
         int step = Math.round(stepped() * STEPS);
         if (step <= 0) {
@@ -330,10 +304,7 @@ public final class GameFrame {
         Gui2D.end();
     }
 
-    /**
-     * 32x32 stipple pattern in 2x2-pixel cells (matching UI_SCALE = 2): a checkerboard, or just
-     * every other cell on every other row (a quarter filled) for the first animation steps.
-     */
+    // 32x32 stipple in 2x2-pixel cells (UI_SCALE = 2): a checkerboard, or a quarter filled for the first steps
     private static ByteBuffer buildMask(boolean checker) {
         ByteBuffer mask = BufferUtils.createByteBuffer(128);
         for (int row = 0; row < 32; row++) {
@@ -351,7 +322,7 @@ public final class GameFrame {
         return this.openness >= 1.0F;
     }
 
-    /** Advances the open/close animation. Call once per rendered frame. */
+    /** call once per rendered frame */
     public void update() {
         long now = System.nanoTime();
         float dt = this.lastNanos == 0L ? 0.0F : (now - this.lastNanos) / 1.0e9F;
@@ -365,10 +336,7 @@ public final class GameFrame {
         }
     }
 
-    /**
-     * Where the world viewport and slot grid are right now (mid-animation they are interpolated),
-     * or null if the frame is closed or the window is too small - then the world fills the window.
-     */
+    /** where the viewport and slot grid are now (interpolated mid-animation), null if closed or the window is too small */
     public Layout layout(int windowWidth, int windowHeight) {
         if (this.openness <= 0.0F) {
             return null;
@@ -405,7 +373,6 @@ public final class GameFrame {
                 t);
     }
 
-    /** The fully open layout. */
     private Layout targetLayout(int windowWidth, int windowHeight) {
         int u = UI_SCALE;
 
@@ -443,12 +410,8 @@ public final class GameFrame {
                 portraitX, portraitY, portraitSize, nameY, 1.0F);
     }
 
-    /**
-     * Stacks the sections between {@code top} (under the username) and {@code bottom} (the
-     * viewport's bottom edge). Slot sections get their rows (fewer if space runs out, one row at
-     * minimum; a grid that was asked for as a square shrinks as a square); plain "fill" sections share whatever is left. With no fill section the stack sits
-     * on the bottom edge, which is where the single slot grid always was.
-     */
+    // stacks the sections between top (under the username) and bottom (viewport's bottom edge)
+    // slot sections get their rows (fewer if space runs out, min one), "fill" sections share the rest, with no fill section the stack sits on the bottom edge
     private List<SectionLayout> layoutSections(int panelX, int panelWidth, int top, int bottom) {
         int u = UI_SCALE;
         int ring = FRAME_RING * u;
@@ -649,15 +612,13 @@ public final class GameFrame {
                 this.tintR, this.tintG, this.tintB);
     }
 
-    /** Interpolates and snaps to whole UI units, so every animation step stays on the pixel grid. */
+    // snaps to whole UI units so animation steps stay on the pixel grid
     private static int lerp(int a, int b, float t) {
         int value = Math.round(a + (b - a) * t);
         return Math.round(value / (float) UI_SCALE) * UI_SCALE;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Procedural noise textures (the patterns themselves live in NoisePattern)
-    // ---------------------------------------------------------------------------------------
+    // procedural noise textures (the patterns live in NoisePattern)
 
     private void ensureTextures() {
         int i = this.pattern.ordinal();

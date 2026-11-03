@@ -21,11 +21,10 @@ public final class GameSettings {
     public static final int MAX_PIXEL_SIZE = 4;
     public static final int DEFAULT_PIXEL_SIZE = 2;
 
-    /** How the game is laid out in the window: Fit = scaled to fit with black bars, Expand = UI fills the
-     *  window, Bordered = 800x600 game centred on black. Maximized and fullscreen each have their own. */
+    /** Fit = scaled to fit with black bars, Expand = UI fills the window, Bordered = 800x600 centred on black. maximized and fullscreen each have their own */
     public enum LayoutMode { FIT, EXPAND, BORDERED }
 
-    /** Plain resizable window, a window maximized to the desktop work area, or exclusive fullscreen. */
+    /** plain resizable window, maximized to the desktop work area, or exclusive fullscreen */
     public enum DisplayType { WINDOWED, MAXIMIZED, FULLSCREEN }
 
     public static final int UNCAPPED_FPS = 0;
@@ -41,7 +40,7 @@ public final class GameSettings {
     private static float sfxVolume = 0.8f;
     private static String username = DEFAULT_USERNAME;
     private static DisplayType displayType = DisplayType.WINDOWED;
-    /** The last non-fullscreen state, so F11 can go back to it. Not saved. */
+    // last non-fullscreen state so F11 can go back to it, not saved
     private static DisplayType lastWindowType = DisplayType.WINDOWED;
     private static LayoutMode fullscreenMode = LayoutMode.EXPAND;
     private static LayoutMode maximizedMode = LayoutMode.EXPAND;
@@ -104,10 +103,7 @@ public final class GameSettings {
         return username;
     }
 
-    /**
-     * Sets the player's name. Control characters are dropped, the result is trimmed and cut to
-     * {@link #MAX_USERNAME_LENGTH}; an empty name falls back to {@link #DEFAULT_USERNAME}.
-     */
+    /** drops control characters, trims, cuts to MAX_USERNAME_LENGTH, an empty name falls back to DEFAULT_USERNAME */
     public static void setUsername(String name) {
         String cleaned = "";
         if (name != null) {

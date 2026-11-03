@@ -14,9 +14,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * The dimensional doors of each world, saved next to the level file ("doors.dat", one
- * "x y z COLOR" line per door). Written whenever a level is saved, so the world list and the
- * door screen can show another world's doors without loading it.
+ * dimensional doors of each world, saved next to the level file (doors.dat, one "x y z COLOR" line per door)
+ *
+ * written on every level save so the world list and door screen can show another world's doors without loading it
  */
 public final class DoorRegistry {
 
@@ -92,7 +92,7 @@ public final class DoorRegistry {
         }
     }
 
-    /** The distinct door colours a world has (empty if it has none, or was saved before doors existed). */
+    /** distinct door colours a world has (empty if none, or saved before doors existed) */
     public static Set<DoorColor> colors(String worldName) {
         Set<DoorColor> colors = EnumSet.noneOf(DoorColor.class);
         for (Entry door : load(worldName)) {

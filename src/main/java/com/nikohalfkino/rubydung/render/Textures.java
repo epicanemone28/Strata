@@ -30,51 +30,40 @@ public class Textures {
 
     private static final Map<String, Integer> TEXTURE_CACHE = new HashMap<>();
 
-    /**
-     * Per atlas texture: the fraction of its cell (on both axes) that the image really covers.
-     * 1.0 when the cell size is a whole multiple of the image size; below 1.0 the rest of the cell
-     * is transparent padding, and sprites must only sample the covered part to stay pixel-exact.
-     */
+    // per atlas texture: fraction of its cell (both axes) the image really covers
+    // 1.0 when the cell is a whole multiple of the image size, below that the rest is transparent padding and sprites must only sample the covered part to stay pixel-exact
     private static final Map<String, Float> ATLAS_EXTENTS = new HashMap<>();
 
-    /** Original pixel width of every texture put into the atlas (before any scaling). */
+    // original pixel width of every texture in the atlas (before scaling)
     private static final Map<String, Integer> SOURCE_WIDTHS = new HashMap<>();
 
-    /** Per atlas texture id: the width of one cell, in atlas pixels. */
+    // per atlas texture id: width of one cell, in atlas pixels
     private static final Map<Integer, Integer> ATLAS_CELL_SIZES = new HashMap<>();
 
-    /** Per atlas texture id: the original pixel width of the image in each slot (same order as buildAtlas's names). */
+    // per atlas texture id: original pixel width of the image in each slot (same order as buildAtlas's names)
     private static final Map<Integer, int[]> ATLAS_SLOT_WIDTHS = new HashMap<>();
 
-    /** Width of one cell of the atlas texture {@code atlasId}, in atlas pixels (0 if it is not an atlas built here). */
+    /** width of one cell of the atlas texture atlasId in atlas pixels, 0 if it isn't an atlas built here */
     public static int getAtlasCellSize(int atlasId) {
         Integer size = ATLAS_CELL_SIZES.get(atlasId);
         return size == null ? 0 : size;
     }
 
-    /**
-     * Original pixel width of the sprite in {@code slot} of the atlas {@code atlasId} (before it was
-     * scaled up to the cell), or 0 if unknown. The sprite fills the top-left
-     * {@code width * floor(cell / width)} atlas pixels of its cell.
-     */
+    /** original pixel width of the sprite in slot of atlasId (before scaling up to the cell), 0 if unknown. it fills the top-left width * floor(cell / width) atlas pixels of its cell */
     public static int getAtlasSlotSourceWidth(int atlasId, int slot) {
         int[] widths = ATLAS_SLOT_WIDTHS.get(atlasId);
         return widths == null || slot < 0 || slot >= widths.length ? 0 : widths[slot];
     }
 
-    /** Original pixel width of an atlas texture, or 0 if the atlas hasn't been built with it yet. */
+    /** original pixel width of an atlas texture, 0 if the atlas hasn't been built with it yet */
     public static int getSourceWidth(String resourceName) {
         Integer width = SOURCE_WIDTHS.get(resourceName);
         return width == null ? 0 : width;
     }
 
-    // -------------------------------------------------------------------------
-    // Sliced textures
-    //
-    // The atlas only holds square cells, but a texture may be any rectangle whose sides are whole
-    // multiples of the cell size: a 16x48 strip is three 16x16 slices, a 64x48 sheet is 4 x 3.
-    // A slice is named "<resource path>@<col>,<row>" (col 0 = left, row 0 = top), and every
-    // slice gets its own atlas slot. A plain name for a non-square image means its first slice.
+    // sliced textures: the atlas only holds square cells, but a texture can be any rectangle whose sides are whole multiples of the cell size (a 16x48 strip is three 16x16 slices, a 64x48 sheet is 4 x 3)
+    // a slice is named "<resource path>@<col>,<row>" (col 0 = left, row 0 = top) and gets its own atlas slot
+    // a plain name for a non-square image means its first slice
 
     private static final Map<String, int[]> SLICE_GRIDS = new HashMap<>();
 
@@ -82,12 +71,12 @@ public class Textures {
         return b == 0 ? a : gcd(b, a % b);
     }
 
-    /** Side of one slice of an image of this size (the largest square that tiles it exactly). */
+    // side of one slice (the largest square that tiles the image exactly)
     private static int sliceSide(int width, int height) {
         return Math.max(1, gcd(width, height));
     }
 
-    /** {columns, rows} of slices in the image at {@code resourcePath} ({1, 1} for a square image). */
+    // {columns, rows} of slices in the image ({1, 1} for a square one)
     public static int[] sliceGrid(String resourcePath) {
         int[] grid = SLICE_GRIDS.get(resourcePath);
         if (grid == null) {
@@ -99,7 +88,6 @@ public class Textures {
         return grid.clone();
     }
 
-    /** The atlas name of one slice of an image. */
     public static String sliceName(String resourcePath, int col, int row) {
         return resourcePath + "@" + col + "," + row;
     }
@@ -244,7 +232,7 @@ public class Textures {
         return id;
     }
 
-    /** An atlas entry's image: the whole image, or the cut-out square for a "path@col,row" slice. */
+    // an atlas entry's image: the whole image, or the cut-out square for a "path@col,row" slice
     private static BufferedImage readAtlasImage(String name, Map<String, BufferedImage> sources) {
         int at = name.lastIndexOf('@');
         if (at < 0) {

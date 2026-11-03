@@ -3,12 +3,7 @@ package com.nikohalfkino.rubydung.interfaces.widget;
 import com.nikohalfkino.rubydung.interfaces.Gui2D;
 import com.nikohalfkino.rubydung.render.Font;
 
-/**
- * A texture drawn stretched over the widget's rectangle.
- * <pre>
- *     add(new Image("/assets/rubydung/textures/gui/logo.png", 498, 110), Anchor.TOP_CENTER, 0, 0);
- * </pre>
- */
+/** a texture stretched over the widget's rectangle */
 public class Image extends Widget {
 
     private final String texturePath;

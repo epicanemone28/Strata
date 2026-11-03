@@ -20,9 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Key bindings, laid out like the Options screen: one panel holding a hint line, a page of
- * binding slots (the same sunken black slots the world list uses), the page buttons and the
- * Reset All / Done row.
+ * key bindings laid out like Options: a hint line, a page of binding slots (same sunken slots as the world list), page buttons and Reset All / Done
  */
 public class ControlsScreen extends MenuScreen {
 
@@ -40,7 +38,7 @@ public class ControlsScreen extends MenuScreen {
     private static final float RESET_ZONE_WIDTH = 55.0f;
     private static final float ROW_INNER_GAP = 6.0f;
 
-    /** Slot bevel greys, the same as the world list's slots. */
+    // slot bevel greys, same as the world list's slots
     private static final int SLOT_SHADOW = 12;
     private static final int SLOT_LIGHT = 112;
 
@@ -59,7 +57,7 @@ public class ControlsScreen extends MenuScreen {
     private int currentPage = 0;
     private final int totalPages;
 
-    /** True after the first click on Reset All, which then asks for a second one. */
+    // true after the first click on Reset All, which then asks for a second
     private boolean confirmResetAll = false;
     private final Button resetAllButton;
 
@@ -151,7 +149,7 @@ public class ControlsScreen extends MenuScreen {
         return binding.getKeyName();
     }
 
-    /** One key binding: its name, a button showing the current key (click to rebind) and a "Reset" link. */
+    // name, a button with the current key (click to rebind) and a "Reset" link
     private final class BindingRow extends Group {
 
         private final KeyBinding binding;
@@ -184,7 +182,7 @@ public class ControlsScreen extends MenuScreen {
             add(this.rebindButton, Anchor.CENTER_RIGHT, -(RESET_ZONE_WIDTH + ROW_INNER_GAP * 2), 0.0f);
         }
 
-        /** A sunken black slot, like the world list's; hovering lifts it to a dark grey. */
+        // sunken black slot like the world list's, hovering lifts it to dark grey
         @Override
         protected void drawSelf(Font font, int mouseX, int mouseY) {
             boolean resetHovered = this.resetLabel.isHovered(mouseX, mouseY);

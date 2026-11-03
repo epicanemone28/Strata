@@ -17,61 +17,28 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Asynchronous Open JTalk wrapper.
+ * async Open JTalk wrapper: text -> katakana -> open_jtalk -> wav played through java audio
  *
- * <p>Raw text is converted to katakana by {@link Katakana#toKana}, written to a temporary
- * file, and fed to the {@code open_jtalk} executable.  The WAV it writes is played back
- * through the Java audio system.  A single daemon thread services a bounded queue so the
- * game thread never blocks and speech is never silently dropped mid-queue.
+ * one daemon thread works through a bounded queue so the game thread never blocks
  *
- * <h3>Sing mode</h3>
- * Sing mode is switched on <b>automatically for any line that contains a note</b>
- * ({@code bah<235,30>} or a valid pitch marker, see below); there is no toggle. Extreme
- * parameter presets are applied:
- * <ul>
- *   <li>Speed ≈ 0.45 – slow, sustained phonemes
- *   <li>Voiced threshold ≈ 0.10 – nearly every frame is voiced (a LOW threshold means more voiced),
- *       which is what lets the pitch shift be heard at all
- *   <li>GV weight for F0 = 0 – flat, steady pitch instead of a speech-like melody
- * </ul>
- * This produces the droning robotic timbre familiar from <em>Moonbase Alpha</em> text-to-speech.
- *
- * <h3>Inline pitch markers</h3>
- * The speaker parses {@code [N]} markers embedded in the text:
- * <ul>
- *   <li>{@code [+7]DO} — shift by +7 half-tones from base pitch
- *   <li>{@code [-3]word} — shift down 3 half-tones
- *   <li>{@code [G4]SOL} — use the note G4 as a semitone offset from C4
- * </ul>
- * Each marked segment is synthesised as a separate open_jtalk call and played on the same
- * audio line for minimal gaps, letting you compose simple melodies:
- * <pre>
- *   [0]DO [2]RE [4]MI [5]FA [7]SOL [9]LA [11]TI [12]DO
- * </pre>
- * Without markers the whole utterance uses {@link JTalkSettings#getSingNote()} as the offset.
+ * lines with a note (bah<235,30>) or a pitch marker ([+7], [G4]) switch to sing mode automatically,
+ * presets are in JTalkSettings. each marked segment is its own open_jtalk call, played on the same line
  */
 public final class JTalkSpeaker {
 
-    /** How many pending utterances the queue holds before new ones are dropped silently. */
+    // new utterances are dropped when it's full
     private static final int QUEUE_CAPACITY = 6;
 
-    /**
-     * Matches inline pitch markers: {@code [+5]}, {@code [-3]}, {@code [0]},
-     * {@code [C4]}, {@code [G#4]}, {@code [Bb3]}.
-     */
+    // inline pitch markers: [+5] [-3] [0] [C4] [G#4] [Bb3]
     private static final Pattern PITCH_MARKER =
             Pattern.compile("\\[([+\\-]?\\d+(?:\\.\\d+)?|[A-Ga-g][#Bb]?\\d?)\\]");
 
-    /**
-     * A Moonbase Alpha singing note: {@code phoneme<duration-ms,pitch>}, e.g. {@code bah<235,30>}.
-     * Notes are NOT individually bracketed: a whole phrase sits in one {@code [...]} group
-     * ({@code [bah<235,30>bah<235,25>]}), and stray brackets/spaces between notes are ignored,
-     * so the brackets are deliberately not part of the pattern.
-     */
+    // moonbase alpha note: phoneme<duration-ms,pitch>, e.g. bah<235,30>
+    // brackets aren't part of the pattern, a whole phrase sits in one [...] group
     private static final Pattern SINGING_NOTE =
             Pattern.compile("([^\\s\\[\\]<>,]+)<(\\d+),([^\\s\\[\\]<>,]+)>");
 
-    /** Note letter → semitone offset from C within an octave. */
+    // note letter -> semitones from C
     private static final Map<Character, Integer> NOTE_BASE;
     static {
         Map<Character, Integer> m = new HashMap<>();
@@ -80,16 +47,15 @@ public final class JTalkSpeaker {
         NOTE_BASE = Collections.unmodifiableMap(m);
     }
 
-    // ── Internal segment type ─────────────────────────────────────────────────
+    // segments
 
-    /** A run of kana text to be spoken at a specific pitch offset. */
+    // a run of kana spoken at one pitch offset
     private static final class Segment {
         final String kana;
-        /** Half-tones added on top of {@link JTalkSettings#getPitch()}. */
+        // half-tones on top of the settings pitch
         final float pitchOffset;
-        /** Whether the sing-mode presets (slow, fully voiced, flat pitch) apply to this segment. */
         final boolean sing;
-        /** Requested playback duration in milliseconds, or -1 for an ordinary segment. */
+        // -1 for an ordinary segment
         final int durationMs;
 
         Segment(String kana, float pitchOffset, boolean sing) {
@@ -104,29 +70,29 @@ public final class JTalkSpeaker {
         }
     }
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    // lifecycle
 
     private final BlockingDeque<String> queue = new LinkedBlockingDeque<>(QUEUE_CAPACITY);
     private volatile boolean running;
     private boolean warnedNoVoice;
     private Thread thread;
 
-    /** Bumped by {@link #clear()} so an utterance that is mid-playback knows to stop. */
+    // bumped by clear() so a playing utterance knows to stop
     private final AtomicInteger generation = new AtomicInteger();
 
-    /** The line currently playing, polled by {@link #getViseme()} (null when nothing is playing). */
+    // polled by getViseme(), null when nothing plays
     private volatile SourceDataLine activeLine;
 
-    /** Mouth cues for the audio written to {@link #activeLine}, in that line's own timeline. */
+    // mouth cues for the audio written to activeLine, in its timeline
     private final List<Visemes.Cue> cues = new java.util.concurrent.CopyOnWriteArrayList<>();
 
-    /** Microseconds of audio written to the current line so far (worker thread only). */
+    // audio written to the current line so far (worker thread only)
     private long queuedMicros;
 
-    /** Renders the notes of one utterance in parallel (each note is its own open_jtalk process). */
+    // renders the notes of one utterance in parallel
     private ExecutorService pool;
 
-    /** Finished sing-mode renders keyed by voice + parameters + kana, so repeated notes cost nothing. */
+    // finished sing renders keyed by voice + params + kana
     private static final int CACHE_ENTRIES = 96;
     private final Map<String, Pcm> cache = new LinkedHashMap<String, Pcm>(64, 0.75f, true) {
         @Override
@@ -161,28 +127,21 @@ public final class JTalkSpeaker {
         }
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // public api
 
-    /**
-     * Queues {@code text} to be spoken.  No-op if TTS is disabled, the text is blank,
-     * or the queue is full.  Safe to call from any thread.
-     */
+    /** no-op if disabled, blank or the queue is full, safe from any thread */
     public void speak(String text) {
         if (!JTalkSettings.isEnabled() || text == null || text.isBlank()) return;
         this.queue.offer(text);   // non-blocking; drops if full
     }
 
-    /** Discards all queued utterances and cuts off the one currently playing. */
+    /** also cuts off the one that's playing */
     public void clear() {
         this.queue.clear();
         this.generation.incrementAndGet();
     }
 
-    /**
-     * The mouth shape for what is audible right now, or {@link Visemes.Viseme#CLOSED} when nothing
-     * is playing. Reads the sound line's playback position, so it stays in sync with what you hear.
-     * Safe to call from the game thread every frame.
-     */
+    /** mouth shape for what is audible right now (CLOSED when nothing plays), safe to call every frame */
     public Visemes.Viseme getViseme() {
         SourceDataLine l = this.activeLine;
         if (l == null) return Visemes.Viseme.CLOSED;
@@ -193,7 +152,7 @@ public final class JTalkSpeaker {
         return Visemes.Viseme.CLOSED;
     }
 
-    // ── Worker loop ───────────────────────────────────────────────────────────
+    // worker loop
 
     private void loop() {
         while (this.running) {
@@ -293,17 +252,9 @@ public final class JTalkSpeaker {
         }
     }
 
-    // ── Text segmentation ─────────────────────────────────────────────────────
+    // text segmentation
 
-    /**
-     * Converts raw text into a list of kana segments, each with its own pitch offset.
-     *
-     * <p>Plain text without sing mode: one segment at offset 0.
-     * <p>Sing mode (the text contains valid notes) but no markers: one segment at
-     *    {@link JTalkSettings#getSingNote()}.
-     * <p>Sing mode with markers: one segment per run of text between markers, each at the offset
-     *    specified by the preceding marker.
-     */
+    // splits into kana segments, one per pitch marker (plain text and marker-less notes get a single one)
     private List<Segment> buildSegments(String raw) {
         // The duration/pitch note syntax always enables singing, regardless of the settings toggle.
         // Most importantly, only the phoneme (group 1) is passed through the kana converter;
@@ -354,20 +305,17 @@ public final class JTalkSpeaker {
         return out;
     }
 
-    /**
-     * Chat text as it is handed to open_jtalk: converted to katakana, or, when the "Transliterate
-     * Voice" setting is off, passed through unchanged (for text that is already Japanese).
-     */
+    // converts to katakana, or passes through if "Transliterate Voice" is off
     private static String toKana(String text) {
         return JTalkSettings.isTransliterate() ? Katakana.toKana(text) : text;
     }
 
-    /** Same switch for the phoneme of a {@code [bah<235,30>]} note. */
+    // same switch for the phoneme of a note
     private static String singingKana(String phoneme) {
         return JTalkSettings.isTransliterate() ? Katakana.toSingingKana(phoneme) : phoneme;
     }
 
-    /** Converts the numeric singing scale (25 = C4) or a note name into a C4-relative offset. */
+    // numeric singing scale (25 = C4) or note name -> C4-relative offset
     private static float parseSingingPitch(String value) {
         try {
             return Float.parseFloat(value) - 25.0f;
@@ -376,11 +324,7 @@ public final class JTalkSpeaker {
         }
     }
 
-    /**
-     * True if the text has at least one marker that is a real note: a number within the pitch range
-     * ({@code [0]}, {@code [+7]}, {@code [-3]}) or a note name with an octave ({@code [G4]},
-     * {@code [Bb3]}). A bare letter like {@code [a]} is not enough to start singing.
-     */
+    // true if there's a real note: a number in range ([0], [+7]) or a note name + octave ([G4]), a bare [a] doesn't count
     private static boolean containsSingingNotes(String raw) {
         if (SINGING_NOTE.matcher(raw).find()) return true;
         Matcher m = PITCH_MARKER.matcher(raw);
@@ -406,16 +350,7 @@ public final class JTalkSpeaker {
         if (!kana.isBlank()) out.add(new Segment(kana, offset, true));
     }
 
-    /**
-     * Parses the inner text of a pitch marker.
-     * <ul>
-     *   <li>{@code "+5"} → 5.0
-     *   <li>{@code "-3"} → -3.0
-     *   <li>{@code "G4"} → semitones of G4 relative to C4 = 7
-     *   <li>{@code "G#4"} → 8
-     *   <li>{@code "Bb3"} → -2  (B♭ in octave 3)
-     * </ul>
-     */
+    // "+5" -> 5, "G4" -> 7 (semitones from C4), "G#4" -> 8, "Bb3" -> -2
     private static float parseMarker(String s) {
         // Numeric offset: "+5", "-3", "0", "7.5" …
         try {
@@ -445,9 +380,9 @@ public final class JTalkSpeaker {
         return (octave - 4) * 12.0f + base + accidental;
     }
 
-    // ── Synthesis ─────────────────────────────────────────────────────────────
+    // synthesis
 
-    /** Decoded, silence-trimmed audio for one segment. */
+    // decoded, silence-trimmed audio for one segment
     private static final class Pcm {
         final AudioFormat format;
         final byte[] data;
@@ -463,14 +398,11 @@ public final class JTalkSpeaker {
         }
     }
 
-    /** Peak amplitude (of 32768) below which a frame counts as silence when trimming. */
+    // peak below this (of 32768) counts as silence when trimming
     private static final int SILENCE_PEAK = 400;
 
-    /**
-     * Produces the audio for one segment. Plain segments are synthesised once. Notes with a
-     * requested duration are lengthened by appending long-vowel marks (ー) in as few
-     * open_jtalk runs as possible (usually one or two) and then fitted to the exact length.
-     */
+    // plain segments are synthesised once, notes with a duration get long-vowel marks (ー) appended
+    // in as few open_jtalk runs as possible (usually 1-2), then are fitted to the exact length
     private Pcm render(Segment seg) throws Exception {
         Pcm pcm = synthPcm(seg.kana, seg);
         if (pcm == null || seg.durationMs <= 0) return pcm;
@@ -495,7 +427,7 @@ public final class JTalkSpeaker {
         return fitToDuration(pcm, seg.durationMs);
     }
 
-    /** Cuts (with a short fade-out) or pads with silence so the note is exactly {@code ms} long. */
+    // cuts (with a short fade-out) or pads with silence to exactly ms
     private static Pcm fitToDuration(Pcm in, int ms) {
         int fs = Math.max(1, in.format.getFrameSize());
         int frames = (int) Math.round(in.format.getFrameRate() * ms / 1000.0);
@@ -507,7 +439,7 @@ public final class JTalkSpeaker {
         return new Pcm(in.format, out);
     }
 
-    /** Runs open_jtalk (or hits the cache) and returns trimmed PCM, or null on failure. */
+    // runs open_jtalk (or hits the cache), null on failure
     private Pcm synthPcm(String kana, Segment seg) throws IOException, InterruptedException,
             UnsupportedAudioFileException {
         String key = JTalkSettings.getVoicePath() + '|' + String.join(",", params(seg)) + '|' + kana;
@@ -537,7 +469,7 @@ public final class JTalkSpeaker {
         }
     }
 
-    // ── Silence trimming / fades (16-bit little-endian PCM, which is what open_jtalk writes) ──
+    // silence trimming / fades (16-bit little-endian PCM, which is what open_jtalk writes)
 
     private static boolean isPcm16(AudioFormat f) {
         return f.getEncoding() == AudioFormat.Encoding.PCM_SIGNED
@@ -554,10 +486,7 @@ public final class JTalkSpeaker {
         return peak;
     }
 
-    /**
-     * open_jtalk pads every utterance with leading/trailing silence, and sing mode's slow speed
-     * stretches that padding about 2x. Played back-to-back, that padding IS the gap between notes.
-     */
+    // open_jtalk pads utterances with silence (stretched ~2x in sing mode), which would become the gap between notes
     private static Pcm trimSilence(Pcm in) {
         AudioFormat f = in.format;
         if (!isPcm16(f)) return in;
@@ -579,7 +508,7 @@ public final class JTalkSpeaker {
         return new Pcm(f, out);
     }
 
-    /** Linear fade-in / fade-out in place, so cuts do not click. */
+    // linear fade in/out in place so cuts don't click
     private static void fade(byte[] d, AudioFormat f, int inFrames, int outFrames) {
         if (!isPcm16(f)) return;
         int fs = f.getFrameSize();
@@ -601,12 +530,9 @@ public final class JTalkSpeaker {
         }
     }
 
-    // ── Process ──
+    // process
 
-    /**
-     * Runs open_jtalk on {@code kana} and writes the result to {@code out}.
-     * Returns true if the process exited cleanly and wrote a non-empty file.
-     */
+    // runs open_jtalk, true if it exited cleanly and wrote a non-empty file
     private boolean synthesise(String kana, Segment seg, File out) throws IOException, InterruptedException {
         File textFile = Files.createTempFile("jtalk_in_", ".txt").toFile();
         Process proc = null;
@@ -637,7 +563,7 @@ public final class JTalkSpeaker {
         }
     }
 
-    /** speed, pitch, alpha, voiced, jf as the strings passed to open_jtalk. */
+    // speed, pitch, alpha, voiced, jf as open_jtalk args
     private static String[] params(Segment seg) {
         float speed  = seg.sing ? JTalkSettings.SING_SPEED  : JTalkSettings.getSpeed();
         float voiced = seg.sing ? JTalkSettings.SING_VOICED : JTalkSettings.getVoiced();
@@ -665,9 +591,9 @@ public final class JTalkSpeaker {
         return pb;
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // helpers
 
-    /** Locale-safe float formatter (always uses '.', never ','). */
+    // locale-safe float format (always '.')
     private static String fmt(float v) {
         return String.format(Locale.ROOT, "%.2f", v);
     }

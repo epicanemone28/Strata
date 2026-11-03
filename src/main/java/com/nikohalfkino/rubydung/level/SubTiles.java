@@ -10,18 +10,16 @@ import java.util.HashMap;
 import java.util.List;
 
 /**
- * Every {@link SubTile} of a level, by cell. A cell's normal tile (the "host", the one in the
- * level's block array) and its sub-tiles together form the cell's contents; they may not overlap.
+ * every SubTile of a level, by cell. a cell's normal tile (the "host", in the level's block array) and its sub-tiles together are the cell's contents and may not overlap
  *
- * <p>Lists are replaced, never edited in place, so code that is iterating one (the chunk mesher,
- * the raycaster) is never disturbed by a change.
+ * lists are replaced, never edited in place, so code iterating one (chunk mesher, raycaster) is never disturbed by a change
  */
 public final class SubTiles {
 
-    /** At most this many sub-tiles in one cell (the host not counted). */
+    /** sub-tiles per cell, not counting the host */
     public static final int MAX_PER_CELL = 8;
 
-    /** Boxes closer than this are touching, not overlapping. */
+    /** boxes closer than this are touching, not overlapping */
     public static final double EPSILON = 1.0E-4;
 
     private static final List<SubTile> NONE = Collections.emptyList();
@@ -38,8 +36,7 @@ public final class SubTiles {
         return (x & 0xFFFFFL) | ((z & 0xFFFFFL) << 20) | ((y & 0xFFFFFL) << 40);
     }
 
-    // -------------------------------------------------------------------------
-    // Lookup
+    // lookup
 
     public boolean isEmpty() {
         return this.cells.isEmpty();
@@ -49,7 +46,7 @@ public final class SubTiles {
         return !this.cells.isEmpty() && this.cells.containsKey(key(x, y, z));
     }
 
-    /** The sub-tiles in a cell (never null; do not modify). */
+    /** never null, don't modify */
     public List<SubTile> at(int x, int y, int z) {
         if (this.cells.isEmpty()) {
             return NONE;
@@ -67,7 +64,7 @@ public final class SubTiles {
         return null;
     }
 
-    /** Whether any sub-tile in the cell darkens the cells below it. */
+    /** whether any sub-tile in the cell darkens the cells below it */
     public boolean castsShadowAt(int x, int y, int z) {
         for (SubTile subTile : at(x, y, z)) {
             Tile tile = Tile.byId(subTile.tileId);
@@ -78,8 +75,7 @@ public final class SubTiles {
         return false;
     }
 
-    // -------------------------------------------------------------------------
-    // Change
+    // change
 
     public SubTile add(int x, int y, int z, int tileId, int data, float ox, float oy, float oz) {
         SubTile subTile = new SubTile(this.nextId++, tileId, data, ox, oy, oz);
@@ -106,10 +102,8 @@ public final class SubTiles {
         return true;
     }
 
-    /**
-     * Drops every sub-tile of the cell that overlaps one of the given boxes (a new host tile
-     * about to fill part of the cell). No notification: the caller is already changing the cell.
-     */
+    // drops every sub-tile of the cell that overlaps one of the boxes (a new host tile about to fill part of the cell)
+    // no notification, the caller is already changing the cell
     void removeOverlapping(int x, int y, int z, Tile incoming, List<AABB> hostBoxes) {
         List<SubTile> current = at(x, y, z);
         if (current.isEmpty() || hostBoxes.isEmpty()) {
@@ -136,10 +130,9 @@ public final class SubTiles {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Shapes (world coordinates)
+    // shapes (world coordinates)
 
-    /** The space a sub-tile takes up in the cell: what picking and overlap tests use. */
+    /** space a sub-tile takes up in the cell, used by picking and overlap tests */
     public List<AABB> occupancy(SubTile subTile, int x, int y, int z) {
         Tile tile = Tile.byId(subTile.tileId);
         if (tile == null) {
@@ -149,7 +142,7 @@ public final class SubTiles {
         return moved(clipBoxes(boxes, y, SubTile.clipOf(subTile.data)), subTile);
     }
 
-    /** What entities collide with. */
+    /** what entities collide with */
     public List<AABB> collision(SubTile subTile, int x, int y, int z) {
         Tile tile = Tile.byId(subTile.tileId);
         if (tile == null) {
@@ -159,10 +152,7 @@ public final class SubTiles {
         return moved(clipBoxes(boxes, y, SubTile.clipOf(subTile.data)), subTile);
     }
 
-    /**
-     * Cuts boxes down to the lower or upper half of the cell at height y (clip = SubTile.CLIP_BOTTOM /
-     * CLIP_TOP; 0 returns them unchanged). Boxes that lie wholly outside the half disappear.
-     */
+    /** cuts boxes down to the lower or upper half of the cell at height y (clip = CLIP_BOTTOM / CLIP_TOP, 0 = unchanged), boxes wholly outside the half disappear */
     public static List<AABB> clipBoxes(List<AABB> boxes, int y, int clip) {
         if (clip == 0) {
             return boxes;
@@ -189,7 +179,7 @@ public final class SubTiles {
         return result;
     }
 
-    /** The host tile's occupancy in a cell (empty for air, billboards; the whole cell for multi-tile parts). */
+    /** the host tile's occupancy in a cell (empty for air and billboards, the whole cell for multi-tile parts) */
     public List<AABB> hostOccupancy(int x, int y, int z) {
         if (this.level.getMultiTile(x, y, z) != null) {
             return Collections.singletonList(new AABB(x, y, z, x + 1, y + 1, z + 1));
@@ -201,7 +191,7 @@ public final class SubTiles {
         return host.getOccupancyBoxes(x, y, z, this.level.getData(x, y, z));
     }
 
-    /** Host and every sub-tile of the cell: all the space that is taken. */
+    /** host plus every sub-tile: all the space that's taken */
     public List<AABB> cellOccupancy(int x, int y, int z) {
         List<AABB> all = new ArrayList<>(hostOccupancy(x, y, z));
         for (SubTile subTile : at(x, y, z)) {
@@ -210,10 +200,7 @@ public final class SubTiles {
         return all;
     }
 
-    /**
-     * The space in the cell that a tile about to be placed there must not run into: like
-     * {@link #cellOccupancy}, but leaving out whatever that tile may pass through (a pane and a slab).
-     */
+    /** like cellOccupancy, minus whatever the tile about to be placed may pass through (a pane and a slab) */
     public List<AABB> cellOccupancyFor(int x, int y, int z, Tile newcomer) {
         List<AABB> all = new ArrayList<>();
         Tile host = Tile.byId(this.level.getTile(x, y, z));
@@ -245,8 +232,7 @@ public final class SubTiles {
         return false;
     }
 
-    // -------------------------------------------------------------------------
-    // Meshing: faces that two co-occupants press together are never seen
+    // meshing: faces that two co-occupants press together are never seen
 
     private static double lo(AABB b, int axis) {
         return axis == 0 ? b.minX : axis == 1 ? b.minY : b.minZ;
@@ -257,10 +243,9 @@ public final class SubTiles {
     }
 
     /**
-     * Whether a quad of the tile being drawn (tile id / data / offset identify which occupant of the
-     * cell that is) is pressed flat against another opaque occupant of the same cell, so it can't be
-     * seen: the top of a bottom slab under a top slab, a post standing on a slab.
-     * Without this the two coplanar faces z-fight.
+     * whether a quad of the tile being drawn (id / data / offset say which occupant) is pressed flat against another opaque occupant of the cell and can't be seen (top of a bottom slab under a top slab, a post on a slab)
+     *
+     * without this the two coplanar faces z-fight
      */
     public boolean isQuadHidden(int x, int y, int z, BakedQuad quad,
                                 int selfTileId, int selfData, float ox, float oy, float oz) {
@@ -328,10 +313,9 @@ public final class SubTiles {
         return false;
     }
 
-    // -------------------------------------------------------------------------
-    // Saving (by tile NAME, so reordering the tile registry can't corrupt a save)
+    // saving (by tile NAME, so reordering the tile registry can't corrupt a save)
 
-    /** One saved sub-tile. */
+    /** one saved sub-tile */
     public static final class Entry {
         public final int x, y, z;
         public final String tileName;
@@ -367,7 +351,7 @@ public final class SubTiles {
         return entries;
     }
 
-    /** Replaces everything with saved entries. Unknown tile names (a removed tile) are skipped. No notifications. */
+    /** replaces everything with saved entries, unknown tile names (a removed tile) are skipped, no notifications */
     void restore(List<Entry> entries) {
         this.cells.clear();
         if (entries == null) {

@@ -6,26 +6,19 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /**
- * Base class of everything on screen - menu buttons, labels, HUD elements, whole groups of those.
- * <p>
- * <b>Positioning.</b> A widget is positioned by an {@link Anchor} inside its parent plus an offset
- * (see {@link #setAnchor}); inside a {@link Column} / {@link Row} the container stacks it instead
- * and only the offset is used, as a nudge. Nothing here is ever positioned with absolute screen
- * coordinates, so layouts follow the window size by themselves. For "half way down the screen"
- * style placement use {@link #setOffsetFraction}.
- * <p>
- * <b>Frame cycle.</b> Every frame the owner (a {@code Screen} or the {@code Hud}) runs
- * {@code measure} (bottom-up: every widget works out its size) and then {@code arrange}
- * (top-down: every widget gets its position), then calls {@link #render}.
- * <p>
- * <b>Sizes.</b> {@link #setSize} fixes a size; a negative value means "work it out" (text width
- * for a label, the children's extent for a container).
+ * base class of everything on screen: buttons, labels, HUD elements, whole groups
+ *
+ * position: an Anchor inside the parent plus an offset (see setAnchor), inside a Column / Row the container stacks it and only the offset is used, as a nudge. never absolute screen coordinates so layouts follow the window size, use setOffsetFraction for "half way down"
+ *
+ * frame: the owner (Screen or Hud) runs measure (bottom-up, sizes) then arrange (top-down, positions), then render
+ *
+ * size: setSize fixes it, negative = work it out (text width for a label, children's extent for a container)
  */
 public abstract class Widget {
 
     Widget parent;
 
-    /** Resolved bounds, valid after the last layout pass. Origin is the window's top-left. */
+    // resolved bounds, valid after the last layout pass (origin is the window's top-left)
     protected float x;
     protected float y;
     protected float width;
@@ -51,27 +44,22 @@ public abstract class Widget {
     private boolean focused = false;
     private boolean blurRequested = false;
 
-    // ---------------------------------------------------------------------------------------
-    // Positioning
-    // ---------------------------------------------------------------------------------------
+    // positioning
 
-    /** Pins this widget to {@code anchor} of its parent, then nudges it by (dx, dy) pixels. */
+    /** pins to anchor of the parent, then nudges by (dx, dy) pixels */
     public void setAnchor(Anchor anchor, float dx, float dy) {
         this.anchor = anchor;
         this.offsetX = dx;
         this.offsetY = dy;
     }
 
-    /** Just the nudge, keeping the current anchor. */
+    /** just the nudge, keeps the current anchor */
     public void setOffset(float dx, float dy) {
         this.offsetX = dx;
         this.offsetY = dy;
     }
 
-    /**
-     * Adds a share of the parent's size to the offset: (0, 0.25) moves the widget down by a quarter
-     * of the parent's height. Handy for "25% from the top" placement.
-     */
+    /** adds a share of the parent's size to the offset, (0, 0.25) = down by a quarter of the parent's height */
     public void setOffsetFraction(float fx, float fy) {
         this.fractionX = fx;
         this.fractionY = fy;
@@ -89,7 +77,7 @@ public abstract class Widget {
         return this.offsetY;
     }
 
-    /** Fixed size; pass a negative number for either value to size that axis automatically. */
+    /** negative = size that axis automatically */
     public void setSize(float width, float height) {
         this.prefWidth = width;
         this.prefHeight = height;
@@ -103,10 +91,7 @@ public abstract class Widget {
         return this.prefHeight;
     }
 
-    /**
-     * Sets the resolved position directly. Containers use this to place their children; widgets
-     * that are never put in a container can also be positioned manually with it.
-     */
+    /** sets the resolved position directly, containers use it to place their children (or position a widget by hand) */
     public void setPosition(float x, float y) {
         this.x = x;
         this.y = y;
@@ -128,10 +113,7 @@ public abstract class Widget {
         return this.height;
     }
 
-    /**
-     * Space between this widget and the next one inside a {@link Column} / {@link Row}, replacing
-     * the container's default gap. May be negative to tuck widgets closer together.
-     */
+    /** gap between this and the next widget in a Column / Row instead of the default, can be negative */
     public void setGapAfter(float gap) {
         this.hasGapAfter = true;
         this.gapAfter = gap;
@@ -145,15 +127,13 @@ public abstract class Widget {
         return this.gapAfter;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Visibility / enabled
-    // ---------------------------------------------------------------------------------------
+    // visibility / enabled
 
     public void setVisible(boolean visible) {
         this.visible = visible;
     }
 
-    /** Visible whenever the condition holds (re-evaluated every frame). Hidden widgets take no space in a Column/Row. */
+    /** re-evaluated every frame, hidden widgets take no space in a Column / Row */
     public void setVisibleWhen(BooleanSupplier condition) {
         this.visibleWhen = condition;
     }
@@ -166,7 +146,7 @@ public abstract class Widget {
         this.enabled = enabled;
     }
 
-    /** Enabled whenever the condition holds (re-evaluated every frame). */
+    /** re-evaluated every frame */
     public void setEnabledWhen(BooleanSupplier condition) {
         this.enabledWhen = condition;
     }
@@ -175,37 +155,35 @@ public abstract class Widget {
         return this.enabled && (this.enabledWhen == null || this.enabledWhen.getAsBoolean());
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Layout
-    // ---------------------------------------------------------------------------------------
+    // layout
 
-    /** First layout pass: work out {@link #width} and {@link #height}. */
+    /** first layout pass: works out width and height */
     public void measure(Font font) {
         this.width = this.prefWidth >= 0.0f ? this.prefWidth : naturalWidth(font);
         this.height = this.prefHeight >= 0.0f ? this.prefHeight : naturalHeight(font);
     }
 
-    /** Size to use when no fixed width was set. */
+    /** size to use when no fixed width was set */
     protected float naturalWidth(Font font) {
         return 0.0f;
     }
 
-    /** Size to use when no fixed height was set. */
+    /** size to use when no fixed height was set */
     protected float naturalHeight(Font font) {
         return 0.0f;
     }
 
-    /** Second layout pass: place children. The widget's own position is already set. */
+    /** second layout pass: places children, the widget's own position is already set */
     protected void arrange(Font font) {
     }
 
-    /** Resolves this widget's position from its anchor inside the given parent rectangle. */
+    /** resolves the position from the anchor inside the given parent rectangle */
     final void placeIn(float parentX, float parentY, float parentWidth, float parentHeight) {
         this.x = parentX + (parentWidth - this.width) * this.anchor.fx + this.offsetX + this.fractionX * parentWidth;
         this.y = parentY + (parentHeight - this.height) * this.anchor.fy + this.offsetY + this.fractionY * parentHeight;
     }
 
-    /** Width of the top-most widget in the tree - the window / screen size the UI is laid out in. */
+    /** width of the top-most widget in the tree, i.e. the size the UI is laid out in */
     public float getRootWidth() {
         Widget w = this;
         while (w.parent != null) {
@@ -214,7 +192,6 @@ public abstract class Widget {
         return w.width;
     }
 
-    /** Height of the top-most widget in the tree. */
     public float getRootHeight() {
         Widget w = this;
         while (w.parent != null) {
@@ -223,11 +200,9 @@ public abstract class Widget {
         return w.height;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Rendering
-    // ---------------------------------------------------------------------------------------
+    // rendering
 
-    /** Draws the widget (if visible). Mouse coordinates are only used for hover styling. */
+    /** draws if visible, the mouse is only used for hover styling */
     public final void render(Font font, int mouseX, int mouseY) {
         if (isVisible()) {
             draw(font, mouseX, mouseY);
@@ -236,27 +211,25 @@ public abstract class Widget {
 
     protected abstract void draw(Font font, int mouseX, int mouseY);
 
-    // ---------------------------------------------------------------------------------------
-    // Input
-    // ---------------------------------------------------------------------------------------
+    // input
 
-    /** Whether the point is inside the widget (edges included). */
+    /** edges included */
     public boolean contains(float mouseX, float mouseY) {
         return mouseX >= this.x && mouseX <= this.x + this.width
                 && mouseY >= this.y && mouseY <= this.y + this.height;
     }
 
-    /** Same as {@link #contains}; the name widgets use for hover styling. */
+    /** same as contains(), the name widgets use for hover styling */
     public boolean isHovered(int mouseX, int mouseY) {
         return contains(mouseX, mouseY);
     }
 
-    /** Whether clicks should reach this widget at all (labels with no action, spacers: no). */
+    /** whether clicks reach this widget at all (labels with no action, spacers: no) */
     protected boolean isInteractive() {
         return false;
     }
 
-    /** The top-most interactive widget under the mouse, or null. */
+    /** top-most interactive widget under the mouse, or null */
     public Widget pick(int mouseX, int mouseY) {
         if (isVisible() && isEnabled() && isInteractive() && contains(mouseX, mouseY)) {
             return this;
@@ -264,13 +237,13 @@ public abstract class Widget {
         return null;
     }
 
-    /** Called for the widget {@link #pick} returned, on a left click. */
+    /** called for the widget pick() returned, on a left click */
     public void onMouseClicked(int mouseX, int mouseY) {
     }
 
-    // Focus ------------------------------------------------------------------------------------
+    // focus
 
-    /** Whether this widget can receive keyboard input (text inputs). */
+    /** whether it can receive keyboard input (text inputs) */
     public boolean isFocusable() {
         return false;
     }
@@ -279,7 +252,7 @@ public abstract class Widget {
         return this.focused;
     }
 
-    /** Called by the owning Screen. */
+    /** called by the owning Screen */
     public final void setFocused(boolean focused) {
         if (this.focused == focused) {
             return;
@@ -299,7 +272,7 @@ public abstract class Widget {
     protected void onBlur() {
     }
 
-    /** Lets a focused widget ask the Screen to take focus away from it (e.g. on Enter). */
+    /** asks the Screen to take focus away (e.g. on Enter) */
     protected final void requestBlur() {
         this.blurRequested = true;
     }
@@ -310,12 +283,12 @@ public abstract class Widget {
         return requested;
     }
 
-    /** Offered to the focused widget first. Return true to swallow the key. */
+    /** offered to the focused widget first, return true to swallow the key */
     public boolean keyPressed(int key, char character) {
         return false;
     }
 
-    /** Adds this widget (and any children) to {@code out} if it can take focus, in tree order. */
+    /** adds this widget and its children to out if they can take focus, in tree order */
     public void collectFocusable(List<Widget> out) {
         if (isVisible() && isEnabled() && isFocusable()) {
             out.add(this);

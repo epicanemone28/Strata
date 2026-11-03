@@ -7,17 +7,9 @@ import com.nikohalfkino.rubydung.render.Font;
 import com.nikohalfkino.rubydung.util.KeyMap;
 
 /**
- * A single-line text box: translucent dark background, a fixed prefix ("Name: ") and the typed
- * text, with a blinking cursor and mouse selection while it has focus. Wraps {@link TextField},
- * which does the actual editing.
- * <p>
- * Focus is handled by the Screen: clicking the box focuses it, Tab moves between boxes, and the
- * focused box gets the keyboard before anything else.
- * <pre>
- *     TextInput name = column.add(new TextInput("Name: ", 420, 28, 32));
- *     screen.setFocus(name);                          // start with the cursor in it
- *     name.getText();
- * </pre>
+ * single-line text box: translucent dark background, a fixed prefix ("Name: ") and the typed text, blinking cursor and mouse selection while focused. wraps TextField, which does the editing
+ *
+ * focus is handled by the Screen: a click focuses, Tab moves between boxes, the focused box gets the keyboard first
  */
 public class TextInput extends Widget {
 
@@ -53,16 +45,13 @@ public class TextInput extends Widget {
         return this.field;
     }
 
-    /**
-     * When on, Enter and Escape finish editing: the box drops focus and {@code onCommit} runs.
-     * When off (the default) they are passed on to the screen (e.g. Enter = "Create").
-     */
+    /** on: Enter and Escape finish editing (drop focus, run onCommit). off (default): they go to the screen, e.g. Enter = "Create" */
     public TextInput setCommitOnKeys(boolean commitOnKeys) {
         this.commitOnKeys = commitOnKeys;
         return this;
     }
 
-    /** Runs whenever the box loses focus - after a click elsewhere, or Enter/Escape if commit-on-keys is on. */
+    /** runs whenever the box loses focus, after a click elsewhere or Enter/Escape if commit-on-keys is on */
     public TextInput onCommit(Runnable onCommit) {
         this.onCommit = onCommit;
         return this;

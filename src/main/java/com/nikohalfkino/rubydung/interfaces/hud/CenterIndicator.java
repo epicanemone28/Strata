@@ -5,7 +5,7 @@ import com.nikohalfkino.rubydung.interfaces.widget.Anchor;
 import com.nikohalfkino.rubydung.interfaces.widget.Widget;
 import com.nikohalfkino.rubydung.render.Font;
 
-/** A short message ("Flying: on") shown at the top centre for a couple of seconds. */
+/** short message ("Flying: on") at the top centre for a couple of seconds */
 public class CenterIndicator extends Widget {
 
     private static final long DISPLAY_DURATION_MS = 2000;

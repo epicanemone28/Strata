@@ -1,34 +1,30 @@
 package com.nikohalfkino.rubydung.level.tiles.model;
 
-/**
- * Cube faces. The numbering is the same as Tile.FACE_* (BOTTOM, TOP, NORTH = -Z, SOUTH = +Z,
- * WEST = -X, EAST = +X), so a face index can be passed between the two without translation.
- */
+/** cube faces, numbered like Tile.FACE_* (BOTTOM, TOP, NORTH = -Z, SOUTH = +Z, WEST = -X, EAST = +X) so indexes pass between the two as is */
 public final class Face {
 
     private Face() {}
 
     public static final int DOWN = 0;
     public static final int UP = 1;
-    /** The -Z face (called "south" in model files). */
+    /** the -Z face ("south" in model files) */
     public static final int NEG_Z = 2;
-    /** The +Z face (called "north" in model files). */
+    /** the +Z face ("north" in model files) */
     public static final int POS_Z = 3;
     public static final int WEST = 4;
     public static final int EAST = 5;
 
-    /** Names as used in model JSON, by face index. North is +Z, so index 2 (-Z) is "south". */
+    /** names used in model JSON, by face index. north is +Z, so index 2 (-Z) is "south" */
     public static final String[] NAMES = {"down", "up", "south", "north", "west", "east"};
 
-    /** Outward normal per face. */
     public static final int[][] NORMALS = {
             {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}
     };
 
     /**
-     * The 4 corners of each face, as 0 = min / 1 = max per axis, in the order top-left, bottom-left,
-     * bottom-right, top-right as seen from outside (counter-clockwise, which is the winding the
-     * renderer expects). Corner i takes UV corner i: (u1,v1), (u1,v2), (u2,v2), (u2,v1).
+     * the 4 corners of each face as 0 = min / 1 = max per axis, in the order top-left, bottom-left, bottom-right, top-right as seen from outside (counter-clockwise, the winding the renderer expects)
+     *
+     * corner i takes UV corner i: (u1,v1), (u1,v2), (u2,v2), (u2,v1)
      */
     static final int[][][] CORNERS = {
             /* DOWN  */ {{0, 0, 1}, {0, 0, 0}, {1, 0, 0}, {1, 0, 1}},
@@ -39,7 +35,7 @@ public final class Face {
             /* EAST  */ {{1, 1, 1}, {1, 0, 1}, {1, 0, 0}, {1, 1, 0}},
     };
 
-    /** The face with this name, or -1. Also accepts "bottom" and "top". */
+    /** -1 if unknown, also accepts "bottom" and "top" */
     public static int byName(String name) {
         if (name == null) {
             return -1;
@@ -58,7 +54,7 @@ public final class Face {
         return -1;
     }
 
-    /** The face whose normal is closest to the given vector (largest component wins). */
+    /** face whose normal is closest to the vector (largest component wins) */
     static int fromNormal(double x, double y, double z) {
         double ax = Math.abs(x);
         double ay = Math.abs(y);
@@ -72,11 +68,8 @@ public final class Face {
         return z < 0 ? NEG_Z : POS_Z;
     }
 
-    /**
-     * One quarter turn about an axis through the origin. With north = +Z:
-     * axis 0 (x) takes up to north (+Z), axis 1 (y) takes east to south (-Z, clockwise on a
-     * north-up map), axis 2 (z) takes up to east.
-     */
+    // one quarter turn about an axis through the origin, with north = +Z
+    // axis 0 (x) takes up to north (+Z), axis 1 (y) takes east to south (-Z, clockwise on a north-up map), axis 2 (z) takes up to east
     static void quarterTurn(double[] p, int axis) {
         double x = p[0];
         double y = p[1];
@@ -88,17 +81,14 @@ public final class Face {
         }
     }
 
-    /** Applies the three rotations (quarter turns each) in order x, y, z. */
+    // the three rotations (quarter turns each) in order x, y, z
     static void rotate(double[] p, int turnsX, int turnsY, int turnsZ) {
         for (int i = 0; i < turnsX; i++) quarterTurn(p, 0);
         for (int i = 0; i < turnsY; i++) quarterTurn(p, 1);
         for (int i = 0; i < turnsZ; i++) quarterTurn(p, 2);
     }
 
-    /**
-     * Rotates a box {minX, minY, minZ, maxX, maxY, maxZ} (in blocks, cell = 0..1) about the cell
-     * centre, with the same turns and order as {@link #rotate(double[], int, int, int)}.
-     */
+    // rotates a box {minX, minY, minZ, maxX, maxY, maxZ} (blocks, cell = 0..1) about the cell centre, same turns and order as rotate(double[], int, int, int)
     static float[] rotateBox(float[] box, int turnsX, int turnsY, int turnsZ) {
         if (turnsX == 0 && turnsY == 0 && turnsZ == 0) {
             return box;
@@ -115,7 +105,7 @@ public final class Face {
         return out;
     }
 
-    /** The face a face ends up as after the rotations. */
+    // the face a face ends up as after the rotations
     static int rotate(int face, int turnsX, int turnsY, int turnsZ) {
         double[] v = {NORMALS[face][0], NORMALS[face][1], NORMALS[face][2]};
         rotate(v, turnsX, turnsY, turnsZ);

@@ -8,13 +8,13 @@ import java.util.List;
 
 import static com.nikohalfkino.rubydung.player.InteractionContext.*;
 
-/** Replacing blocks (both mouse buttons held): swaps what the crosshair sweeps over for the selected tile. */
+/** replacing blocks (both mouse buttons held): swaps what the crosshair sweeps over for the selected tile */
 final class BlockReplacer {
 
     private final InteractionContext ctx;
     private final BlockPlacer placer;
 
-    /** Like the breaker's bank: distance travelled that pays for extra replacements. */
+    // like the breaker's bank: distance travelled that pays for extra replacements
     private double replaceBank = 0.0;
 
     BlockReplacer(InteractionContext ctx, BlockPlacer placer) {
@@ -26,12 +26,8 @@ final class BlockReplacer {
         this.replaceBank = 0.0;
     }
 
-    /**
-     * One tick of holding both buttons. Works like breaking: the normal repeat rate when standing
-     * still, and while moving the distance travelled pays for extra replacements, so sweeping the
-     * crosshair over blocks (or flying along them) replaces every one the crosshair passed over,
-     * not only the one it ends up on.
-     */
+    // one tick of holding both buttons, works like breaking: normal repeat rate standing still, while moving the distance travelled pays for extra replacements
+    // so sweeping the crosshair over (or flying along) blocks replaces every one it passed over, not just the one it ends on
     void tick(List<HitResult> hits, double speed) {
         boolean moving = speed > MOVING_EPSILON;
 
@@ -58,7 +54,7 @@ final class BlockReplacer {
         }
     }
 
-    /** Replaces up to {@code allowance} of the hits, skipping ones that are gone or already the selected tile. */
+    // replaces up to allowance of the hits, skipping gone ones and ones already the selected tile
     private int replaceCells(List<HitResult> hits, int allowance) {
         int replaced = 0;
         for (HitResult hit : hits) {
@@ -112,11 +108,8 @@ final class BlockReplacer {
         return true;
     }
 
-    /**
-     * Replaces the targeted block (or whole multi-tile object) with a multi-tile object anchored at
-     * the target's origin. The target is cleared first so its own cells count as free; if the new
-     * object still doesn't fit, the original is put back.
-     */
+    // replaces the targeted block (or whole multi-tile object) with a multi-tile object anchored at the target's origin
+    // the target is cleared first so its own cells count as free, if the new object still doesn't fit the original is put back
     private boolean replaceWithMultiTile(HitResult hit) {
         Tile selected = this.ctx.selectedTile;
         int oldId = this.ctx.level.getTile(hit.x, hit.y, hit.z);

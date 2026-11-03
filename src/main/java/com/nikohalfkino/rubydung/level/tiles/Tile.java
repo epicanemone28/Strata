@@ -24,7 +24,6 @@ public class Tile {
     private static final String BLOCK_TEXTURE_PATH = "/assets/rubydung/textures/block/";
     private static final String MISSING_TEXTURE    = "/assets/rubydung/textures/missing.png";
 
-    /** Largest footprint along any axis. */
     public static final int MAX_FOOTPRINT = 16;
 
     // Every Tile self-registers here on construction so byId() works without any
@@ -32,10 +31,8 @@ public class Tile {
     private static int idCounter = 0;
     private static final List<Tile> BY_ID = new ArrayList<>();
 
-    // -------------------------------------------------------------------------
-    // Forwarding aliases — source of truth is TileRegistry; these exist so that
-    // call-sites using Tile.GRASS, Tile.byName(...) etc. continue to compile.
-    // Initialising these triggers TileRegistry to load (and register all tiles).
+    // forwarding aliases: TileRegistry is the source of truth, these keep Tile.GRASS, Tile.byName(...) etc. compiling
+    // initialising them triggers TileRegistry to load (and register all tiles)
 
     public static final Tile AIR               = TileRegistry.AIR;
 
@@ -83,9 +80,7 @@ public class Tile {
     public static List<Tile> getTiles()          { return TileRegistry.getTiles(); }
     public static List<Tile> getCycleOrder()     { return TileRegistry.getCycleOrder(); }
 
-    // -------------------------------------------------------------------------
-
-    public final int id;
+public final int id;
     public final String name;
 
     private final String[] faceTextures   = new String[6];
@@ -94,29 +89,25 @@ public class Tile {
     private boolean isSolid      = true;
     private boolean isTransparent = false;
 
-    /** null = decide from the tile's other flags (see castsShadow). */
+    // null = decide from the tile's other flags (see castsShadow)
     private Boolean castsShadow = null;
 
-    /** Whether the player can place this tile (false keeps it out of the tile selector). */
+    // false keeps it out of the tile selector
     private boolean placeable = true;
 
-    /**
-     * Faces that are not drawn when the neighbour on that side is the same tile (bit per FACE_*).
-     * Only matters for transparent tiles, which otherwise draw every face.
-     */
+    // faces not drawn when the neighbour on that side is the same tile (bit per FACE_*)
+    // only matters for transparent tiles, which otherwise draw every face
     private int selfCullMask = 0;
 
-    /** Radius in blocks of the light this tile emits (0 = emits no light). */
+    // radius in blocks of the light it emits (0 = none)
     private float lightRadius = 0.0F;
 
-    /** Cells this tile covers when placed unrotated (see setFootprint). 1x1x1 = an ordinary tile. */
+    // cells covered when placed unrotated (see setFootprint), 1x1x1 = an ordinary tile
     private int footprintX = 1;
     private int footprintY = 1;
     private int footprintZ = 1;
 
-    // -------------------------------------------------------------------------
-
-    public Tile(String name) {
+public Tile(String name) {
         this(name, name);
     }
 
@@ -127,77 +118,54 @@ public class Tile {
         setTexture(defaultTextureName);
     }
 
-    // -------------------------------------------------------------------------
-    // Lookup (id-based only; name-based lookup lives in TileRegistry)
+    // lookup (id-based only, name-based lookup lives in TileRegistry)
 
-    /** Returns the tile with the given id, or {@code null} if no tile has that id. */
+    /** null if no tile has that id */
     public static Tile byId(int id) {
         return (id >= 0 && id < BY_ID.size()) ? BY_ID.get(id) : null;
     }
 
-    // -------------------------------------------------------------------------
-    // Instance API
+    // instance api
 
     public boolean isBillboard() {
         return false;
     }
 
-    /**
-     * The data byte a freshly placed tile gets, given the face of the neighbour it was placed
-     * against (FACE_*). 0 for ordinary tiles; slabs pick their half here.
-     */
+    /** data byte a freshly placed tile gets, given the face (FACE_*) of the neighbour it was placed against. 0 for ordinary tiles */
     public int getPlacementData(int face) {
         return 0;
     }
 
-    /**
-     * Same, but also given where in the target cell the player pointed, as a fraction 0..1 per axis
-     * (NaN when unknown): a slab uses the height to choose its half.
-     */
+    /** also gets where in the target cell the player pointed (fraction 0..1 per axis, NaN if unknown), a slab uses the height to pick its half */
     public int getPlacementData(int face, double fractionX, double fractionY, double fractionZ) {
         return getPlacementData(face);
     }
 
-    /**
-     * Same, also given the player's horizontal look direction (lookX, lookZ; need not be unit
-     * length). Tiles that turn to face the player (FacingTile) use it; the others ignore it.
-     * Placement code that knows where the player looks should call this one.
-     */
+    /** also gets the player's horizontal look direction (need not be unit length), tiles that face the player (FacingTile) use it, the others ignore it. placement code should call this one */
     public int getPlacementData(int face, double fractionX, double fractionY, double fractionZ,
                                 double lookX, double lookZ) {
         return getPlacementData(face, fractionX, fractionY, fractionZ);
     }
 
-    /**
-     * The data byte (model state) the tile icon is drawn with. 0 for most tiles; a slab can ask for
-     * a particular half so its icon isn't whatever state happens to be listed first.
-     */
+    /** data byte (model state) the tile icon is drawn with, a slab can ask for a particular half so its icon isn't whatever state is listed first */
     public int getIconData() {
         return 0;
     }
 
-    /**
-     * Placement hook for multi-tile objects: the rotation (0..3) the object is really placed with,
-     * given the one the player's look direction chose and the cell (x, y, z) it is going into.
-     * Doors use it to turn into a double door next to another door. Default: unchanged.
-     */
+    /** placement hook for multi-tile objects: the rotation (0..3) it's really placed with, given the one the look direction chose and the cell (x, y, z) it's going into. doors use it to turn into a double door next to another door. default: unchanged */
     public int getMultiTileRotation(Level level, int x, int y, int z, int rotation) {
         return rotation;
     }
 
-    /** Whether the interact key does something when aimed at this tile (shows the "[E] Interact" prompt). */
+    /** whether the interact key does something when aimed at this tile (shows the "[E] Interact" prompt) */
     public boolean isInteractable() {
         return false;
     }
 
     /**
-     * Called before normal placement when the target cell (x, y, z) is already occupied by this
-     * tile. Return {@code true} if placement was handled (e.g. a bottom slab upgrading to a double
-     * slab) — the caller will not attempt a normal place. Return {@code false} to let the caller
-     * treat the occupied cell as a no-op (the default).
+     * called before normal placement when the target cell (x, y, z) is already occupied by this tile. true = placement was handled (e.g. a bottom slab upgrading to a double slab) and the caller won't place normally, false (default) = the caller treats the occupied cell as a no-op
      *
-     * <p>fractionX/Y/Z are the hit-point fractions (0..1) inside the target cell, or NaN when
-     * unknown. face is the face of the neighbour that was clicked (the face the player aimed at).
+     * fractionX/Y/Z are the hit-point fractions (0..1) in the cell or NaN, face is the clicked face of the neighbour
      */
     public boolean tryMergePlacement(Level level, int x, int y, int z,
                                      int face, double fractionX, double fractionY, double fractionZ) {
@@ -205,13 +173,9 @@ public class Tile {
     }
 
     /**
-     * The one call placement should make before it places anything: given the full hit, merge into
-     * an existing cell if this tile can. The default tries only the cell next to the clicked face
-     * (the old behaviour); partial tiles such as slabs override it to also look at the clicked cell
-     * itself.
+     * the one call placement should make before placing anything: merges into an existing cell if this tile can. default only tries the cell next to the clicked face, partial tiles such as slabs override it to also look at the clicked cell
      *
-     * @return true if the placement was handled (the caller must not place anything else and
-     *         should still consume the item / play the sound)
+     * returns true if the placement was handled (the caller places nothing else, but should still consume the item / play the sound)
      */
     public boolean tryMergePlacement(Level level, HitResult hit,
                                      double fractionX, double fractionY, double fractionZ) {
@@ -221,11 +185,9 @@ public class Tile {
     }
 
     /**
-     * Called when the player breaks the tile at (x, y, z). Return the data byte the cell should
-     * be set to (leaving the tile in place with new data, e.g. downgrading a double slab to a
-     * single half), or -1 to remove the tile entirely (the default).
+     * called when the player breaks the tile at (x, y, z). returns the data byte the cell should be set to (the tile stays with new data, e.g. a double slab becoming a single half), or -1 to remove it entirely (default)
      *
-     * <p>hitBox is the specific sub-box the ray struck (may be null when unknown).
+     * hitBox is the sub-box the ray struck (may be null)
      */
     public int getBreakResult(Level level, int x, int y, int z, AABB hitBox) {
         return -1;
@@ -245,28 +207,18 @@ public class Tile {
         return getAABB(x, y, z);
     }
 
-    /**
-     * The boxes entities collide with, in world coordinates. Unlike getAABB this knows the level, so
-     * a tile whose shape depends on its data byte (slab, stairs) can answer per cell. Empty = walk through.
-     */
+    /** boxes entities collide with, world coordinates. unlike getAABB this knows the level, so tiles whose shape depends on data (slab, stairs) can answer per cell. empty = walk through */
     public List<AABB> getCollisionBoxes(Level level, int x, int y, int z) {
         return getCollisionBoxes(x, y, z, level.getData(x, y, z));
     }
 
-    /**
-     * Same, for an explicit data byte: for a tile that isn't placed yet (is the spot free of the
-     * player?), where the cell still holds air.
-     */
+    /** same for an explicit data byte, for a tile that isn't placed yet (is the spot free of the player?) where the cell still holds air */
     public List<AABB> getCollisionBoxes(int x, int y, int z, int data) {
         AABB box = getAABB(x, y, z);
         return box == null ? Collections.<AABB>emptyList() : Collections.singletonList(box);
     }
 
-    /**
-     * The boxes a ray is tested against when picking this cell, in world coordinates. A ray that
-     * passes through none of them goes on to the next cell. Defaults to the pick box (or the whole
-     * cell if there is none).
-     */
+    /** boxes a ray is tested against when picking this cell, world coordinates. a ray through none of them goes on to the next cell. default: the pick box, or the whole cell if there is none */
     public List<AABB> getPickBoxes(Level level, int x, int y, int z) {
         AABB box = getPickAABB(x, y, z);
         if (box == null) {
@@ -275,11 +227,7 @@ public class Tile {
         return Collections.singletonList(box);
     }
 
-    /**
-     * The space this tile takes up in a cell, for the given data byte, in world coordinates of a cell
-     * at (x, y, z). Used to decide whether two tiles sharing one cell overlap, and to pick sub-tiles.
-     * Defaults to the collision boxes, or the whole cell for a solid tile without any.
-     */
+    /** space this tile takes up in a cell for the given data byte, world coordinates of the cell at (x, y, z). decides whether tiles sharing a cell overlap, and picks sub-tiles. default: the collision boxes, or the whole cell for a solid tile with none */
     public List<AABB> getOccupancyBoxes(int x, int y, int z, int data) {
         List<AABB> boxes = new ArrayList<>(getCollisionBoxes(x, y, z, data));
         if (boxes.isEmpty() && isSolid()) {
@@ -288,50 +236,33 @@ public class Tile {
         return boxes;
     }
 
-    /**
-     * Whether this tile may be placed INTO a cell that already holds other tiles, in whatever free
-     * space is left (see SubTiles). Only tiles that don't fill their cell can; override to opt a tile
-     * in or out.
-     */
+    /** whether this tile may be placed INTO a cell that already holds others, in whatever free space is left (see SubTiles). only tiles that don't fill their cell can, override to opt in or out */
     public boolean canShareCell() {
         return isSolid() && !isBillboard() && !isMultiTile() && !occludesNeighbours();
     }
 
-    /**
-     * Whether this tile may occupy the same space as {@code other} inside one cell, so the two are
-     * never treated as overlapping when placing into a shared cell (see SubTiles). False for
-     * everything by default; a thin pane lets slabs pass through it (see PaneTile). Only one of
-     * the two tiles has to allow it: see {@link #mayOverlap}.
-     */
+    /** whether this tile may occupy the same space as other inside one cell, so they're never treated as overlapping when placing into a shared cell (see SubTiles). false by default, a thin pane lets slabs pass through (see PaneTile). only one of the two has to allow it, see mayOverlap */
     public boolean canIntersect(Tile other) {
         return false;
     }
 
-    /** Whether the two tiles may share space (either one allows it). */
+    /** either one allows it */
     public static boolean mayOverlap(Tile a, Tile b) {
         return a != null && b != null && (a.canIntersect(b) || b.canIntersect(a));
     }
 
-    /**
-     * Whether this tile may be placed into the free half of a cell that holds a slab, drawn and
-     * collided as just the lower or upper half of itself. For ordinary full blocks (stone, logs):
-     * everything that can't share a cell as a shape of its own.
-     */
+    /** whether this tile may go into the free half of a cell that holds a slab, drawn and collided as just the lower or upper half of itself. ordinary full blocks (stone, logs): everything that can't share a cell as a shape of its own */
     public boolean canClipToHalf() {
         return isSolid() && !isBillboard() && !isMultiTile() && occludesNeighbours()
                 && !emitsLight() && !isInteractable() && !(this instanceof SlabTile);
     }
 
-    /**
-     * Whether the selection overlay of this tile follows {@link #getOutlineAABB} even though it is a
-     * multi-tile object. By default a multi-tile object is outlined by its whole footprint; a door
-     * says true so it is outlined by its real shape instead.
-     */
+    /** whether the selection overlay follows getOutlineAABB even though it's a multi-tile object, which is otherwise outlined by its whole footprint. doors say true to be outlined by their real shape */
     public boolean hasCustomOutline() {
         return false;
     }
 
-    /** The box drawn as the selection outline of this cell (data-aware); defaults to getPickAABB. */
+    /** box drawn as the selection outline of this cell (data-aware), defaults to getPickAABB */
     public AABB getOutlineAABB(Level level, int x, int y, int z) {
         return getPickAABB(x, y, z);
     }
@@ -348,7 +279,7 @@ public class Tile {
         return this;
     }
 
-    /** Resource path of a block texture by name, or the missing-texture path if there is no such file. */
+    /** resource path of a block texture by name, or the missing-texture path if there's no such file */
     public static String texturePath(String textureName) {
         // "name@col,row" picks one square slice of a texture that is a multi-cell strip or sheet.
         String slice = "";
@@ -396,22 +327,16 @@ public class Tile {
         return this.faceAtlasSlots[face];
     }
 
-    /**
-     * Texture resource paths this tile draws with beyond its six face textures (a model tile uses
-     * as many as its models name). The atlas includes them.
-     */
+    /** texture paths this tile draws with beyond its six face textures (a model tile uses as many as its models name), the atlas includes them */
     public Collection<String> getExtraTextures() {
         return Collections.emptyList();
     }
 
-    /** Called once the atlas is built, with the slot of every texture path in it. */
+    /** called once the atlas is built, with the slot of every texture path */
     public void onAtlasBuilt(Map<String, Integer> slotsByPath) {
     }
 
-    /**
-     * Whether this tile fills its whole cell, so that a solid neighbour may hide the faces that
-     * touch it. False for slabs, stairs and other partial shapes.
-     */
+    /** whether it fills its whole cell, so a solid neighbour may hide the faces that touch it. false for slabs, stairs and other partial shapes */
     public boolean occludesNeighbours() {
         return true;
     }
@@ -456,11 +381,7 @@ public class Tile {
         return this;
     }
 
-    /**
-     * Makes this tile a multi-tile object covering x * y * z cells. Placing it fills all of those
-     * cells (anchored at the clicked cell, extending +x/+y/+z) and breaking any of them removes the
-     * whole object. Only light emission comes from the origin cell alone.
-     */
+    /** makes this a multi-tile object covering x * y * z cells: placing fills all of them (anchored at the clicked cell, extending +x/+y/+z), breaking any of them removes the whole object. only light emission comes from the origin cell alone */
     public Tile setFootprint(int x, int y, int z) {
         if (x < 1 || y < 1 || z < 1 || x > MAX_FOOTPRINT || y > MAX_FOOTPRINT || z > MAX_FOOTPRINT) {
             throw new IllegalArgumentException("Footprint of " + this.name + " must be 1.." + MAX_FOOTPRINT
@@ -472,7 +393,7 @@ public class Tile {
         return this;
     }
 
-    /** Hides the listed faces when the neighbouring cell on that side is the same tile. */
+    /** hides the listed faces when the neighbouring cell on that side is the same tile */
     public Tile setSelfCull(int... faces) {
         for (int face : faces) {
             this.selfCullMask |= 1 << face;
@@ -480,7 +401,7 @@ public class Tile {
         return this;
     }
 
-    /** Hides every face that touches another cell of the same tile (e.g. glass). */
+    /** hides every face that touches another cell of the same tile (e.g. glass) */
     public Tile setSelfCullAll() {
         this.selfCullMask = 0b111111;
         return this;
@@ -494,7 +415,7 @@ public class Tile {
         return this.footprintX * this.footprintY * this.footprintZ > 1;
     }
 
-    /** Footprint size along X once rotated by `rotation` quarter turns (odd rotations swap X and Z). */
+    /** footprint size along X after `rotation` quarter turns (odd rotations swap X and Z) */
     public int getSizeX(int rotation) {
         return (rotation & 1) == 0 ? this.footprintX : this.footprintZ;
     }
@@ -507,11 +428,7 @@ public class Tile {
         return (rotation & 1) == 0 ? this.footprintZ : this.footprintX;
     }
 
-    /**
-     * Whether this tile darkens the cells below it (the sky shadow). By default only solid,
-     * non-transparent tiles do, so glass and grates let the light through. Override per tile with
-     * setCastsShadow.
-     */
+    /** whether this tile darkens the cells below it (the sky shadow). by default only solid, non-transparent tiles do, so glass and grates let light through. override per tile with setCastsShadow */
     public boolean castsShadow() {
         if (this.castsShadow != null) {
             return this.castsShadow;
@@ -524,27 +441,22 @@ public class Tile {
         return this;
     }
 
-    /** Whether this tile stops light emitted by other tiles from passing through. */
+    /** whether it stops light emitted by other tiles from passing through */
     public boolean blocksLight() {
         return this.isSolid && !this.isTransparent;
     }
 
-    // -------------------------------------------------------------------------
-    // Tile icons (TileIconRenderer)
+    // tile icons (TileIconRenderer)
 
-    /**
-     * While an icon is being drawn: the world faces (bit per FACE_*) the icon pretends border another
-     * cell of the same tile, so a tile's self-cull faces (setSelfCull) are left out there too. The
-     * renderer sets the faces the icon's camera cannot see, so the see-through back of a glass cube
-     * or a grate is not drawn through its front. 0 outside icons.
-     */
+    // while an icon is drawn: world faces (bit per FACE_*) the icon pretends border another cell of the same tile, so self-cull faces (setSelfCull) are left out there too
+    // the renderer sets the faces the icon's camera can't see, so the see-through back of a glass cube or grate isn't drawn through its front. 0 outside icons
     private static int iconSelfFaces = 0;
 
     public static void setIconSelfFaces(int worldFaceMask) {
         iconSelfFaces = worldFaceMask;
     }
 
-    /** Whether the icon being drawn treats the neighbour on this world face (FACE_*) as the same tile. */
+    // whether the icon being drawn treats the neighbour on this world face (FACE_*) as the same tile
     protected static boolean iconTouchesSelf(int worldFace) {
         return (iconSelfFaces & (1 << worldFace)) != 0;
     }
@@ -571,10 +483,7 @@ public class Tile {
         return true;
     }
 
-    /**
-     * Same as the three-coordinate version, but also knows which cell the face belongs to, so the
-     * seams between parts of one multi-tile object are never drawn (even for transparent tiles).
-     */
+    /** also knows which cell the face belongs to, so seams between parts of one multi-tile object are never drawn (even for transparent tiles) */
     protected boolean shouldRenderFace(Level level, int fromX, int fromY, int fromZ, int x, int y, int z) {
         if (isMultiTile() && level.isSameMultiTile(fromX, fromY, fromZ, x, y, z)) {
             return false;
@@ -582,10 +491,7 @@ public class Tile {
         return shouldRenderFace(level, x, y, z);
     }
 
-    /**
-     * Face-aware version: also applies this tile's self-cull faces. face is the tile's own face
-     * (FACE_*) that looks at the neighbour cell (x, y, z).
-     */
+    /** face-aware: also applies this tile's self-cull faces. face is the tile's own face (FACE_*) looking at the neighbour cell (x, y, z) */
     protected boolean shouldRenderFace(Level level, int fromX, int fromY, int fromZ, int x, int y, int z, int face) {
         if (isMultiTile() && level.isSameMultiTile(fromX, fromY, fromZ, x, y, z)) {
             return false;
@@ -621,7 +527,7 @@ public class Tile {
             {{1, 0, 1, 0, 1}, {1, 0, 0, 1, 1}, {1, 1, 0, 1, 0}, {1, 1, 1, 0, 0}}
     };
 
-    /** Default UV corner selects per face and vertex (0 = min, 1 = max), taken from FACE_VERTICES. */
+    // default UV corner selects per face and vertex (0 = min, 1 = max), from FACE_VERTICES
     private static final int[][][] BASE_UVS = buildBaseUvs();
 
     private static int[][][] buildBaseUvs() {
@@ -635,28 +541,24 @@ public class Tile {
         return uvs;
     }
 
-    // ---- Per-tile hooks for how a cube is drawn. (A tile that isn't a cube at all, like ModelTile,
-    //      overrides render itself.) ----
+    // per-tile hooks for how a cube is drawn (a tile that isn't a cube, like ModelTile, overrides render itself)
 
-    /** Which of this tile's textures a world-space face uses (RotatableTile swaps them around). */
+    /** which of this tile's textures a world-space face uses (RotatableTile swaps them around) */
     protected int getTextureFace(int face, int direction) {
         return face;
     }
 
-    /**
-     * The atlas slot a world-space face of the cube at (x, y, z) is drawn with. Normally fixed per
-     * face; a tile whose look depends on where it is (WrappedTile) overrides this.
-     */
+    /** atlas slot a world-space face of the cube at (x, y, z) is drawn with. fixed per face normally, a tile whose look depends on position (WrappedTile) overrides this */
     protected int getFaceAtlasSlot(Level level, int x, int y, int z, int face, int direction) {
         return getAtlasSlot(getTextureFace(face, direction));
     }
 
-    /** The tile's own face that a world-space face corresponds to, for self-culling. */
+    /** the tile's own face that a world-space face corresponds to, for self-culling */
     protected int getCullFace(int face, int direction) {
         return face;
     }
 
-    /** UV corner selects for the 4 vertices of a face: int[4][2] of {u, v}, 0 = min, 1 = max. */
+    /** UV corner selects for the 4 vertices of a face: int[4][2] of {u, v}, 0 = min, 1 = max */
     protected int[][] getFaceUvs(int face, int direction) {
         return BASE_UVS[face];
     }
@@ -773,10 +675,9 @@ public class Tile {
     }
 
     /**
-     * Smooth lighting: the light at a face corner is the average of the 4 cells touching that
-     * corner on the open side of the face. Opaque cells borrow the centre cell's value so
-     * walls don't create dark seams, and light can't leak diagonally between two walls.
-     * (sx, sy, sz) are the corner's signs along the face's two tangent axes; the normal axis is 0.
+     * smooth lighting: the light at a face corner is the average of the 4 cells touching it on the open side of the face. opaque cells borrow the centre cell's value so walls don't make dark seams and light can't leak diagonally between two walls
+     *
+     * (sx, sy, sz) are the corner's signs along the face's two tangent axes, the normal axis is 0
      */
     static float cornerBlockLight(Level level, int nx, int ny, int nz, int sx, int sy, int sz) {
         float center = level.getBlockLight(nx, ny, nz);

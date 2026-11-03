@@ -6,7 +6,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/** The quads of one block state, plus whether together they fill the whole cell. */
+/** the quads of one block state, plus whether together they fill the whole cell */
 public final class BakedModel {
 
     private static final float EPSILON = 1.0E-4F;
@@ -15,15 +15,12 @@ public final class BakedModel {
     private final boolean fullCube;
     private final List<float[]> collision;
 
-    /** Collision boxes default to the bounds of the quads. */
+    /** collision boxes default to the bounds of the quads */
     BakedModel(List<BakedQuad> quads) {
         this(quads, null);
     }
 
-    /**
-     * @param collision boxes {minX, minY, minZ, maxX, maxY, maxZ} in blocks (the cell is 0..1), already
-     *                  rotated like the quads. Empty = nothing to collide with; null = bounds of the quads.
-     */
+    /** collision = boxes {minX, minY, minZ, maxX, maxY, maxZ} in blocks (the cell is 0..1), already rotated like the quads. empty = nothing to collide with, null = bounds of the quads */
     BakedModel(List<BakedQuad> quads, List<float[]> collision) {
         this.quads = Collections.unmodifiableList(new ArrayList<>(quads));
         this.fullCube = computeFullCube(quads);
@@ -39,20 +36,17 @@ public final class BakedModel {
         this.collision = Collections.unmodifiableList(boxes);
     }
 
-    /** The same quads with other collision boxes (a blockstate's own "collision"). */
+    /** same quads with other collision boxes (a blockstate's own "collision") */
     BakedModel withCollision(List<float[]> boxes) {
         return new BakedModel(this.quads, boxes);
     }
 
-    /** The boxes entities collide with: {minX, minY, minZ, maxX, maxY, maxZ}, in blocks relative to the cell corner. Do not modify. */
+    /** {minX, minY, minZ, maxX, maxY, maxZ} in blocks relative to the cell corner, don't modify */
     public List<float[]> collisionBoxes() {
         return this.collision;
     }
 
-    /**
-     * The box of the selection outline: the hull of the collision boxes, or of the quads when there
-     * is nothing to collide with (so a walk-through model can still be pointed at).
-     */
+    /** hull of the collision boxes, or of the quads if there's nothing to collide with (so a walk-through model can still be pointed at) */
     public float[] outlineBox() {
         if (this.collision.isEmpty()) {
             return this.quads.isEmpty() ? new float[]{0, 0, 0, 1, 1, 1} : boundsOf(this.quads);
@@ -85,7 +79,7 @@ public final class BakedModel {
         return this.quads;
     }
 
-    /** True if every side of the cell is completely covered by a quad lying on its boundary. */
+    /** every side of the cell is completely covered by a quad on its boundary */
     public boolean isFullCube() {
         return this.fullCube;
     }
@@ -114,7 +108,7 @@ public final class BakedModel {
         return true;
     }
 
-    /** Whether the quad lies exactly on the cell boundary on this face's side and spans the whole side. */
+    // quad lies exactly on the cell boundary on this face's side and spans the whole side
     private static boolean coversBoundary(BakedQuad quad, int face) {
         int axis = Face.NORMALS[face][0] != 0 ? 0 : Face.NORMALS[face][1] != 0 ? 1 : 2;
         float plane = (Face.NORMALS[face][axis] > 0) ? 1.0F : 0.0F;

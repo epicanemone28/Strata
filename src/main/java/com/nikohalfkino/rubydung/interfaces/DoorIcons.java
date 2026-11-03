@@ -15,21 +15,21 @@ import java.util.Map;
 import static org.lwjgl.opengl.GL11.*;
 
 /**
- * Draws a door's sprite as a flat 2D icon (world list rows, colour picker). Loads the block
- * textures itself, so it works with no world loaded (title screen) and needs no Level.
- * Call only from the render thread, inside a 2D (Gui2D) pass.
+ * flat 2d door icon (world list rows, colour picker), loads its own textures so it works without a world
+ *
+ * render thread only, inside a Gui2D pass
  */
 public final class DoorIcons {
 
     private static final String TEXTURE_PATH = "/assets/rubydung/textures/block/";
 
-    /** GL texture id per texture name; 0 = the file couldn't be loaded (don't retry every frame). */
+    // gl texture id per name, 0 = failed to load (don't retry every frame)
     private static final Map<String, Integer> TEXTURES = new HashMap<>();
 
     private DoorIcons() {
     }
 
-    /** Draws the door as a size x size square with its top-left corner at (x, y). */
+    /** size x size square with its top-left at (x, y) */
     public static void draw(DoorColor color, boolean open, float x, float y, float size, float alpha) {
         int texture = texture(DimensionalDoorTile.textureName(color, open));
         if (texture == 0) {

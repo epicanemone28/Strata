@@ -31,35 +31,35 @@ import java.util.Set;
 public class WorldListScreen extends MenuScreen {
 
     private static final float ROW_WIDTH = UiStyle.PANEL_WIDTH;
-    /** Tall enough for a 28px badge with room above and below, inside the row's bevel. */
+    // tall enough for a 28px badge inside the row's bevel
     private static final float ROW_HEIGHT = 36.0f;
     private static final float ROW_GAP = 4.0f;
     private static final int TOTAL_WORLD_SLOTS = 10;
 
-    /** Space between the panel's bevel and its contents. */
+    // panel bevel to its contents
     private static final float PANEL_PADDING = 20.0f;
-    /** Space between the heading and the first row. */
+    // heading to the first row
     private static final float HEADING_GAP = 14.0f;
-    /** Space between the last row and the buttons. */
+    // last row to the buttons
     private static final float BUTTONS_GAP = 14.0f;
 
-    /** Three buttons share the width of a row, so their outer edges line up with it. */
+    // three buttons share a row's width so their outer edges line up with it
     private static final float BUTTON_WIDTH = 130.0f;
     private static final float BUTTON_ROW_GAP = (ROW_WIDTH - 3 * BUTTON_WIDTH) / 2.0f;
 
-    /** Text inside a row, measured from the row's left edge / top edge. */
+    // text inside a row, from its left / top edge
     private static final float TEXT_X = 10.0f;
     private static final float TEXT_Y = 10.0f;
 
-    /** Opacity of both panels' black drop shadows (1 = solid black). */
+    // opacity of both panels' black drop shadows (1 = solid black)
     private static final float SHADOW_ALPHA = 1.0f;
 
     // The "Info" tab: a second panel tucked behind the right edge of the main one.
     private static final float INFO_WIDTH = 232.0f;
     private static final float INFO_HEIGHT = 260.0f;
-    /** How far the tab slides in behind the main panel, so it reads as attached to it. */
+    // how far the tab slides in behind the main panel so it reads as attached
     private static final float INFO_OVERLAP = 14.0f;
-    /** How far below the main panel's top edge the tab starts. */
+    // tab start below the main panel's top edge
     private static final float INFO_TOP = 40.0f;
     private static final float INFO_PADDING = 22.0f;
     private static final int INFO_TEXT_WIDTH = (int) (INFO_WIDTH - 2 * INFO_PADDING);
@@ -73,7 +73,7 @@ public class WorldListScreen extends MenuScreen {
     private static final float INFO_CARD_LINE_GAP = 2.0f;
     private static final float INFO_CARD_SECTION_GAP = 6.0f;
 
-    /** Space kept free between a row's name and its badges. */
+    // between a row's name and its badges
     private static final float NAME_BADGE_GAP = 8.0f;
 
     // Door badges: 16x16 sprites whose art is a 14x14 square in the top-left corner (the right and
@@ -96,11 +96,11 @@ public class WorldListScreen extends MenuScreen {
     private List<WorldManager.WorldInfo> worlds = new ArrayList<>();
     private String pendingDelete = null;
 
-    /** The world shown in the Info tab: the one last hovered (null = none yet). */
+    // world in the Info tab: the last one hovered (null = none yet)
     private WorldManager.WorldInfo infoWorld = null;
     private Set<DoorColor> infoDoors = EnumSet.noneOf(DoorColor.class);
 
-    /** While true, clicking a world asks to delete it instead of opening it. */
+    // while true, clicking a world asks to delete it instead of opening it
     private boolean deleteMode = false;
 
     public WorldListScreen(RubyDung game) {
@@ -153,7 +153,7 @@ public class WorldListScreen extends MenuScreen {
                 .onClick(() -> game.openScreen(new TitleScreen(game))));
     }
 
-    /** The "Info" panel: details of the world the mouse is over, or a hint when there isn't one yet. */
+    // details of the hovered world, or a hint when there isn't one yet
     private Panel buildInfoTab() {
         Panel info = new Panel(INFO_GAP);
         info.setSize(INFO_WIDTH, INFO_HEIGHT);
@@ -173,8 +173,7 @@ public class WorldListScreen extends MenuScreen {
         return info;
     }
 
-    /** The regular door's badge is door.png; every other colour has a sprite named after it (blue.png, ...). */
-    /** Draws a badge's art (the top-left 14x14 of its sprite) with its top-left corner at (x, y). */
+    // draws a badge's art (top-left 14x14 of its sprite) at (x, y). the regular door is door.png, other colours are named after it (blue.png, ...)
     private static void drawBadge(DoorColor color, float x, float y) {
         float art = BADGE_ART_PIXELS / (float) BADGE_SPRITE_PIXELS;
         Gui2D.drawTextureRegion(badgeTexture(color), x, y, BADGE_SIZE, BADGE_SIZE, 0.0f, 0.0f, art, art);
@@ -191,10 +190,7 @@ public class WorldListScreen extends MenuScreen {
         super.render(mouseX, mouseY);
     }
 
-    /**
-     * Points the Info tab at the hovered world. Moving over the gaps between rows keeps the last
-     * world, so the tab doesn't flicker; moving onto a button clears it.
-     */
+    // points the Info tab at the hovered world. gaps between rows keep the last one (no flicker), moving onto a button clears it
     private void updateInfo(int mouseX, int mouseY) {
         Widget hit = this.root.pick(mouseX, mouseY);
 
@@ -249,16 +245,16 @@ public class WorldListScreen extends MenuScreen {
         super.mouseClicked(mouseX, mouseY);
     }
 
-    /** One slot of the list: a saved world (click to play, or to delete in delete mode) or an empty placeholder. */
+    // one list slot: a saved world (click to play, or delete in delete mode) or an empty placeholder
     private final class WorldRow extends Widget {
 
         private final int slotNumber;
         private WorldManager.WorldInfo world;
 
-        /** Whether the cursor was over this (filled) slot last frame, so the hover sound plays once per entry. */
+        // cursor was over this slot last frame, so the hover sound plays once per entry
         private boolean wasHovered = false;
 
-        /** Colours of the dimensional doors in this world, shown as badges on the right of the row. */
+        // colours of the dimensional doors in this world, shown as badges on the right
         private Set<DoorColor> doors = EnumSet.noneOf(DoorColor.class);
 
         WorldRow(int slotNumber) {
@@ -306,7 +302,7 @@ public class WorldListScreen extends MenuScreen {
             }
         }
 
-        /** The sunken slot look shared by every row: a dark inset with the inventory's bevel. */
+        // sunken slot shared by every row (dark inset with the inventory's bevel)
         private void drawSlot(float r, float g, float b, float fillAlpha, float bevelStrength) {
             float u = GameFrame.UI_SCALE;
 
@@ -351,13 +347,13 @@ public class WorldListScreen extends MenuScreen {
             drawBadges();
         }
 
-        /** Width the badges take from the right edge of the row, margin included (0 = no doors). */
+        // width the badges take from the row's right edge incl. margin (0 = no doors)
         private float badgesWidth() {
             int count = this.doors.size();
             return count == 0 ? 0.0f : count * BADGE_SIZE + (count - 1) * BADGE_GAP + BADGE_MARGIN;
         }
 
-        /** The text cut short with "..." so it fits in maxWidth pixels. */
+        // cuts the text short with "..." to fit maxWidth
         private String fit(Font font, String text, int maxWidth) {
             if (font.width(text) <= maxWidth) {
                 return text;
@@ -370,7 +366,7 @@ public class WorldListScreen extends MenuScreen {
             return cut + ellipsis;
         }
 
-        /** The world's door badges, always shown, right-aligned and vertically centred in the row. */
+        // right-aligned and vertically centred in the row, always shown
         private void drawBadges() {
             if (this.doors.isEmpty()) {
                 return;
@@ -393,13 +389,7 @@ public class WorldListScreen extends MenuScreen {
         }
     }
 
-    /**
-     * The square info card shown in the Info tab when a world is hovered.
-     * Draws a black bevelled slot (same look as world rows) and lists four sections:
-     * World Type, Last Played, Doors, and Size.
-     *
-     * Assumes WorldInfo carries: worldType, worldSize, timeMode, sizeBytes.
-     */
+    // square info card for the hovered world: World Type, Last Played, Doors and Size in a black bevelled slot
     private final class InfoCard extends Widget {
 
         InfoCard() {
@@ -419,7 +409,7 @@ public class WorldListScreen extends MenuScreen {
             float ty = this.y + INFO_CARD_PAD;
             float lh = UiStyle.LINE_HEIGHT;
 
-            // — World Type ————————————————————————
+            // world Type
             font.drawString("World Type", (int) tx, (int) ty, UiStyle.TEXT_DIM);
             ty += lh + INFO_CARD_LINE_GAP;
             String worldTypeStr = formatWorldType(infoWorld);
@@ -428,14 +418,14 @@ public class WorldListScreen extends MenuScreen {
                     worldTypeStr.isEmpty() ? UiStyle.TEXT_DISABLED : UiStyle.TEXT);
             ty += lh + INFO_CARD_SECTION_GAP;
 
-            // — Last Played ————————————————————————
+            // last Played
             font.drawString("Last Played", (int) tx, (int) ty, UiStyle.TEXT_DIM);
             ty += lh + INFO_CARD_LINE_GAP;
             font.drawString(INFO_DATE_FORMAT.format(new Date(infoWorld.lastPlayed)),
                     (int) tx, (int) ty, UiStyle.TEXT);
             ty += lh + INFO_CARD_SECTION_GAP;
 
-            // — Doors ——————————————————————————————
+            // doors
             font.drawString("Doors", (int) tx, (int) ty, UiStyle.TEXT_DIM);
             ty += lh + INFO_CARD_LINE_GAP;
             if (infoDoors.isEmpty()) {
@@ -449,14 +439,14 @@ public class WorldListScreen extends MenuScreen {
             }
             ty += BADGE_SIZE + INFO_CARD_SECTION_GAP;
 
-            // — Size ———————————————————————————————
+            // size
             font.drawString("Size", (int) tx, (int) ty, UiStyle.TEXT_DIM);
             ty += lh + INFO_CARD_LINE_GAP;
             font.drawString(formatSize(infoWorld.sizeBytes), (int) tx, (int) ty, UiStyle.TEXT);
         }
     }
 
-    /** Formats a world's type, size, and time mode into a single summary string. */
+    // type + size + time mode as one string
     private static String formatWorldType(WorldManager.WorldInfo w) {
         List<String> parts = new ArrayList<>();
 
@@ -485,7 +475,6 @@ public class WorldListScreen extends MenuScreen {
         return sb.toString();
     }
 
-    /** Formats a byte count as a human-readable disk size. */
     private static String formatSize(long bytes) {
         if (bytes < 1024L)             return bytes + " B";
         if (bytes < 1024L * 1024L)     return String.format("%.1f KB", bytes / 1024.0);

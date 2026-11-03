@@ -18,13 +18,11 @@ public class Tessellator {
 
     private int vertices = 0;
 
-    /** Added to every vertex: lets a tile be drawn shifted inside its cell (see SubTile). */
+    // added to every vertex, lets a tile be drawn shifted inside its cell (see SubTile)
     private float offsetX, offsetY, offsetZ;
 
-    /**
-     * Optional vertical clip (see setClip): quads are cut to the height range, and flat quads on the
-     * cell's top or bottom that fall outside it are pulled onto the cut, closing the shape.
-     */
+    // optional vertical clip (see setClipY): quads are cut to the height range
+    // flat quads on the cell's top or bottom outside it are pulled onto the cut, closing the shape
     private boolean clipActive = false;
     private float clipCellMin, clipCellMax, clipMin, clipMax;
     private final float[][] clipPos = new float[4][3];
@@ -98,10 +96,9 @@ public class Tessellator {
     }
 
     /**
-     * Draws only the part of what follows that lies between rangeMin and rangeMax (world heights),
-     * for a tile that fills just half of its cell (cellMin..cellMax is the whole cell). Flat quads
-     * on the cell's top or bottom that fall outside the range are moved onto the cut, so the half
-     * block has a lid instead of being hollow.
+     * draws only the part of what follows between rangeMin and rangeMax (world heights), for a tile that fills half its cell (cellMin..cellMax is the whole cell)
+     *
+     * flat quads on the cell's top or bottom outside the range move onto the cut, so the half block has a lid instead of being hollow
      */
     public void setClipY(float cellMin, float cellMax, float rangeMin, float rangeMax) {
         this.clipActive = true;
@@ -117,11 +114,7 @@ public class Tessellator {
         this.clipCount = 0;
     }
 
-    /**
-     * The face (Tile.FACE_*: 0 bottom, 1 top) that is the lid of the clipped shape: the top of a
-     * lower half, the bottom of an upper half. -1 when nothing is clipped. That face is drawn
-     * whatever the neighbour is, since it faces into the free half of the cell.
-     */
+    /** the face (Tile.FACE_*: 0 bottom, 1 top) that's the lid of the clipped shape: top of a lower half, bottom of an upper half, -1 when nothing is clipped. drawn whatever the neighbour is, since it faces into the free half of the cell */
     public int getClipCapFace() {
         if (!this.clipActive) {
             return -1;
@@ -136,7 +129,7 @@ public class Tessellator {
         return this.clipActive;
     }
 
-    /** The cut plane a flat quad on the cell's top or bottom is moved to, or NaN if it is not one. */
+    // the cut plane a flat quad on the cell's top or bottom is moved to, NaN if it isn't one
     private float capPlane(float y) {
         final float e = 1.0E-4F;
         if (y < this.clipMin - e && Math.abs(y - this.clipCellMin) < e) {

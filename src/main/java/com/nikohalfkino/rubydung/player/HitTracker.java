@@ -6,10 +6,7 @@ import com.nikohalfkino.rubydung.level.TilePicker;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Keeps the current crosshair hit plus the queue of distinct hits seen since the last tick, so
- * fast sweeps over blocks don't lose any of the cells the crosshair passed over.
- */
+/** the current crosshair hit plus the queue of distinct hits since the last tick, so fast sweeps over blocks don't lose cells the crosshair passed over */
 final class HitTracker {
 
     private static final int MAX_PENDING_HITS = 64;
@@ -26,7 +23,7 @@ final class HitTracker {
         return this.hitResult;
     }
 
-    /** Live view of the hits queued since the last drain (not a copy). */
+    /** live view of the hits queued since the last drain (not a copy) */
     List<HitResult> pending() {
         return this.pendingHits;
     }

@@ -9,11 +9,11 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * An IRC-style user list: one "@nick" row per user, each nick in its own colour, optionally with
- * a "(You!)" tag after the local player's name (see {@link #setSelf}). Fills the rectangle it is
- * given and stops when it runs out of height. Names that are too wide are broken across lines, and
- * the "(You!)" tag moves to its own line when it does not fit beside the name. The user names come from a supplier, so the list
- * is always current.
+ * irc-style user list: one "@nick" row per user, each in its own colour, optionally a "(You!)" tag after the local player (see setSelf)
+ *
+ * fills the rectangle it's given and stops when it runs out of height, too-wide names are broken across lines and "(You!)" moves to its own line if it doesn't fit
+ *
+ * names come from a supplier so the list is always current
  */
 public class UserList extends Widget {
 
@@ -33,7 +33,7 @@ public class UserList extends Widget {
         this.scale = scale;
     }
 
-    /** Marks the user whose name {@code self} returns with a "(You!)" tag. */
+    /** the user whose name self returns gets a "(You!)" tag */
     public UserList setSelf(Supplier<String> self) {
         this.self = self;
         return this;
@@ -53,7 +53,7 @@ public class UserList extends Widget {
         return (int) (font.getWidth(text) * this.scale);
     }
 
-    /** Splits a name into pieces no wider than {@code limit} pixels (always at least one piece). */
+    // splits into pieces no wider than limit pixels (at least one)
     private List<String> breakName(Font font, String name, int limit) {
         List<String> pieces = new ArrayList<>();
         StringBuilder current = new StringBuilder();

@@ -11,37 +11,21 @@ import java.util.TreeSet;
 import java.util.stream.Stream;
 
 /**
- * Persistent settings for the Open JTalk TTS engine, saved to {@code jtalk.txt}.
+ * settings for the Open JTalk tts engine, saved to jtalk.txt
  *
- * <p>Every float field maps 1-to-1 to an open_jtalk command-line flag:
- * <ul>
- *   <li>{@link #speed}  → {@code -r}  speech speed rate
- *   <li>{@link #pitch}  → {@code -fm} additional half-tones for F0
- *   <li>{@link #alpha}  → {@code -a}  mel-cepstrum all-pass constant (timbre)
- *   <li>{@link #voiced} → {@code -u}  voiced/unvoiced threshold: a frame is voiced only if its
- *       voicing probability is ABOVE this, so LOWER = more voiced, higher = more whispery/unvoiced
- *   <li>{@link #jf}     → {@code -jf} GV weight for F0 (higher = more dramatic pitch contour,
- *       0 = flat and steady)
- * </ul>
+ * speed -> -r, pitch -> -fm, alpha -> -a, voiced -> -u (lower = more voiced), jf -> -jf (0 = flat pitch)
  *
- * <p><b>Sing mode</b> presets override speed/voiced/jf to produce the slow, droning,
- * fully-voiced, steady-pitched output that gives the Moonbase Alpha text-to-speech its character.
- * It is switched on by the toggle, or automatically for any chat line containing valid notes.
- * {@link #singNote} shifts the whole utterance up or down in half-tones on top of
- * the normal {@link #pitch}; inline {@code [N]} markers in the chat text can override
- * it word-by-word for melodies.
+ * sing mode presets override speed/voiced/jf, and kick in automatically for chat lines with notes
+ *
+ * singNote shifts the whole utterance in half-tones, inline [N] markers override it per word
  */
 public final class JTalkSettings {
 
     private static final String FILE_NAME = "jtalk.txt";
 
-    // ── Bundled engine location ───────────────────────────────────────────────
-    //
-    // Layout under the JTalk home folder (packaged builds set -Djtalk.home=$APPDIR/jtalk):
-    //   bin/open_jtalk[.exe]   (+ any DLLs it needs)
-    //   open_jtalk_dic_utf_8/
-    //   voice/**.htsvoice      (subfolders allowed: voice/mei/, voice/takumi/, ...)
-    // Anything not found there falls back to PATH / empty, and jtalk.txt can override all three.
+    // bundled engine location (packaged builds set -Djtalk.home=$APPDIR/jtalk)
+    // under it: bin/open_jtalk[.exe], open_jtalk_dic_utf_8/, voice/**.htsvoice
+    // anything missing falls back to PATH / empty, jtalk.txt can override all three
 
     private static final String HOME = System.getProperty("jtalk.home", "jtalk");
     private static final boolean WINDOWS =
@@ -65,7 +49,7 @@ public final class JTalkSettings {
         return f.isDirectory() ? f.getAbsolutePath() : "open_jtalk_dic_utf_8";
     }
 
-    /** Prefers mei_normal; otherwise the first voice found. Empty string if there are none. */
+    // prefers mei_normal, else the first voice found ("" if none)
     private static String findVoice() {
         File[] voices = listVoices();
         for (File f : voices) {
@@ -74,14 +58,14 @@ public final class JTalkSettings {
         return voices.length > 0 ? voices[0].getAbsolutePath() : "";
     }
 
-    // ── Voices ────────────────────────────────────────────────────────────────
+    // voices
 
-    /** Folder that is searched for voices: {@code jtalk/voice} if it exists, else the jtalk home itself. */
+    // jtalk/voice if it exists, else the jtalk home
     private static File voiceRoot() {
         return VOICE_DIR.isDirectory() ? VOICE_DIR : new File(HOME);
     }
 
-    /** Every bundled {@code .htsvoice} (searching subfolders), sorted by path. */
+    /** all bundled .htsvoice files (incl. subfolders), sorted by path */
     public static File[] listVoices() {
         File root = voiceRoot();
         if (!root.isDirectory()) return new File[0];
@@ -95,34 +79,32 @@ public final class JTalkSettings {
         }
     }
 
-    /** File name without {@code .htsvoice}, lowercase: {@code Mei_Normal.htsvoice} -> {@code mei_normal}. */
+    // file name without .htsvoice, lowercase
     private static String stem(File f) {
         String n = f.getName().toLowerCase(Locale.ROOT);
         return n.endsWith(".htsvoice") ? n.substring(0, n.length() - ".htsvoice".length()) : n;
     }
 
-    /** Character part of a voice file: {@code mei_happy} -> {@code mei}. */
+    // mei_happy -> mei
     private static String characterOf(File f) {
         String s = stem(f);
         int u = s.indexOf('_');
         return u > 0 ? s.substring(0, u) : s;
     }
 
-    /** Mood part of a voice file: {@code mei_happy} -> {@code happy}; {@code "default"} if there is none. */
+    // mei_happy -> happy, "default" if there is none
     private static String moodOf(File f) {
         String s = stem(f);
         int u = s.indexOf('_');
         return u > 0 && u < s.length() - 1 ? s.substring(u + 1) : "default";
     }
 
-    /** Characters that have at least one bundled voice, sorted (e.g. mei, takumi). */
     public static List<String> listCharacters() {
         TreeSet<String> set = new TreeSet<>();
         for (File f : listVoices()) set.add(characterOf(f));
         return new ArrayList<>(set);
     }
 
-    /** Moods available for a character, in file-name order (e.g. angry, bashful, happy, normal, sad). */
     public static List<String> listMoods(String character) {
         List<String> out = new ArrayList<>();
         for (File f : listVoices()) {
@@ -131,17 +113,17 @@ public final class JTalkSettings {
         return out;
     }
 
-    /** Character of the voice currently in use, or {@code "none"}. */
+    // "none" if no voice
     public static String getVoiceCharacter() {
         return voicePath.isEmpty() ? "none" : characterOf(new File(voicePath));
     }
 
-    /** Mood of the voice currently in use, or {@code "none"}. */
+    // "none" if no voice
     public static String getVoiceMood() {
         return voicePath.isEmpty() ? "none" : moodOf(new File(voicePath));
     }
 
-    /** Selects the voice for a character + mood, e.g. ("takumi", "sad"). Returns false if there is none. */
+    /** false if there is no such voice */
     public static boolean setVoice(String character, String mood) {
         for (File f : listVoices()) {
             if (characterOf(f).equals(character) && moodOf(f).equals(mood)) {
@@ -152,7 +134,7 @@ public final class JTalkSettings {
         return false;
     }
 
-    /** Switches to the next character, keeping the current mood if it has one, else "normal", else its first. */
+    /** keeps the current mood if the next character has it, else "normal", else its first */
     public static void nextCharacter() {
         List<String> chars = listCharacters();
         if (chars.isEmpty()) return;
@@ -166,10 +148,7 @@ public final class JTalkSettings {
         setVoice(next, mood);
     }
 
-    /**
-     * Selects a bundled voice by name. Accepts the file name with or without {@code .htsvoice}
-     * ({@code "takumi_normal"}). Returns false if no bundled voice matches.
-     */
+    /** name with or without .htsvoice, false if no bundled voice matches */
     public static boolean setVoiceByName(String name) {
         if (!notBlank(name)) return false;
         String want = name.strip().toLowerCase(Locale.ROOT);
@@ -184,7 +163,7 @@ public final class JTalkSettings {
         return false;
     }
 
-    // ── Parameter bounds ──────────────────────────────────────────────────────
+    // bounds
 
     public static final float MIN_SPEED  = 0.3f;
     public static final float MAX_SPEED  = 3.0f;
@@ -206,27 +185,25 @@ public final class JTalkSettings {
     public static final float MAX_VOICED = 1.0f;
     public static final float DEF_VOICED = 0.5f;
 
-    /** Sing-mode presets – applied instead of speed/voiced/jf when sing mode is on. */
+    // sing mode presets (used instead of speed/voiced/jf)
     public static final float SING_SPEED  = 0.45f;
-    /** Low threshold = (almost) every frame is voiced, so the pitch shift can actually be heard. */
+    // low = almost every frame is voiced so the pitch shift is audible
     public static final float SING_VOICED = 0.10f;
-    /** No GV on F0 = a steady, flat pitch per note instead of a speech-like melody. */
+    // no GV on F0 = steady pitch per note
     public static final float SING_JF     = 0.00f;
 
-    // ── State ─────────────────────────────────────────────────────────────────
+    // state
 
     private static volatile boolean enabled   = true;
 
-    /** Whether chat text is converted to katakana ({@link Katakana}) before it is sent to the voice. */
+    // convert chat text to katakana before speaking
     private static volatile boolean transliterate = true;
 
-    /** Path to the {@code open_jtalk} binary; {@code "open_jtalk"} works if it is on PATH. */
+    // "open_jtalk" works if it is on PATH
     private static volatile String  execPath  = DEF_EXEC;
 
-    /** Path to the UTF-8 MeCab dictionary directory bundled with Open JTalk. */
     private static volatile String  dicPath   = DEF_DIC;
 
-    /** Path to the {@code .htsvoice} file (mei_normal by default). */
     private static volatile String  voicePath = DEF_VOICE;
 
     private static volatile float   speed     = DEF_SPEED;
@@ -237,15 +214,12 @@ public final class JTalkSettings {
 
     private static volatile boolean singMode  = false;
 
-    /**
-     * Base pitch offset (half-tones) used in sing mode when no inline marker overrides it.
-     * Stacks on top of {@link #pitch}.
-     */
+    // half-tones used in sing mode when no marker overrides it (stacks on pitch)
     private static volatile float   singNote  = 0.0f;
 
     private JTalkSettings() {}
 
-    // ── Accessors ─────────────────────────────────────────────────────────────
+    // accessors
 
     public static boolean isEnabled()              { return enabled; }
     public static void    setEnabled(boolean v)    { enabled = v; }
@@ -283,7 +257,7 @@ public final class JTalkSettings {
     public static float   getSingNote()            { return singNote; }
     public static void    setSingNote(float v)     { singNote = clamp(v, MIN_PITCH, MAX_PITCH); }
 
-    // ── Resets (used by the reset buttons next to each slider) ───────────────
+    // resets (for the reset buttons next to the sliders)
 
     public static void resetSpeed()    { speed    = DEF_SPEED;  }
     public static void resetPitch()    { pitch    = DEF_PITCH;  }
@@ -292,7 +266,7 @@ public final class JTalkSettings {
     public static void resetJf()       { jf       = DEF_JF;     }
     public static void resetSingNote() { singNote = 0.0f;       }
 
-    // ── Load / save ───────────────────────────────────────────────────────────
+    // load / save
 
     public static void load() {
         File file = new File(FILE_NAME);
@@ -357,7 +331,7 @@ public final class JTalkSettings {
         }
     }
 
-    /** Blank for the default voice, just the file name for a bundled one, the full path otherwise. */
+    // blank for the default voice, file name for a bundled one, full path otherwise
     private static String voiceForSave() {
         if (voicePath.equals(DEF_VOICE)) return "";
         File f = new File(voicePath);
@@ -366,7 +340,7 @@ public final class JTalkSettings {
         return bundled ? f.getName() : voicePath;
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // helpers
 
     private static boolean notBlank(String s) { return s != null && !s.isBlank(); }
 

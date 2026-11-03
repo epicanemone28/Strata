@@ -4,10 +4,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Single background thread for world saves. One thread means saves run in order and two saves can
- * never write the same file at once.
- */
+/** single background thread for world saves, so saves run in order and two never write the same file at once */
 public final class SaveQueue {
 
     private static final ExecutorService EXEC = Executors.newSingleThreadExecutor(r -> {
@@ -23,7 +20,7 @@ public final class SaveQueue {
         EXEC.submit(job);
     }
 
-    /** Blocks until everything queued so far has been written. */
+    /** blocks until everything queued so far has been written */
     public static void flush() {
         try {
             EXEC.submit(() -> { }).get();
@@ -33,7 +30,7 @@ public final class SaveQueue {
         }
     }
 
-    /** Call once on shutdown, after the final save. */
+    /** call once on shutdown, after the final save */
     public static void shutdownAndWait() {
         EXEC.shutdown();
         try {

@@ -9,20 +9,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A full block whose texture is a large sheet laid over the WORLD, not over each block: with a
- * 64x48 texture (4 x 3 cells) every block shows the cell that belongs to its position, so the
- * picture runs on across neighbouring blocks and repeats every 4 blocks sideways and every
- * 3 blocks up (the sheet's width / height in blocks).
+ * full block whose texture is a big sheet laid over the WORLD, not over each block: with a 64x48 texture (4 x 3 cells) every block shows the cell for its position, so the picture runs across neighbouring blocks and repeats every 4 blocks sideways and every 3 up
  *
- * <ul>
- *   <li>Side faces: the sheet runs along the wall (left to right as seen from outside) and up
- *       the Y axis. Row 0 of the sheet is the top, y = 0 is the sheet's bottom row.</li>
- *   <li>Top and bottom faces: columns follow X, rows follow Z (north = top of the sheet).</li>
- * </ul>
+ * side faces: the sheet runs along the wall (left to right as seen from outside) and up the Y axis, row 0 is the top, y = 0 is the bottom row. top / bottom faces: columns follow X, rows follow Z (north = top of the sheet)
  *
- * Any sheet size works as long as its sides are whole multiples of the cell size; see the slice
- * notes in {@link Textures}. Everything is decided at draw time from the coordinates, so nothing
- * is stored in the world and placing or breaking neighbours changes nothing.
+ * any size works if its sides are whole multiples of the cell size (see the slice notes in Textures). it's all decided at draw time from the coordinates, so nothing is stored in the world
  */
 public class WrappedTile extends Tile {
 

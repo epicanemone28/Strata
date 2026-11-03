@@ -23,7 +23,7 @@ public class ScreenshotManager {
 
     private static final File SCREENSHOTS_DIR = new File("screenshots");
 
-    /** Must reach past the skybox (radius 2000) and the sun/moon, same as the in-game far plane. */
+    // must reach past the skybox (radius 2000) and the sun/moon, same as the in-game far plane
     private static final float FAR_PLANE = 4096.0F;
 
     private final RubyDung game;

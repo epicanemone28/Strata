@@ -1,9 +1,6 @@
 package com.nikohalfkino.rubydung.interfaces;
 
-/**
- * Shared sizes, spacing and colours for the UI, in one place. Change a value here and every menu
- * that uses it follows; a screen that needs something different just passes its own number.
- */
+/** shared sizes, spacing and colours for the UI, a screen that needs something else passes its own number */
 public final class UiStyle {
 
     private UiStyle() {
@@ -33,6 +30,5 @@ public final class UiStyle {
     public static final int TEXT_ERROR = 0xFF5555;
     public static final int TEXT_DANGER = 0xFF8888;
 
-    /** Height of one line of normal text. */
     public static final float LINE_HEIGHT = 16.0f;
 }

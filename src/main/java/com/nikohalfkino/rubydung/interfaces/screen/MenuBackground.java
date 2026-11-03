@@ -17,13 +17,13 @@ final class MenuBackground {
 
     private static final int NOISE_SIZE = NoisePattern.TILE_SIZE;
 
-    /** Screen pixels one tile covers; scaled by the UI scale so the stones match the in-world frame. */
+    // screen pixels one tile covers, scaled by the UI scale so the stones match the in-world frame
     private static final float TILE_SIZE = NOISE_SIZE * GameFrame.UI_SCALE;
 
-    /** Grey levels are snapped to steps of this size, like the frame's noise (0..255). */
+    // grey levels snap to steps of this size (0..255), like the frame's noise
     private static final int GRAY_STEP = 4;
 
-    /** Multiplier on the texture's greys (1 = as generated, lower = darker backdrop). */
+    // multiplier on the texture's greys (1 = as generated)
     private static final float BRIGHTNESS = 0.55f;
 
     private static int textureId = -1;
@@ -59,7 +59,7 @@ final class MenuBackground {
         glDisable(GL_TEXTURE_2D);
     }
 
-    /** Builds the repeating cobblestone texture from {@link NoisePattern}. */
+    // repeating cobblestone texture from NoisePattern
     private static int createTexture() {
         float[] noise = PATTERN.generate(NOISE_SIZE, SEED);
         ByteBuffer buffer = BufferUtils.createByteBuffer(NOISE_SIZE * NOISE_SIZE * 4);

@@ -21,12 +21,12 @@ public class SkyboxRenderer {
     private static final String SUN_TEXTURE = "/assets/rubydung/textures/enviroment/sun.png";
     private static final String MOON_TEXTURE = "/assets/rubydung/textures/enviroment/moon.png";
 
-    /** Distance of the sun/moon quads from the eye (inside SKY_RADIUS). */
+    // distance of the sun/moon quads from the eye (inside SKY_RADIUS)
     private static final float BODY_DISTANCE = 1500.0F;
     private static final float SUN_HALF_SIZE = 140.0F;
     private static final float MOON_HALF_SIZE = 100.0F;
 
-    /** Tilt of the sun/moon orbit away from the east-west plane (radians), so noon isn't exactly overhead. */
+    // tilt of the sun/moon orbit away from the east-west plane (radians), so noon isn't exactly overhead
     private static final float ORBIT_TILT = 0.4F;
 
     private final Tessellator tessellator = new Tessellator();
@@ -38,10 +38,7 @@ public class SkyboxRenderer {
     // The current cycle reference, updated each frame before rendering.
     private DayNightCycle cycle;
 
-    /**
-     * Renders the skybox for this frame. Sky colors are driven by the day-night cycle,
-     * so we render the mesh directly every frame instead of caching a display list.
-     */
+    /** sky colours come from the day-night cycle, so the mesh is rendered directly every frame instead of cached in a display list */
     public void render(double eyeX, double eyeY, double eyeZ, DayNightCycle cycle) {
         this.cycle = cycle;
 
@@ -56,13 +53,10 @@ public class SkyboxRenderer {
         cleanupRenderState();
     }
 
-    // ── Sun and moon ──────────────────────────────────────────────────────
+    // sun and moon
 
-    /**
-     * Draws the sun and moon as camera-facing quads on a tilted circular orbit driven by the
-     * cycle's time (0.25 = sunrise, 0.5 = sun at its highest, 0.75 = sunset; the moon is opposite).
-     * The textures have a black background, so they are blended additively and the black vanishes.
-     */
+    // camera-facing quads on a tilted circular orbit driven by the cycle's time (0.25 = sunrise, 0.5 = highest, 0.75 = sunset, the moon is opposite)
+    // the textures have a black background, so they're blended additively and the black vanishes
     private void renderSunAndMoon() {
         if (!this.bodyTexturesLoaded) {
             this.bodyTexturesLoaded = true;
@@ -143,7 +137,7 @@ public class SkyboxRenderer {
         this.tessellator.flush();
     }
 
-    /** Loads a PNG from the classpath into a clamped, nearest-filtered RGBA texture. Returns 0 on failure. */
+    // loads a PNG from the classpath into a clamped, nearest-filtered RGBA texture, 0 on failure
     private static int loadTexture(String path) {
         try (InputStream in = SkyboxRenderer.class.getResourceAsStream(path)) {
             if (in == null) {

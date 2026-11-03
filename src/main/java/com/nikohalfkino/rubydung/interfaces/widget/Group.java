@@ -3,12 +3,9 @@ package com.nikohalfkino.rubydung.interfaces.widget;
 import com.nikohalfkino.rubydung.render.Font;
 
 /**
- * A free-form container: every child is positioned on its own by its anchor and offset, relative
- * to this group's rectangle. Without a fixed size the group is as big as its biggest child.
- * <pre>
- *     group.add(new Label("Top left"), Anchor.TOP_LEFT, 10, 10);
- *     group.add(new Label("Bottom right"), Anchor.BOTTOM_RIGHT, -10, -10);
- * </pre>
+ * free-form container: every child is positioned by its own anchor and offset relative to the group's rectangle
+ *
+ * without a fixed size it's as big as its biggest child
  */
 public class Group extends Container {
 

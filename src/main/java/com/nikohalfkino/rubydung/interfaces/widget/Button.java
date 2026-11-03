@@ -8,15 +8,7 @@ import com.nikohalfkino.rubydung.render.Font;
 
 import java.util.function.Supplier;
 
-/**
- * A clickable button. Give it its action with {@link #onClick}; there is no click handling to
- * write in the screen.
- * <pre>
- *     column.add(new Button("Play", 200, 30, true).onClick(() -> game.openScreen(...)));
- *     Button cap = column.add(new Button(() -> "FPS Cap: " + cap(), 200, 30, true));
- *     cap.setEnabledWhen(() -> !vsyncOn);      // greyed out and unclickable while the condition fails
- * </pre>
- */
+/** clickable button, give it an action with onClick, no click handling needed in the screen */
 public class Button extends Widget {
 
     private static final String DEFAULT_9SLICE_TEXTURE = "/assets/rubydung/textures/gui/button.png";
@@ -26,7 +18,7 @@ public class Button extends Widget {
     private Runnable onClick;
     private boolean selected = false;
 
-    /** Whether the cursor was over the (enabled) button last frame, so the hover sound plays once per entry. */
+    // cursor was over the (enabled) button last frame, so the hover sound plays once per entry
     private boolean wasHovered = false;
 
     private boolean useNineSlice = false;
@@ -43,19 +35,19 @@ public class Button extends Widget {
         this.useNineSlice = useNineSlice;
     }
 
-    /** Standard menu button (see {@link UiStyle}). */
+    /** standard menu button (see UiStyle) */
     public Button(String label) {
         this(label, UiStyle.BUTTON_WIDTH, UiStyle.BUTTON_HEIGHT, true);
     }
 
-    /** A button whose label is looked up again every frame. */
+    /** label is looked up again every frame */
     public Button(Supplier<String> label, float width, float height, boolean useNineSlice) {
         this.label = label;
         setSize(width, height);
         this.useNineSlice = useNineSlice;
     }
 
-    /** What happens when the button is clicked. Not called while the button is disabled. */
+    /** not called while the button is disabled */
     public Button onClick(Runnable onClick) {
         this.onClick = onClick;
         return this;
@@ -77,7 +69,7 @@ public class Button extends Widget {
         return this.selected;
     }
 
-    /** Draws the button as a raised bevelled slab (see {@link Bevel#raisedFrame}) instead of the texture. */
+    /** raised bevelled slab (see Bevel.raisedFrame) instead of the texture */
     public Button beveled() {
         this.beveled = true;
         return this;

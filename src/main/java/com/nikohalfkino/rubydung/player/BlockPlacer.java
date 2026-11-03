@@ -15,11 +15,9 @@ import java.util.Set;
 import static com.nikohalfkino.rubydung.player.InteractionContext.*;
 
 /**
- * Placing blocks: single clicks, hold-to-build with a paced budget, drag-building along a row,
- * and extending a column while flying along it.
- * <p>
- * placing and breaking logic from
- * <a href="https://mojang.github.io/bedrock-protocol-docs/guides/build-action-simulation-rate/">mojang docs</a>
+ * placing blocks: single clicks, hold-to-build with a paced budget, drag-building along a row, and extending a column while flying along it
+ *
+ * placing and breaking logic from https://mojang.github.io/bedrock-protocol-docs/guides/build-action-simulation-rate/
  */
 final class BlockPlacer {
 
@@ -31,10 +29,7 @@ final class BlockPlacer {
     private static final double BUILD_DELAY_MOVING_MAX_MS = 180.0;
     private static final double BUILD_DELAY_MOVING_FACTOR = 900.0;
 
-    /**
-     * How far (in blocks) from the player's eyes the NEXT block of a flown-along column may be.
-     * Kept inside the normal pick reach (5), so a column never races ahead of the player.
-     */
+    // how far (in blocks) from the eyes the NEXT block of a flown-along column may be, kept inside the normal pick reach so a column never races ahead of the player
     private static final double EXTEND_REACH = 4.0;
     private static final double MAX_COLUMN_BANK = 3.0;
 
@@ -46,19 +41,16 @@ final class BlockPlacer {
 
     private double buildBudget = 1.0;
 
-    /** The cell the last block of the current drag-build went into (see extendBuildColumn). */
+    // cell the last block of the current drag-build went into (see extendBuildColumn)
     private int lastPlacedX, lastPlacedY, lastPlacedZ;
 
-    /** Height flown along the column being built that hasn't been paid out as blocks yet. */
+    // height flown along the column being built that hasn't been paid out as blocks yet
     private double columnBank = 0.0;
 
-    /** True while tick() (the place button held down) is running, false for a fresh click. */
+    // true while tick() (place button held) is running, false for a fresh click
     private boolean holding = false;
 
-    /**
-     * Horizontal unit vector the player is looking along this tick, taken from the crosshair hit
-     * (the hit lies on the look ray). Only meaningful while hasLook is true.
-     */
+    // horizontal unit vector the player looks along this tick, from the crosshair hit (it lies on the look ray). only meaningful while hasLook is true
     private double lookX, lookZ;
     private boolean hasLook = false;
 
@@ -71,7 +63,7 @@ final class BlockPlacer {
         this.ctx = ctx;
     }
 
-    /** Right mouse button pressed: a fresh placement, not part of any drag-build. */
+    // right mouse button pressed: a fresh placement, not part of any drag-build
     void handleClick(HitResult hit) {
         this.holding = false;
         this.buildBudget = 1.0;
@@ -86,13 +78,13 @@ final class BlockPlacer {
 
     // Shared with BlockReplacer
 
-    /** Direction (0..3) the player is facing, used as the rotation of multi-tile objects. */
+    // direction (0..3) the player faces, used as the rotation of multi-tile objects
     int placementDirection() {
         int rot = (int) Math.floor((this.ctx.player.yRotation * 4.0F / 360.0F) + 0.5D) & 3;
         return (4 - rot) & 3;
     }
 
-    /** Axis data for rotatable tiles, based on the face they were placed against (0 = Y, 1 = Z, 2 = X). */
+    // axis data for rotatable tiles from the face they were placed against (0 = Y, 1 = Z, 2 = X)
     int axisForFace(int face) {
         Tile selected = this.ctx.selectedTile;
         if (!(selected instanceof RotatableTile)) {
@@ -124,7 +116,7 @@ final class BlockPlacer {
         return false;
     }
 
-    /** Whether any cell the selected tile would occupy overlaps the player (rotation matters for non-square footprints). */
+    // whether any cell the selected tile would occupy overlaps the player (rotation matters for non-square footprints)
     boolean footprintIntersectsPlayer(int x, int y, int z, int rotation) {
         Tile selected = this.ctx.selectedTile;
         int sizeX = selected.getSizeX(rotation);
@@ -167,7 +159,7 @@ final class BlockPlacer {
         return true;
     }
 
-    /** The delay before the next block may be placed, in milliseconds */
+    // ms before the next block may be placed
     private double placeDelayMs(double speed) {
         boolean sneaking = KeyBinding.SNEAK.isDown() && !this.ctx.player.flying && !this.ctx.player.noClip;
         if (sneaking) {
@@ -180,17 +172,10 @@ final class BlockPlacer {
         return BUILD_DELAY_STILL_MS;
     }
 
-    /**
-     * Places a block against the hit face. Costs one block of the budget. In order:
-     * <ol>
-     *   <li>Complete a half slab of the same kind (the clicked cell first, then the cell next to it).</li>
-     *   <li>If the tile doesn't fill its cell, put it INTO the free space of an occupied cell:
-     *       the clicked cell when the face is inside it (top of a bottom slab), or the occupied
-     *       cell next to the face. It is pushed flush against the clicked surface and may sit
-     *       anywhere inside the cell (see SubTilePlacement).</li>
-     *   <li>Otherwise the ordinary placement into the empty cell next to the face.</li>
-     * </ol>
-     */
+    // places a block against the hit face, costs one block of the budget. in order:
+    // 1. complete a half slab of the same kind (the clicked cell first, then the cell next to it)
+    // 2. if the tile doesn't fill its cell, put it INTO the free space of an occupied cell (the clicked cell when the face is inside it, like the top of a bottom slab, or the occupied cell next to the face), pushed flush against the clicked surface, see SubTilePlacement
+    // 3. otherwise ordinary placement into the empty cell next to the face
     private boolean placeAgainst(HitResult hit) {
         Tile selected = this.ctx.selectedTile;
         PlacementAim aim = this.ctx.aim;
@@ -263,7 +248,7 @@ final class BlockPlacer {
         return true;
     }
 
-    /** Bookkeeping after any successful placement: spends the budget and extends the drag-build line. */
+    // bookkeeping after any successful placement: spends the budget and extends the drag-build line
     private void notePlaced(HitResult hit, int x, int y, int z) {
         if (this.holding) {
             HandHud.swingHeld(HandHud.Action.PLACE);       // held: let the swing play out
@@ -317,14 +302,8 @@ final class BlockPlacer {
                 && movingAlongFace(hit.face));
     }
 
-    /**
-     * Whether the player is moving this tick in the direction the face points (away from the block).
-     * <p>
-     * For the horizontal faces this goes by the keys held, not by the raw position change: only the
-     * forward/back keys count, so strafing along a row never reads as backing away from it, however
-     * far off-square the player is standing to the wall. The actual movement must still agree, so a
-     * back key held against an obstacle doesn't count.
-     */
+    // whether the player moves this tick in the direction the face points (away from the block)
+    // horizontal faces go by the keys held, not the raw position change: only forward/back count so strafing along a row never reads as backing away, however far off-square the player stands. the actual movement must still agree, so a back key held against an obstacle doesn't count
     private boolean movingAlongFace(int face) {
         int[] n = FACE_NORMALS[face];
         Player p = this.ctx.player;
@@ -338,11 +317,7 @@ final class BlockPlacer {
         return keyAlongFace(n) > 0.0;
     }
 
-    /**
-     * How much the forward/back keys currently held push the player along the face normal:
-     * positive = away from the block, negative = toward it, 0 = no forward/back key (or both).
-     * Strafe keys deliberately contribute nothing.
-     */
+    // how much the held forward/back keys push the player along the face normal: positive = away from the block, negative = toward it, 0 = none (or both). strafe keys contribute nothing
     private double keyAlongFace(int[] normal) {
         if (!this.hasLook) {
             return 0.0;
@@ -351,7 +326,7 @@ final class BlockPlacer {
         return forward * (this.lookX * normal[0] + this.lookZ * normal[2]);
     }
 
-    /** Works out the horizontal look direction from the newest hit (the one under the crosshair now). */
+    // horizontal look direction from the newest hit (the one under the crosshair now)
     private void updateLook(List<HitResult> hits) {
         this.hasLook = false;
         if (hits.isEmpty()) {
@@ -390,7 +365,7 @@ final class BlockPlacer {
         return true;
     }
 
-    /** One tick of holding the place button. */
+    // one tick of holding the place button
     void tick(List<HitResult> hits, double speed) {
         this.holding = true;
         try {
@@ -432,12 +407,8 @@ final class BlockPlacer {
         }
     }
 
-    /**
-     * While a vertical drag-build is active (blocks placed against a top or bottom face) and the
-     * player is flying along it (up for a top face, down for a bottom face), places the next block
-     * of the column, whatever the crosshair is aimed at. The movement is what asks for it, so
-     * standing still next to a column never grows it.
-     */
+    // while a vertical drag-build is active (placed against a top or bottom face) and the player flies along it (up for a top face, down for a bottom face), places the next block of the column whatever the crosshair is on
+    // the movement asks for it, so standing next to a column never grows it
     private boolean extendBuildColumn() {
         if (!this.buildActive || (this.buildFace != Tile.FACE_TOP && this.buildFace != Tile.FACE_BOTTOM)) {
             return false;

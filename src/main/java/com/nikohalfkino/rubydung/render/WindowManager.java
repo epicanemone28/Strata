@@ -15,18 +15,15 @@ import java.awt.Rectangle;
 import static org.lwjgl.opengl.GL11.*;
 
 /**
- * Keeps the game's logical size (what the UI lays itself out in) apart from the real window size,
- * and works out where the game is drawn inside the window.
- * <p>
- * Three display states ({@link DisplayType}): a plain resizable window, a maximized window that
- * fills the desktop work area, and fullscreen. Windowed always uses Expand; maximized and
- * fullscreen each have their own layout:
- * <ul>
- *   <li>Expand: the logical size is the whole window / screen, so the UI fills it.</li>
- *   <li>Fit: the 800x600 game scaled up by the largest <b>whole number</b> that fits, centred, black
- *       bars. Whole-number scaling keeps every game pixel the same size on screen.</li>
- *   <li>Bordered: 800x600 at 1:1, centred, black around it (shrinks to fit if the window is smaller).</li>
- * </ul>
+ * keeps the game's logical size (what the UI lays out in) apart from the real window size, and works out where the game is drawn inside the window
+ *
+ * three display states (DisplayType): plain resizable window, maximized (fills the desktop work area), fullscreen. windowed always uses Expand, maximized and fullscreen each have their own layout:
+ *
+ * Expand: logical size is the whole window / screen, the UI fills it
+ *
+ * Fit: the 800x600 game scaled by the largest whole number that fits, centred, black bars (keeps every game pixel the same size)
+ *
+ * Bordered: 800x600 at 1:1, centred, black around it (shrinks to fit a smaller window)
  */
 public final class WindowManager {
 
@@ -36,14 +33,14 @@ public final class WindowManager {
     private int logicalWidth = BASE_WIDTH;
     private int logicalHeight = BASE_HEIGHT;
 
-    /** Where the logical area sits in the window, in GL pixels (origin bottom-left). */
+    // where the logical area sits in the window, GL pixels (origin bottom-left)
     private int vpX, vpY, vpW = BASE_WIDTH, vpH = BASE_HEIGHT;
     private float scale = 1.0f;
 
-    /** The state last applied to the real window. */
+    // state last applied to the real window
     private DisplayType applied = DisplayType.WINDOWED;
 
-    /** Size and position of the plain window, restored when coming back from maximized / fullscreen. */
+    // size and position of the plain window, restored when coming back from maximized / fullscreen
     private int windowedWidth = BASE_WIDTH;
     private int windowedHeight = BASE_HEIGHT;
     private int windowedX, windowedY;
@@ -63,7 +60,7 @@ public final class WindowManager {
         return this.scale;
     }
 
-    /** Call before Display.create() so the window starts in the saved state. */
+    /** call before Display.create() so the window starts in the saved state */
     public void applyInitialMode() throws LWJGLException {
         Display.setResizable(true);
 
@@ -82,7 +79,7 @@ public final class WindowManager {
         this.applied = type;
     }
 
-    /** Applies the current settings to an already-created window (display state, layouts). */
+    /** applies the current settings to an already-created window (display state, layouts) */
     public void applyMode() throws LWJGLException {
         DisplayType want = GameSettings.getDisplayType();
         boolean fullscreenNow = Display.isFullscreen();
@@ -133,12 +130,12 @@ public final class WindowManager {
         recompute();
     }
 
-    /** The desktop area a maximized window may use (excludes the taskbar / dock). */
+    // desktop area a maximized window may use (excludes taskbar / dock)
     private static Rectangle workArea() {
         return GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
     }
 
-    /** Title bar and border sizes of a normal window on this system (LWJGL 2 cannot report its own). */
+    // title bar and border sizes of a normal window (LWJGL 2 can't report its own)
     private Insets insets() {
         if (this.decorationInsets == null) {
             Insets in = new Insets(0, 0, 0, 0);
@@ -155,7 +152,7 @@ public final class WindowManager {
         return this.decorationInsets;
     }
 
-    /** Works out the logical size and the viewport rectangle from the current window and layout. */
+    /** works out the logical size and viewport rectangle from the current window and layout */
     public void recompute() {
         int sw = Display.getWidth();
         int sh = Display.getHeight();
@@ -199,7 +196,7 @@ public final class WindowManager {
         this.vpY = (sh - this.vpH) / 2;
     }
 
-    /** Start of a frame: black everywhere, then restrict all drawing to the game area. */
+    /** black everywhere, then restricts all drawing to the game area */
     public void beginFrame() {
         glViewport(0, 0, Display.getWidth(), Display.getHeight());
         glDisable(GL_SCISSOR_TEST);
@@ -212,37 +209,37 @@ public final class WindowManager {
         glViewport(this.vpX, this.vpY, this.vpW, this.vpH);
     }
 
-    /** End of a frame (before Display.update()). */
+    /** call before Display.update() */
     public void endFrame() {
         glDisable(GL_SCISSOR_TEST);
     }
 
-    /** glViewport in logical coordinates (origin bottom-left of the game area). */
+    /** glViewport in logical coordinates (origin bottom-left of the game area) */
     public void viewport(int x, int y, int w, int h) {
         glViewport(glX(x), glY(y), size(w), size(h));
     }
 
-    /** Logical x -> window pixel x. */
+    /** logical x -> window pixel x */
     public int glX(int x) {
         return this.vpX + Math.round(x * this.scale);
     }
 
-    /** Logical y (bottom-up) -> window pixel y. */
+    /** logical y (bottom-up) -> window pixel y */
     public int glY(int y) {
         return this.vpY + Math.round(y * this.scale);
     }
 
-    /** Logical length -> window pixels. */
+    /** logical length -> window pixels */
     public int size(int value) {
         return Math.round(value * this.scale);
     }
 
-    /** Raw window mouse x -> logical UI x. */
+    /** raw window mouse x -> logical UI x */
     public int toLogicalX(int rawX) {
         return (int) ((rawX - this.vpX) / this.scale);
     }
 
-    /** Raw window mouse y (bottom-up) -> logical UI y (top-down). */
+    /** raw window mouse y (bottom-up) -> logical UI y (top-down) */
     public int toLogicalY(int rawY) {
         return this.logicalHeight - (int) ((rawY - this.vpY) / this.scale) - 1;
     }

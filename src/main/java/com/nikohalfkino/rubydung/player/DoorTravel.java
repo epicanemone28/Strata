@@ -5,25 +5,21 @@ import com.nikohalfkino.rubydung.level.Level;
 import com.nikohalfkino.rubydung.level.tiles.DoorColor;
 
 /**
- * Arriving in a world through a dimensional door: puts the player in front of one of the world's
- * doors that matches the colour they came through, looking at it. That door is also the way back,
- * since the world they came from has a matching door too.
+ * arriving through a dimensional door: puts the player in front of one of the world's doors matching the colour they came through, looking at it
+ *
+ * that door is also the way back, since the world they came from has a matching door too
  */
 public final class DoorTravel {
 
     private static final double PLAYER_EYE_HEIGHT = 1.62D;
 
-    /** Neighbour offsets tried around a door, nearest first. */
+    // neighbour offsets tried around a door, nearest first
     private static final int[][] DIRECTIONS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
     private DoorTravel() {
     }
 
-    /**
-     * Moves the player to a door of the level that matches {@code picked} (an exact colour match is
-     * preferred over a regular door). Returns false, leaving the player where they are, if the level has
-     * no matching door or no free spot next to one.
-     */
+    /** moves the player to a door of the level matching picked (an exact colour match beats a regular door), false (player stays put) if there's no matching door or no free spot next to one */
     public static boolean arrive(Level level, Player player, DoorColor picked) {
         DoorRegistry.Entry best = null;
         int bestScore = Integer.MAX_VALUE;
@@ -61,7 +57,7 @@ public final class DoorTravel {
         return true;
     }
 
-    /** A cell beside the door where the player fits (feet and head free), preferring one with ground under it. */
+    // a cell beside the door where the player fits (feet and head free), preferring one with ground under it
     private static int[] findStandingSpot(Level level, DoorRegistry.Entry door) {
         for (int pass = 0; pass < 2; pass++) {
             boolean requireGround = pass == 0;

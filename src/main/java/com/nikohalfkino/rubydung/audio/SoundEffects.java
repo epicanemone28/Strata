@@ -16,23 +16,21 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Fire-and-forget sound effects from /assets/rubydung/sfx/.
+ * fire-and-forget sound effects from /assets/rubydung/sfx/
  *
- * <p>A plain name ("door_open") is a file in sfx/tiles; a name with a folder ("ui/menu_open") is
- * relative to sfx/. Each file is decoded once (with the Vorbis decoder the music uses) and kept as
- * PCM; every play opens a short-lived {@link Clip}, so sounds overlap freely. All of it runs on one
- * daemon thread, so calling {@link #play} from the game thread never blocks it, and a missing or
- * broken file only logs once and is skipped.
+ * "door_open" is sfx/tiles/door_open, "ui/menu_open" is relative to sfx/
+ *
+ * each file is decoded once and kept as pcm, everything plays on one daemon thread
  */
 public final class SoundEffects {
 
     private static final String PATH = "/assets/rubydung/sfx/";
     private static final String DEFAULT_FOLDER = "tiles/";
 
-    /** Same sounds closer together than this are dropped (breaking 30 blocks in one tick). */
+    // same sound closer together than this is dropped (breaking 30 blocks in one tick)
     private static final long MIN_GAP_MS = 45L;
 
-    /** playRandom changes the speed (and with it the pitch) by up to this much either way. */
+    // how far playRandom shifts the pitch either way
     public static final float DEFAULT_PITCH_VARIATION = 0.12F;
 
     private static final Sample MISSING = new Sample(null, 0, 0);
@@ -49,7 +47,7 @@ public final class SoundEffects {
 
     private SoundEffects() {}
 
-    /** Loudness of every effect (1.0 = as recorded): the SFX slider in the options, kept in GameSettings. */
+    // the SFX slider in options, 1.0 = as recorded
     public static void setMasterVolume(float volume) {
         GameSettings.setSfxVolume(volume);
     }
@@ -66,12 +64,12 @@ public final class SoundEffects {
         play(name, volume, 1.0F);
     }
 
-    /** pitch 1.0 = as recorded; 1.1 is higher (and shorter), 0.9 lower (and longer). */
+    /** pitch 1.0 = as recorded, higher = higher and shorter */
     public static void play(String name, float volume, float pitch) {
         enqueue(name, name, volume, pitch);
     }
 
-    /** Plays prefix_1 .. prefix_variants, picked at random, at a slightly random pitch. */
+    /** picks prefix_1 .. prefix_variants at random, with a slight pitch change */
     public static void playRandom(String prefix, int variants) {
         playRandom(prefix, variants, DEFAULT_PITCH_VARIATION);
     }
@@ -82,13 +80,13 @@ public final class SoundEffects {
         enqueue(prefix, prefix + "_" + (1 + RANDOM.nextInt(variants)), 1.0F, pitch);
     }
 
-    /** Plays one sound at a slightly random pitch (like playRandom, but for a single file). */
+    /** like playRandom, for a single file */
     public static void playVaried(String name) {
         float pitch = 1.0F + (RANDOM.nextFloat() * 2.0F - 1.0F) * DEFAULT_PITCH_VARIATION;
         enqueue(name, name, 1.0F, pitch);
     }
 
-    /** Decodes the named sounds ahead of time so the first play has no delay. Optional. */
+    /** decodes ahead of time so the first play has no delay */
     public static void preload(String... names) {
         EXECUTOR.execute(() -> {
             for (String name : names) {
@@ -136,11 +134,7 @@ public final class SoundEffects {
         }
     }
 
-    /**
-     * Changes pitch by playing the samples faster or slower (linear interpolation), the way a
-     * tape would: the sound gets shorter as it gets higher. Done on the PCM itself so it works
-     * whatever sample rates the sound card accepts.
-     */
+    // changes pitch by playing samples faster/slower, so higher = shorter
     private static byte[] resample(byte[] pcm, int channels, double pitch) {
         int frames = pcm.length / (2 * channels);
         int outFrames = Math.max(1, (int) (frames / pitch));

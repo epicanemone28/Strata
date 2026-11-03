@@ -456,7 +456,7 @@ final class NaturalLevelGenerator {
         }
     }
 
-    /** Whether the tile's whole footprint (unrotated, from its minimum corner) is in bounds and empty. */
+    // whole footprint (unrotated, from its minimum corner) is in bounds and empty
     private static boolean footprintIsFree(byte[] blocks, Tile tile, int x, int y, int z,
                                            int width, int height, int depth) {
         int sizeX = tile.getSizeX(0);
@@ -479,7 +479,7 @@ final class NaturalLevelGenerator {
         return true;
     }
 
-    /** Writes the tile id into every cell of its footprint (rotation 0, which is what the data array defaults to). */
+    // tile id into every cell of its footprint (rotation 0, the data array's default)
     private static void stampTile(byte[] blocks, Tile tile, int x, int y, int z, int width, int height) {
         for (int cy = y; cy < y + tile.getSizeY(); cy++) {
             for (int cz = z; cz < z + tile.getSizeZ(0); cz++) {

@@ -15,33 +15,27 @@ import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.*;
 
 /**
- * Draws a pixel-art sprite rotated with cleanEdge
- * (https://gist.github.com/torcado194/e2794f5a4b22049ac0a41f972d14c329).
- * <p>
- * cleanEdge has to run at the sprite's OWN resolution: the sprite is rotated into a small canvas
- * with one canvas pixel per sprite texel, and that canvas is then scaled up to the screen with
- * nearest-neighbour filtering. That keeps every pixel a hard-edged block of the same size while
- * the rotation itself is "clean" (no jagged stair-steps, no blur). Running the shader at screen
- * resolution instead just smooths the art.
- * <p>
- * If the shader or framebuffers aren't available, {@link #draw} returns false and draws nothing,
- * so the caller can fall back to a plain textured quad.
+ * draws a pixel-art sprite rotated with cleanEdge (https://gist.github.com/torcado194/e2794f5a4b22049ac0a41f972d14c329)
+ *
+ * it has to run at the sprite's OWN resolution: the sprite is rotated into a small canvas (one canvas pixel per texel), then scaled up to the screen with nearest-neighbour so every pixel stays a hard-edged block of the same size. at screen resolution it just smooths the art
+ *
+ * if the shader or framebuffers aren't available draw() returns false and draws nothing, so the caller can fall back to a plain textured quad
  */
 public class CleanEdgeShader {
 
     private static final String VERTEX_PATH = "/assets/rubydung/shaders/cleanedge.vert";
     private static final String FRAGMENT_PATH = "/assets/rubydung/shaders/cleanedge.frag";
 
-    /** The colour that wins overlaps; other colours are ranked by distance to it. */
+    // the colour that wins overlaps, other colours are ranked by distance to it
     private static final float[] HIGHEST_COLOR = {1.0F, 1.0F, 1.0F};
-    /** How close two colours must be to count as the same shape (0 = exact match only). */
+    // how close two colours must be to count as the same shape (0 = exact only)
     private static final float SIMILAR_THRESHOLD = 0.0F;
     private static final float LINE_WIDTH = 1.0F;
 
-    /** Empty border around the sprite in the canvas, as a fraction of its larger side, so rotated corners fit. */
+    // empty border around the sprite in the canvas, as a fraction of its larger side, so rotated corners fit
     private static final float CANVAS_PADDING = 0.25F;
 
-    /** Texels the sprite quad is grown by, so edge slices can extend just past the art. */
+    // texels the sprite quad is grown by so edge slices can extend just past the art
     private static final float EDGE_MARGIN = 1.0F;
 
     private int program = 0;
@@ -98,15 +92,11 @@ public class CleanEdgeShader {
     }
 
     /**
-     * Draws the currently bound sprite texture (GL_NEAREST) rotated by {@code tiltDegrees} about the
-     * bottom-centre of its on-screen rectangle, in the caller's current 2D projection.
+     * draws the bound sprite texture (GL_NEAREST) rotated by tiltDegrees about the bottom-centre of its on-screen rectangle, in the caller's current 2D projection
      *
-     * @param texWidth     sprite size in texels
-     * @param texHeight    sprite size in texels
-     * @param left         on-screen left edge of the unrotated sprite
-     * @param top          on-screen top edge of the unrotated sprite
-     * @param screenHeight on-screen height of the unrotated sprite (width follows from the aspect)
-     * @return false if nothing was drawn and the caller should draw the sprite itself
+     * texWidth/texHeight = sprite size in texels, left/top = on-screen edges of the unrotated sprite, screenHeight = its on-screen height (width follows the aspect)
+     *
+     * returns false if nothing was drawn and the caller should draw the sprite itself
      */
     public boolean draw(int texWidth, int texHeight, float left, float top, float screenHeight, float tiltDegrees) {
         if (this.program == 0 || !this.framebufferOk || texWidth <= 0 || texHeight <= 0) {
@@ -217,7 +207,7 @@ public class CleanEdgeShader {
         return true;
     }
 
-    /** (Re)creates the canvas texture and its framebuffer whenever the needed size changes. */
+    // (re)creates the canvas texture and framebuffer whenever the needed size changes
     private boolean ensureCanvas(int width, int height) {
         if (this.framebuffer != 0 && this.canvasWidth == width && this.canvasHeight == height) {
             return true;

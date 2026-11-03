@@ -4,10 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Turns a kana string into timed mouth-shape cues for the talking portrait.
- * <p>
- * The enum order is the portrait frame order: {@code ordinal()} is the index of the sprite
- * (idle, a, i, u, e, o), so {@code CLOSED} is the idle frame.
+ * turns kana into timed mouth-shape cues for the talking portrait
+ *
+ * enum order is the portrait frame order (ordinal = sprite index), CLOSED is the idle frame
  */
 public final class Visemes {
 
@@ -28,20 +27,17 @@ public final class Visemes {
     private static final String SMALL_YA = "ャュョ";            // a u o
     private static final String LIP_ROWS = "mbp";               // lips close before the vowel
 
-    /** Vowel column of KanaData.ROWS (a i u e o) to viseme. */
+    // vowel column of KanaData.ROWS (a i u e o) -> viseme
     private static final Viseme[] BY_INDEX = {Viseme.A, Viseme.I, Viseme.U, Viseme.E, Viseme.O};
 
-    /** One syllable: its mouth shape, whether it starts with a lip closure, and its relative length. */
+    // one syllable: mouth shape, starts with a lip closure?, relative length
     private static final class Mora {
         Viseme viseme;
         boolean lipClose;
         int weight = 1;
     }
 
-    /**
-     * Builds the cues for one segment of audio, spreading its moras evenly over
-     * {@code durationMs}, starting {@code offsetMicros} into the line's timeline.
-     */
+    /** moras are spread evenly over durationMs, starting offsetMicros into the line's timeline */
     static List<Cue> build(String kana, double durationMs, long offsetMicros) {
         List<Mora> moras = split(kana);
         List<Cue> cues = new ArrayList<>();
@@ -113,7 +109,7 @@ public final class Visemes {
         return (c >= 'ぁ' && c <= 'ゖ') ? (char) (c + 0x60) : c;
     }
 
-    /** Column of the kana in KanaData.ROWS (a i u e o), or -1. */
+    // column in KanaData.ROWS (a i u e o), or -1
     private static int vowelIndex(char c) {
         String s = String.valueOf(c);
         for (String[] row : KanaData.ROWS.values()) {

@@ -5,9 +5,9 @@ import java.nio.ByteBuffer;
 import static org.lwjgl.opengl.GL11.*;
 
 /**
- * Pixelates the world view: the world is drawn into a small corner of the view's viewport,
- * copied into a texture, and stretched back over the whole view with nearest-neighbour filtering.
- * Call {@link #begin} before drawing the world and {@link #end} right after (before the HUD).
+ * pixelates the world view: draws the world into a small corner of the viewport, copies it to a texture and stretches it back over the whole view with nearest-neighbour
+ *
+ * call begin() before drawing the world and end() right after (before the HUD)
  */
 public class PixelationFilter {
 
@@ -19,7 +19,7 @@ public class PixelationFilter {
     private int viewX, viewY, viewWidth, viewHeight;
     private int lowWidth, lowHeight;
 
-    /** Shrinks the viewport so the world is drawn at 1/pixelSize resolution. */
+    /** shrinks the viewport so the world is drawn at 1/pixelSize resolution */
     public void begin(int x, int y, int width, int height, int pixelSize) {
         this.viewX = x;
         this.viewY = y;
@@ -31,7 +31,7 @@ public class PixelationFilter {
         glViewport(x, y, this.lowWidth, this.lowHeight);
     }
 
-    /** Copies the low-res world and draws it stretched over the full view. */
+    /** copies the low-res world and draws it stretched over the full view */
     public void end() {
         ensureTexture();
 
@@ -84,7 +84,7 @@ public class PixelationFilter {
         }
     }
 
-    /** (Re)allocates the texture whenever the low-res size changes. */
+    // (re)allocates the texture whenever the low-res size changes
     private void ensureTexture() {
         if (this.texture != 0 && this.texWidth == this.lowWidth && this.texHeight == this.lowHeight) {
             return;

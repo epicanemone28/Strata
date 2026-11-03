@@ -7,7 +7,7 @@ import java.util.function.Supplier;
 
 import static org.lwjgl.opengl.GL11.*;
 
-/** A horizontal bar filled from the left, with a green gradient. The value (0..1) is read every frame. */
+/** horizontal bar filled from the left with a green gradient, the value (0..1) is read every frame */
 public class ProgressBar extends Widget {
 
     private final Supplier<Float> progress;

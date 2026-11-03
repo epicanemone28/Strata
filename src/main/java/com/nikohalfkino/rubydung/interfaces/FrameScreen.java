@@ -15,12 +15,7 @@ public interface FrameScreen {
 
     int getFrameTint();
 
-    /**
-     * What the right-hand panel is made of, top to bottom (see {@link PanelSection}). The default
-     * is the classic single block: one slot grid, or one plain panel if {@link #showsSlots()} is
-     * false. Override to stack several blocks. The matching rectangles arrive in
-     * {@link GameFrame.Layout#sections}, in the same order.
-     */
+    /** right-hand panel blocks, top to bottom. default is one slot grid (or one plain panel if showsSlots() is false), the rects arrive in GameFrame.Layout.sections */
     default List<PanelSection> getSections() {
         return Collections.singletonList(showsSlots()
                 ? PanelSection.slots(getPanelTitle(), GameFrame.GRID_COLUMNS, GameFrame.GRID_ROWS)

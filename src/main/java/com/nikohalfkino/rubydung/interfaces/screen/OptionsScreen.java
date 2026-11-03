@@ -20,18 +20,18 @@ public class OptionsScreen extends MenuScreen {
     private static final float BUTTON_HEIGHT   = UiStyle.BUTTON_HEIGHT;
     private static final float PANEL_PADDING   = 20.0f;
 
-    /** Gap between items inside a section. */
+    // between items inside a section
     private static final float ITEM_GAP        = 8.0f;
-    /** Gap from a section header label to its first control. */
+    // section header to its first control
     private static final float HEADER_GAP      = 6.0f;
-    /** Gap from the last item in a section to the next section's header. */
+    // last item to the next section's header
     private static final float SECTION_GAP     = 16.0f;
 
-    /** Three "more" buttons share the panel width. */
+    // three "more" buttons share the panel width
     private static final float MORE_BUTTON_GAP   = 9.0f;
     private static final float MORE_BUTTON_WIDTH  = (PANEL_WIDTH - 2 * MORE_BUTTON_GAP) / 3.0f;
 
-    /** How far below the window top the panel's top edge sits (gives room for the title). */
+    // panel's top edge below the window top (room for the title)
     private static final float PANEL_TOP = 90.0f;
 
     private final TextInput usernameInput;
@@ -50,7 +50,7 @@ public class OptionsScreen extends MenuScreen {
         panel.setShadowAlpha(1.0f);
         panel.setCrossAlign(0.0f);
 
-        // — Gameplay ——————————————————————————————————————————
+        // gameplay
         panel.add(new Label("Gameplay").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         panel.add(new Slider("FOV", PANEL_WIDTH, FIELD_HEIGHT,
@@ -64,7 +64,7 @@ public class OptionsScreen extends MenuScreen {
                 .onChange(v -> AutosaveSettings.setIntervalMinutes(Math.round(v)))
                 .onCommit(AutosaveSettings::save), SECTION_GAP);
 
-        // — Audio —————————————————————————————————————————————
+        // audio
         panel.add(new Label("Audio").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         panel.add(new Slider("Music", PANEL_WIDTH, FIELD_HEIGHT,
@@ -80,7 +80,7 @@ public class OptionsScreen extends MenuScreen {
                     SoundEffects.playRandom("tile_place", 3);   // so you can hear the new level
                 }), SECTION_GAP);
 
-        // — Account ———————————————————————————————————————————
+        // account
         panel.add(new Label("Account").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         this.usernameInput = panel.add(
@@ -90,7 +90,7 @@ public class OptionsScreen extends MenuScreen {
                 SECTION_GAP);
         this.usernameInput.setText(GameSettings.getUsername());
 
-        // — More Settings —————————————————————————————————————
+        // more Settings
         panel.add(new Label("More Settings").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         Row moreRow = panel.add(new Row(MORE_BUTTON_GAP), SECTION_GAP);
@@ -101,12 +101,12 @@ public class OptionsScreen extends MenuScreen {
         moreRow.add(new Button("Video",         MORE_BUTTON_WIDTH, BUTTON_HEIGHT, true)
                 .onClick(() -> game.openScreen(new VideoSettingsScreen(game))));
 
-        // — Done ——————————————————————————————————————————————
+        // done
         panel.add(new Button("Done", PANEL_WIDTH, BUTTON_HEIGHT, true)
                 .onClick(this::goBack));
     }
 
-    /** Applies the typed name (cleaned up by GameSettings) and saves it if it changed. */
+    // applies the typed name (cleaned up by GameSettings) and saves if it changed
     private void commitUsername() {
         String before = GameSettings.getUsername();
 
@@ -118,11 +118,7 @@ public class OptionsScreen extends MenuScreen {
         }
     }
 
-    /**
-     * Returns to the screen that launched Options:
-     * - in-game → PauseScreen (fixes the bug where Done would drop you straight into the world)
-     * - at the title → TitleScreen
-     */
+    // back to the screen that launched Options: PauseScreen in-game, TitleScreen at the title
     private void goBack() {
         if (this.game.hasWorld()) {
             this.game.openScreen(new PauseScreen(this.game));

@@ -12,26 +12,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A world's tile palette: which tile each saved block value stands for, by name
- * ("in this save, 0 is air, 1 is grass, 2 is cobblestone ...").
+ * a world's tile palette: which tile each saved block value stands for, by name ("in this save, 0 is air, 1 is grass...")
  *
- * The world is stored with palette indices instead of live tile ids, so the registration order in
- * {@link Tile} can change freely: on load the indices are matched back to whatever the tile ids are now.
+ * worlds store palette indices instead of live tile ids, so the registration order in Tile can change freely, on load the indices are matched back to the current ids
  *
- * Palettes are append-only. Once a name has an index it keeps it for the life of the save, new tiles
- * are added at the end, and the palette file is always written before the level file, so a crash
- * between the two writes can never leave a level file that disagrees with its palette.
+ * append-only: a name keeps its index for the life of the save, new tiles go at the end, and the palette file is written before the level file so a crash between the two can't leave a level that disagrees with its palette
  */
 public final class TilePalette {
 
     private static final int FORMAT_VERSION = 1;
     private static final int MAX_ENTRIES = 256; // block values are stored in one byte
 
-    /**
-     * Tile order used by saves from before palettes existed (ids were registration order).
-     * This is a frozen snapshot, NOT the live registry: it must never change, even when the
-     * registry is reordered, because old worlds were written with exactly this order.
-     */
+    // tile order of saves from before palettes existed (ids were registration order)
+    // frozen snapshot, NOT the live registry: never change it, old worlds were written with exactly this order
     private static final String[] LEGACY_ORDER = {
             "air", "grass", "cobblestone", "slate", "bricks", "metal", "metal_girder", "metal_grate",
             "gold", "glass", "tree_sapling", "tree_medium", "tree_large", "lamppost", "stone", "gravel",
@@ -45,7 +38,7 @@ public final class TilePalette {
     private TilePalette() {
     }
 
-    /** Palette for saves that have none stored: the tile order from before palettes existed. */
+    /** palette for saves that have none stored */
     public static TilePalette legacy() {
         TilePalette palette = new TilePalette();
         for (String name : LEGACY_ORDER) {
@@ -54,7 +47,7 @@ public final class TilePalette {
         return palette;
     }
 
-    /** Palette for a brand-new world: the current registry order. */
+    /** palette for a brand-new world */
     public static TilePalette fromCurrentRegistry() {
         TilePalette palette = new TilePalette();
         for (Tile tile : Tile.getTiles()) {
@@ -77,10 +70,7 @@ public final class TilePalette {
         return this.names.size();
     }
 
-    /**
-     * Converts saved block values (palette indices) to current tile ids, in place.
-     * Entries whose tile no longer exists become air; a warning lists them.
-     */
+    /** saved block values (palette indices) -> current tile ids, in place. tiles that no longer exist become air, a warning lists them */
     public void decode(byte[] blocks) {
         int[] toCurrent = new int[256];
         Arrays.fill(toCurrent, Tile.AIR.id);
@@ -112,10 +102,7 @@ public final class TilePalette {
         }
     }
 
-    /**
-     * Converts current tile ids to palette indices, returning a new array (the live blocks are untouched).
-     * Tiles that aren't in the palette yet are appended to it.
-     */
+    /** current tile ids -> palette indices, returns a new array (live blocks untouched), tiles not in the palette yet are appended to it */
     public byte[] encode(byte[] blocks) {
         int[] fromCurrent = new int[256];
         Arrays.fill(fromCurrent, -1);
@@ -149,7 +136,7 @@ public final class TilePalette {
         }
     }
 
-    /** Reads a palette written by {@link #write}. Throws IOException if the data isn't a valid palette. */
+    /** reads a palette written by write(), IOException if the data isn't valid */
     public static TilePalette read(DataInputStream in) throws IOException {
         int version = in.readInt();
         if (version != FORMAT_VERSION) {

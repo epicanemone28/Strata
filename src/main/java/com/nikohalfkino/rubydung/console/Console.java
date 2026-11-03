@@ -22,7 +22,7 @@ public class Console {
     private int historyIndex = -1;
     private boolean open = false;
 
-    /** While non-null, println() collects lines here instead of writing to the log (see execute). */
+    // while non-null, println() collects here instead of the log (see execute)
     private List<String> capture;
 
     public Console(RubyDung game) {
@@ -47,7 +47,7 @@ public class Console {
         this.commands.put(command.name().toLowerCase(), command);
     }
 
-    /** Looks a command up by name (case-insensitive); null if there is none. */
+    /** case-insensitive, null if there is none */
     public Command find(String name) {
         return this.commands.get(name.toLowerCase());
     }
@@ -167,10 +167,7 @@ public class Console {
         dispatch(line);
     }
 
-    /**
-     * Runs a command line and returns what it printed instead of writing it to the console log.
-     * Used by the chat screen's ".command" support.
-     */
+    /** runs a line and returns what it printed instead of logging it (for the chat screen's ".command") */
     public List<String> execute(String line) {
         List<String> output = new ArrayList<>();
         List<String> previous = this.capture;

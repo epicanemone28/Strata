@@ -10,7 +10,7 @@ import com.nikohalfkino.rubydung.util.GameSettings;
 import java.util.ArrayList;
 import java.util.List;
 
-/** The F3 overlay: position, facing and speed, right-aligned in the top-right corner (under the FPS counter if shown). */
+/** the F3 overlay, right-aligned top-right (under the FPS counter if shown) */
 public class DebugHud extends Widget {
 
     private static final float SCALE = 2.0F;
@@ -19,7 +19,7 @@ public class DebugHud extends Widget {
 
     private final RubyDung game;
 
-    /** Rebuilt every frame by {@link #measure}, drawn by {@link #draw}. */
+    // rebuilt every frame by measure(), drawn by draw()
     private final List<String> lines = new ArrayList<>();
 
     public DebugHud(RubyDung game) {

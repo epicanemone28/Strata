@@ -18,7 +18,7 @@ import org.lwjgl.opengl.Display;
 
 import java.util.function.Function;
 
-/** Video settings in two columns, like the Voice screen: Display + Frame Rate | World + Overlay. */
+/** video settings in two columns like the Voice screen: Display + Frame Rate | World + Overlay */
 public class VideoSettingsScreen extends MenuScreen {
 
     private static final float PANEL_PADDING = 20.0f;
@@ -34,12 +34,12 @@ public class VideoSettingsScreen extends MenuScreen {
 
     private static final float MODE_GAP = 4.0f;
 
-    /** FPS cap slider: FPS_MIN..(FPS_UNLIMITED_AT - FPS_STEP) in steps, then "Unlimited" at the end. */
+    // fps cap slider: FPS_MIN..(FPS_UNLIMITED_AT - FPS_STEP) in steps, "Unlimited" at the end
     private static final int FPS_MIN = 30;
     private static final int FPS_STEP = 5;
     private static final int FPS_UNLIMITED_AT = 245;
 
-    /** Pixel size slider: each world pixel is PIXEL_MIN..PIXEL_MAX screen pixels wide. */
+    // pixel size slider: each world pixel is PIXEL_MIN..PIXEL_MAX screen pixels wide
     private static final int PIXEL_MIN = 2;
     private static final int PIXEL_MAX = 12;
 
@@ -69,15 +69,13 @@ public class VideoSettingsScreen extends MenuScreen {
                 .onClick(this::goBack));
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Left column: Display + Frame Rate
-    // ---------------------------------------------------------------------------------------
+    // left column: Display + Frame Rate
 
     private Column buildLeftColumn() {
         Column col = new Column(ITEM_GAP);
         col.setCrossAlign(0.0f);
 
-        // — Display ———————————————————————————————————————————
+        // display
         col.add(new Label("Display").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         // Windowed -> Maximized -> Fullscreen. F11 jumps in and out of fullscreen.
@@ -103,7 +101,7 @@ public class VideoSettingsScreen extends MenuScreen {
             return GameSettings.isFullscreen();
         }), SECTION_GAP);
 
-        // — Frame rate ————————————————————————————————————————
+        // frame rate
         col.add(new Label("Frame Rate").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         this.vsyncToggle = new Toggle("VSync", GameSettings.isVsyncEnabled(), Toggle.LabelSide.LEFT)
@@ -135,10 +133,7 @@ public class VideoSettingsScreen extends MenuScreen {
         return col;
     }
 
-    /**
-     * Fit / Expand / Bordered buttons. {@code apply} stores the pick and returns whether the window
-     * has to be re-laid out right now (i.e. this layout is the one in use).
-     */
+    // Fit / Expand / Bordered buttons. apply stores the pick and returns whether the window must be re-laid out now (this layout is the one in use)
     private ChoiceRow<LayoutMode> layoutRow(LayoutMode current, Function<LayoutMode, Boolean> apply) {
         ChoiceRow<LayoutMode> row = new ChoiceRow<LayoutMode>(COLUMN_WIDTH, UiStyle.BUTTON_HEIGHT, MODE_GAP)
                 .option("Fit", LayoutMode.FIT)
@@ -155,15 +150,13 @@ public class VideoSettingsScreen extends MenuScreen {
         return row;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Right column: World + Overlay
-    // ---------------------------------------------------------------------------------------
+    // right column: World + Overlay
 
     private Column buildRightColumn() {
         Column col = new Column(ITEM_GAP);
         col.setCrossAlign(0.0f);
 
-        // — World ————————————————————————————————————————————
+        // world
         col.add(new Label("World").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         this.pixelationToggle = new Toggle("Pixelation", GameSettings.isPixelationEnabled(), Toggle.LabelSide.LEFT)
@@ -183,7 +176,7 @@ public class VideoSettingsScreen extends MenuScreen {
         pixelSize.setEnabledWhen(() -> this.pixelationToggle.getValue());
         col.add(pixelSize, SECTION_GAP);
 
-        // — Overlay ———————————————————————————————————————————
+        // overlay
         col.add(new Label("Overlay").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         col.add(new Toggle("Show FPS", GameSettings.isShowFpsInHud(), Toggle.LabelSide.LEFT)
@@ -196,17 +189,15 @@ public class VideoSettingsScreen extends MenuScreen {
         return col;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------------------------------
+    // helpers
 
-    /** Slider position -> FPS cap: rounded to FPS_STEP, and the top of the track means no cap. */
+    // slider position -> fps cap, rounded to FPS_STEP, top of the track = no cap
     private static int snapFps(float value) {
         int snapped = Math.round(value / FPS_STEP) * FPS_STEP;
         return snapped >= FPS_UNLIMITED_AT ? GameSettings.UNCAPPED_FPS : Math.max(FPS_MIN, snapped);
     }
 
-    /** Where the thumb starts for the saved cap (a saved value off the steps is clamped onto the track). */
+    // where the thumb starts for the saved cap (a value off the steps is clamped onto the track)
     private static float initialFpsSlider() {
         int cap = GameSettings.getFpsCap();
         if (cap == GameSettings.UNCAPPED_FPS) {
@@ -215,7 +206,7 @@ public class VideoSettingsScreen extends MenuScreen {
         return Math.max(FPS_MIN, Math.min(FPS_UNLIMITED_AT - FPS_STEP, cap));
     }
 
-    /** Slider position -> pixel size, rounded to a whole number inside PIXEL_MIN..PIXEL_MAX. */
+    // slider position -> whole pixel size within PIXEL_MIN..PIXEL_MAX
     private static int snapPixelSize(float value) {
         return Math.max(PIXEL_MIN, Math.min(PIXEL_MAX, Math.round(value)));
     }

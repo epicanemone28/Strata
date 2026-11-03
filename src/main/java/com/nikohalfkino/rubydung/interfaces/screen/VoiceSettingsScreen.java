@@ -19,14 +19,11 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /**
- * Open JTalk voice settings, laid out like the Options screen: one panel with two columns.
- * <ul>
- *   <li>Left: the chat voice switches and the voice itself (type button + the moods of that type).</li>
- *   <li>Right: the tuning sliders. Each maps to one open_jtalk flag and has a small square button
- *       next to it that puts it back to its default.</li>
- * </ul>
- * Picking a voice type or mood plays a short sample. There is no sing-mode toggle: a chat line
- * that contains notes ({@code [bah<235,30>]} or {@code [0]do [2]re}) is sung automatically.
+ * Open JTalk voice settings laid out like Options, one panel with two columns
+ *
+ * left: chat voice switches and the voice itself (type button + its moods), right: tuning sliders, each with a small reset button
+ *
+ * picking a type or mood plays a sample. no sing-mode toggle, chat lines with notes ([bah<235,30>] or [0]do [2]re) are sung automatically
  */
 public class VoiceSettingsScreen extends MenuScreen {
 
@@ -47,12 +44,12 @@ public class VoiceSettingsScreen extends MenuScreen {
     private static final int MOODS_PER_ROW = 3;
     private static final float MOOD_GAP = 4.0f;
 
-    /** The reset button is a square the height of a slider row, and the slider gives up that width. */
+    // the reset button is a square the height of a slider row, the slider gives up that width
     private static final float RESET_GAP = 4.0f;
     private static final float RESET_SIZE = ROW_HEIGHT;
     private static final float SLIDER_WIDTH = COLUMN_WIDTH - RESET_SIZE - RESET_GAP;
 
-    /** One ChoiceRow per line of mood buttons; they share a single selection. */
+    // one ChoiceRow per line of mood buttons, they share a selection
     private final List<ChoiceRow<String>> moodRows = new ArrayList<>();
 
     public VoiceSettingsScreen(RubyDung game) {
@@ -74,16 +71,14 @@ public class VoiceSettingsScreen extends MenuScreen {
         columns.add(buildVoiceColumn());
         columns.add(buildTuningColumn());
 
-        // — Bottom buttons ————————————————————————————————————
+        // bottom buttons
         float buttonWidth = (FULL_WIDTH - UiStyle.BUTTON_GAP) / 2.0f;
         Row bottom = panel.add(new Row(UiStyle.BUTTON_GAP));
         bottom.add(new Button("Test Voice", buttonWidth, BUTTON_HEIGHT, true).onClick(this::sample));
         bottom.add(new Button("Done", buttonWidth, BUTTON_HEIGHT, true).onClick(this::goBack));
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Left column: chat voice + the voice itself
-    // ---------------------------------------------------------------------------------------
+    // left column: chat voice + the voice itself
 
     private Column buildVoiceColumn() {
         Column col = new Column(ITEM_GAP);
@@ -141,9 +136,7 @@ public class VoiceSettingsScreen extends MenuScreen {
         return col;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Right column: sliders
-    // ---------------------------------------------------------------------------------------
+    // right column: sliders
 
     private Column buildTuningColumn() {
         Column col = new Column(ITEM_GAP);
@@ -211,11 +204,7 @@ public class VoiceSettingsScreen extends MenuScreen {
         return col;
     }
 
-    /**
-     * A slider with a small square reset button on its right. The button is greyed out while the
-     * value is already the default. Clicking it resets the setting and rebuilds the screen so the
-     * slider shows the new value.
-     */
+    // slider with a square reset button on its right, greyed out while at the default. clicking it resets and rebuilds the screen so the slider shows the new value
     private Row sliderRow(Widget slider, BooleanSupplier atDefault, Runnable reset) {
         Button resetButton = new Button("R", RESET_SIZE, RESET_SIZE, true)
                 .onClick(() -> {
@@ -232,9 +221,7 @@ public class VoiceSettingsScreen extends MenuScreen {
         return row;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------------------------------
+    // helpers
 
     private static boolean near(float a, float b) {
         return Math.abs(a - b) < 0.001f;
@@ -249,7 +236,7 @@ public class VoiceSettingsScreen extends MenuScreen {
         sample();
     }
 
-    /** "mei" -> "Type 1", "takumi" -> "Type 2": voices are numbered in their sorted order. */
+    // "mei" -> "Type 1", "takumi" -> "Type 2" (numbered in sorted order)
     private static String typeName(String character) {
         int index = JTalkSettings.listCharacters().indexOf(character);
         return index < 0 ? "None" : "Type " + (index + 1);

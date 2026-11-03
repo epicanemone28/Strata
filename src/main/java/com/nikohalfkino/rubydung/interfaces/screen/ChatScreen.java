@@ -24,7 +24,7 @@ import static com.nikohalfkino.rubydung.RubyDung.GAME_TITLE;
 
 public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
 
-    /** Scale of every string this screen draws (the one knob for text size). */
+    // scale of every string this screen draws, the one knob for text size
     private static final float CHAT_SCALE = 2.0F;
     private static final int CHAR_HEIGHT = (int) (8 * CHAT_SCALE);
     private static final int LINE_HEIGHT = CHAR_HEIGHT + 3;
@@ -38,7 +38,7 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
 
     private static final long OPEN_GRACE_NANOS = 150_000_000L;
 
-    /** Space between the input box's inside edge and its text. */
+    // between the input box's inside edge and its text
     private static final int INPUT_BOX_PADDING = 3;
 
     private static final int TEXT_COLOR = 0xE8E8E8;
@@ -54,10 +54,10 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
     private final TextField input = new TextField(MAX_INPUT);
     private final long openedAt = System.nanoTime();
 
-    /** Sunken backdrop of the input line (a widget; the text field itself is drawn on top of it). */
+    // sunken backdrop of the input line (the text field is drawn on top)
     private final BevelBox inputBox;
 
-    /** The right-hand user list (a widget filling the panel section). */
+    // right-hand user list, fills the panel section
     private final UserList userList;
 
     private int scrollLines = 0;
@@ -98,7 +98,7 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
         this.scrollLines = Math.max(0, this.scrollLines + lines);
     }
 
-    /** Portrait frame for the current mouth shape: 0 = idle, 1..5 = A I U E O. */
+    /** 0 = idle, 1..5 = A I U E O */
     @Override
     public int getMouthFrame() {
         return this.game.getSpeaker().getViseme().ordinal();
@@ -119,7 +119,7 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
         return 0xA8FFC0;
     }
 
-    /** One plain panel under the portrait that fills all the space down to the bottom (the user list). */
+    /** one plain panel under the portrait that fills down to the bottom (the user list) */
     @Override
     public List<PanelSection> getSections() {
         return Collections.singletonList(PanelSection.fill(getPanelTitle()));
@@ -227,7 +227,7 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
         }
     }
 
-    /** Conversation and input text, drawn after the widgets (so on top of the input box). */
+    /** conversation and input text, drawn after the widgets so it's on top of the input box */
     @Override
     protected void renderForeground(int mouseX, int mouseY) {
         if (!isFrameOpen()) {
@@ -364,7 +364,7 @@ public class ChatScreen extends FramePanelScreen implements FrameMouthProvider {
         return this.layout.viewY + this.layout.viewHeight + INPUT_Y_OFFSET;
     }
 
-    /** Top of the input box; the box is as wide as the world view above it. */
+    // top of the input box, as wide as the world view above it
     private int boxY() {
         return inputY() - INPUT_BOX_PADDING;
     }

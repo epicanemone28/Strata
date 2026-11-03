@@ -16,13 +16,13 @@ public class TitleScreen extends MenuScreen {
     private static final float LOGO_WIDTH = 249.0f * 2;
     private static final float LOGO_HEIGHT = 55.0f * 2;
 
-    /** Space between the logo and the version text under it. */
+    // logo to the version text under it
     private static final float VERSION_GAP = 6.0f;
 
-    /** Space between the bevelled panel's bevel and the buttons inside it. */
+    // panel bevel to the buttons inside it
     private static final float PANEL_PADDING = 20.0f;
 
-    /** Space between the panel and the "Logged in as" line under it. */
+    // panel to the "Logged in as" line under it
     private static final float LOGIN_GAP = 12.0f;
 
     public TitleScreen(RubyDung game) {

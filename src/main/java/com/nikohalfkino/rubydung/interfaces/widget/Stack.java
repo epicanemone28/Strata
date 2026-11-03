@@ -5,17 +5,13 @@ import com.nikohalfkino.rubydung.render.Font;
 import java.util.List;
 
 /**
- * Lays its children out one after another along one axis, with a gap between them. Use
- * {@link Column} (top to bottom) or {@link Row} (left to right).
- * <ul>
- *   <li>Hidden children ({@link #setVisible} / {@link #setVisibleWhen}) take no space, so rows can
- *       appear and disappear and everything below slides up.</li>
- *   <li>A child's own offset still applies as a visual nudge, and {@link Widget#setGapAfter}
- *       overrides the gap that follows that one child.</li>
- *   <li>Across the stacking direction children are aligned with {@link #setCrossAlign}
- *       (default: centred).</li>
- *   <li>The stack itself is positioned like any other widget - give it an anchor and offset.</li>
- * </ul>
+ * lays children out one after another along one axis with a gap between them (Column top to bottom, Row left to right)
+ *
+ * hidden children (setVisible / setVisibleWhen) take no space, so rows can appear and everything below slides up
+ *
+ * a child's offset still applies as a nudge, Widget.setGapAfter overrides the gap after that child
+ *
+ * setCrossAlign aligns across the stacking direction (default centred)
  */
 public abstract class Stack extends Container {
 
@@ -33,15 +29,12 @@ public abstract class Stack extends Container {
         this.gap = gap;
     }
 
-    /** Empty space around the children, inside the stack's background / bounds. */
+    /** empty space around the children, inside the background / bounds */
     public void setPadding(float padding) {
         this.padding = padding;
     }
 
-    /**
-     * Alignment across the stacking direction: 0 = left (Column) / top (Row), 0.5 = centred,
-     * 1 = right / bottom. Only matters when children differ in size.
-     */
+    /** 0 = left (Column) / top (Row), 0.5 = centred, 1 = right / bottom. only matters when children differ in size */
     public void setCrossAlign(float crossAlign) {
         this.crossAlign = crossAlign;
     }

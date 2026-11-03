@@ -2,7 +2,7 @@ package com.nikohalfkino.rubydung.interfaces.widget;
 
 import com.nikohalfkino.rubydung.render.Font;
 
-/** Draws nothing; just takes up room in a {@link Column} / {@link Row}. */
+/** draws nothing, just takes up room in a Column / Row */
 public class Spacer extends Widget {
 
     public Spacer(float width, float height) {

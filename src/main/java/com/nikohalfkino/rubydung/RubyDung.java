@@ -53,12 +53,10 @@ public class RubyDung implements Runnable {
 
     private static final String PAUSED_TITLE = GAME_NAME + " - Paused";
 
-    /** Game ticks per second (the Timer's rate); autosave intervals are counted in ticks. */
     private static final int TICKS_PER_SECOND = 60;
 
     private final com.nikohalfkino.rubydung.util.Timer timer = new Timer(TICKS_PER_SECOND);
 
-    /** Window mode + logical size; the game lays itself out in {@link #getWidth()} x {@link #getHeight()}. */
     private final WindowManager windowManager = new WindowManager();
     private final Console console = new Console(this);
     private final ChatLog chatLog = new ChatLog();
@@ -76,19 +74,16 @@ public class RubyDung implements Runnable {
     private static final int TIME_SAVE_INTERVAL_TICKS = 60 * 10;
     private int ticksSinceTimeSave = 0;
 
-    /** Ticks of actual play since the world was last saved (counts only while the game is running). */
+    // only counts while the game is running
     private int ticksSinceAutosave = 0;
     private boolean running = true;
 
-    /** Work handed back to the game thread by background threads (e.g. the save thread). */
+    // tasks handed back to the game thread (e.g. from the save thread)
     private final Queue<Runnable> mainThreadTasks = new ConcurrentLinkedQueue<>();
     private Font font;
     private Screen currentScreen;
 
-    /**
-     * Set while travelling through a dimensional door: the colour to look for
-     * in the world being loaded.
-     */
+    // set while going through a door: colour to look for in the new world
     private DoorColor pendingArrivalColor = null;
 
     public static void main(String[] args) {
@@ -225,12 +220,7 @@ public class RubyDung implements Runnable {
         openScreen(new TitleScreen(this));
     }
 
-    /**
-     * Leaves the current world through a dimensional door for another one.
-     * The current level is saved first (after the door screen has closed,
-     * so its door is saved closed); the player then arrives in front of
-     * a matching door in the new world, see {@link #finishedLoadingWorld}.
-     */
+    /** saves the old world (door closed), arrives at a matching door in the new one */
     public void travelThroughDoor(String worldName, DoorColor pickedColor) {
         SoundEffects.play("door_travel");
         closeScreen();
@@ -314,18 +304,14 @@ public class RubyDung implements Runnable {
         this.session.startNewWorld(worldName, type, seed, size);
     }
 
-    /**
-     * Applies the chosen time settings for a new world and saves them straight away.
-     */
+    // applies the time settings and saves them right away
     private void beginWorldClock(String worldName, DayNightCycle.TimeMode timeMode, float startTime) {
         saveWorldTime();
         this.dayNightCycle.applyCreationSettings(timeMode, startTime);
         WorldManager.saveWorldTime(worldName, this.dayNightCycle);
     }
 
-    /**
-     * Writes the current world's clock to its save folder (no-op without a world).
-     */
+    // no-op without a world
     private void saveWorldTime() {
         if (hasWorld()) {
             WorldManager.saveWorldTime(getLevel().getWorldName(), this.dayNightCycle);
@@ -348,11 +334,7 @@ public class RubyDung implements Runnable {
         this.ticksSinceAutosave = 0;
     }
 
-    /**
-     * Saves and unloads the current world, then shows the title screen. Without the unload,
-     * hasWorld() stays true and anything that checks it (Options -> Done, the renderer) still
-     * thinks you are in the world you just quit.
-     */
+    /** saves and unloads the world, otherwise hasWorld() stays true after quitting */
     public void quitToTitle() {
         if (hasWorld()) {
             saveLevel();
@@ -366,7 +348,6 @@ public class RubyDung implements Runnable {
         openScreen(new TitleScreen(this));
     }
 
-    /** Saves the world on a timer and tells the player. */
     private void autosave() {
         // Only snapshots happen here; the GZIP + disk write runs on the save thread.
         this.session.saveLevelAsync(() ->
@@ -375,7 +356,7 @@ public class RubyDung implements Runnable {
         this.ticksSinceAutosave = 0;
     }
 
-    /** Safe to call from any thread; the task runs on the game thread at the start of the next frame. */
+    /** safe from any thread, runs at the start of the next frame */
     public void runOnMainThread(Runnable task) {
         this.mainThreadTasks.add(task);
     }
@@ -504,7 +485,7 @@ public class RubyDung implements Runnable {
         Display.setTitle(GAME_TITLE);
     }
 
-    /** Applies the display settings (windowed / maximized / fullscreen and their layouts). Queued, so it runs at the start of the next frame, never mid-click. */
+    /** queued so it runs at the start of the next frame, never mid-click */
     public void applyDisplay() {
         this.mainThreadTasks.add(() -> {
             try {
@@ -529,7 +510,6 @@ public class RubyDung implements Runnable {
         });
     }
 
-    /** The user dragged the window edge (or maximised it): re-lay the game out for the new size. */
     private void onWindowResized() {
         this.windowManager.recompute();
         if (this.currentScreen != null) {

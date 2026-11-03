@@ -30,14 +30,14 @@ public final class MusicPlayer {
 
     private static final String[] TRACKS = {"arcadia_town", "desolate", "dream_port", "feather_lakefront", "foggy_jungle", "highwind_prairie", "homesick_coast", "inaction", "kylin_forest", "mirror_lakefront", "tranquility_path", "yujia_forest"};
 
-    /** Length of the fade-in at the very start and of every crossfade. */
+    // also used for every crossfade
     private static final float FADE_IN_SECONDS = 2.0F;
     private static final float CROSSFADE_SECONDS = 2.0F;
 
-    /** Size of the audio line buffer; smaller = volume slider reacts faster. */
+    // smaller = volume slider reacts faster
     private static final float LINE_BUFFER_SECONDS = 0.2F;
 
-    /** Fixed loudness trim applied before the options slider (1.0 = original loudness). */
+    // fixed loudness trim before the options slider
     private static final float BASE_GAIN = 0.35F;
 
     private static final int READ_CHUNK = 4096;
@@ -166,7 +166,7 @@ public final class MusicPlayer {
         return this.lastPlayed;
     }
 
-    /** Opens the next track that works, or returns null if none do. */
+    // skips broken tracks, null if none work
     private Decoder openNext() {
         for (int i = 0; i < TRACKS.length && this.running; i++) {
             String resource = TRACK_PATH + nextTrack() + ".ogg";
@@ -191,10 +191,7 @@ public final class MusicPlayer {
         return null;
     }
 
-    /**
-     * Streams a track to the output, retaining the final CROSSFADE_SECONDS.
-     * Returns the retained tail (interleaved floats), or null if stopped.
-     */
+    // returns the held-back tail (CROSSFADE_SECONDS worth), null if stopped
     private float[] streamTrack(Decoder d, Output out, boolean fadeIn) throws IOException {
         int ch = d.channels;
         int tailFrames = Math.max(1, (int) (d.sampleRate * CROSSFADE_SECONDS));
@@ -260,7 +257,7 @@ public final class MusicPlayer {
         return tail;
     }
 
-    /** Fades the tail out while fading the start of "next" in (next may be null). */
+    // next may be null
     private void crossfade(float[] tail, Output out, Decoder next) throws IOException {
         int ch = out.channels;
         int tailFrames = tail.length / ch;
@@ -322,10 +319,7 @@ public final class MusicPlayer {
         return n;
     }
 
-    /**
-     * Audio output. Volume is applied in software on every write, so the
-     * options slider takes effect immediately, mid-track.
-     */
+    // applies volume in software on every write so the slider works mid-track
     private static final class Output {
 
         final int sampleRate;
@@ -393,8 +387,7 @@ public final class MusicPlayer {
         }
     }
 
-    /** Pull-based Ogg Vorbis decoder producing interleaved float PCM. */
-    /** Package-private so {@link SoundEffects} can reuse it. */
+    /** ogg vorbis decoder (interleaved float pcm), package-private so SoundEffects can reuse it */
     static final class Decoder {
 
         int channels;
@@ -488,10 +481,7 @@ public final class MusicPlayer {
             }
         }
 
-        /**
-         * Reads up to "frames" interleaved frames into dst.
-         * Returns fewer than requested only at the end of the stream.
-         */
+        /** returns fewer than requested only at the end of the stream */
         int read(float[] dst, int frames) throws IOException {
             int got = 0;
 
@@ -512,7 +502,7 @@ public final class MusicPlayer {
             return got;
         }
 
-        /** Decodes more audio into "pending". Returns false at end of stream. */
+        // false at end of stream
         private boolean decodeMore() throws IOException {
             while (true) {
                 int samples = this.vd.synthesis_pcmout(this.pcmHolder, this.pcmIndex);

@@ -1,30 +1,22 @@
 package com.nikohalfkino.rubydung.level;
 
 /**
- * Tracks the current time of day and exposes interpolated sky/fog/ambient values.
+ * time of day plus interpolated sky/fog/ambient values
  *
- * Time is a float in [0, 1):
- *   0.00 = midnight
- *   0.25 = dawn
- *   0.50 = noon
- *   0.75 = dusk
+ * time is a float in [0, 1): 0 = midnight, 0.25 = dawn, 0.5 = noon, 0.75 = dusk
  *
- * One full cycle lasts CYCLE_SECONDS real seconds at speed 1.0 (default 10 minutes).
+ * a full cycle is CYCLE_SECONDS real seconds at speed 1.0
  */
 public class DayNightCycle {
 
-    /** Real-time length of a full day–night cycle in seconds, at speed 1.0. */
+    /** real seconds for a full cycle at speed 1.0 (10 minutes) */
     public static final float CYCLE_SECONDS = 600.0F;
 
-    /**
-     * Starting time: 0.5 = noon (bright day visible from the first moment).
-     * Change to 0.0F to start at midnight.
-     */
+    /** noon, so a new world starts in daylight */
     public static final float DEFAULT_START_TIME = 0.5F;
 
-    // ── Sky colour key-frames ─────────────────────────────────────────────
-    // Each row is {R, G, B} for zenith / horizon / nadir at that phase.
-    // Phases: midnight(0), dawn(0.25), noon(0.5), dusk(0.75)
+    // sky colour key-frames: each row is {R, G, B} for zenith / horizon / nadir at that phase
+    // phases: midnight(0), dawn(0.25), noon(0.5), dusk(0.75)
 
     private static final float[][] ZENITH_COLORS = {
             {0.01f, 0.01f, 0.04f},  // midnight – near-black deep blue
@@ -45,7 +37,7 @@ public class DayNightCycle {
             {0.55f, 0.65f, 0.80f},  // dusk
     };
 
-    // ── Fog colour key-frames ─────────────────────────────────────────────
+    // fog colour key-frames
     private static final float[][] FOG_COLORS = {
             {0.01f, 0.01f, 0.03f},  // midnight
             {0.55f, 0.35f, 0.20f},  // dawn
@@ -53,9 +45,8 @@ public class DayNightCycle {
             {0.50f, 0.25f, 0.15f},  // dusk
     };
 
-    // ── Ambient brightness key-frames ─────────────────────────────────────
-    // Multiplied into Level.getBrightness(). 1.0 = fully lit, 0.05 = very dark night.
-    // (Cloud tint key-frames follow just below the ambient levels.)
+    // ambient brightness key-frames, multiplied into Level.getBrightness() (1.0 = fully lit, 0.05 = very dark night)
+    // cloud tint key-frames follow just below
     private static final float[] AMBIENT_LEVELS = {
             0.05f,  // midnight
             0.55f,  // dawn
@@ -63,7 +54,7 @@ public class DayNightCycle {
             0.55f,  // dusk
     };
 
-    // ── Key-frame times in [0,1) ──────────────────────────────────────────
+    // key-frame times in [0, 1)
     private static final float[] KEY_TIMES = {0.0f, 0.25f, 0.5f, 0.75f};
 
     // Cloud tint key-frames, multiplied into each cloud layer's own tint at render time.
@@ -74,7 +65,7 @@ public class DayNightCycle {
             {1.00f, 0.60f, 0.50f},  // dusk     – red-orange
     };
 
-    // ── State ─────────────────────────────────────────────────────────────
+    // state
     private float time;    // [0, 1)
     private float speed;   // multiplier; 0 = frozen, 1 = normal, 2 = 2x, etc.
     private boolean frozen;
@@ -86,9 +77,9 @@ public class DayNightCycle {
         this.frozen = false;
     }
 
-    // ── Tick ─────────────────────────────────────────────────────────────
+    // tick
 
-    /** Advance the cycle by one game tick (called once per tick at 60 tps). */
+    /** advances one game tick, called once per tick at 60 tps */
     public void tick(float partialTicks) {
         if (this.frozen) {
             return;
@@ -105,56 +96,52 @@ public class DayNightCycle {
         this.time = (this.time + secondsPerTick * this.speed / CYCLE_SECONDS) % 1.0F;
     }
 
-    // ── Time control ─────────────────────────────────────────────────────
+    // time control
 
-    /** Current time in [0, 1). */
     public float getTime() {
         return this.time;
     }
 
-    /** Set the time directly (0 = midnight, 0.5 = noon). */
+    /** 0 = midnight, 0.5 = noon */
     public void setTime(float t) {
         this.time = ((t % 1.0F) + 1.0F) % 1.0F;
         // Setting the time by hand leaves real-time mode, otherwise the next tick would undo it.
         this.realTime = false;
     }
 
-    /** Speed multiplier (1.0 = normal, 0 = stopped, 2 = twice as fast). */
+    /** 1.0 = normal, 0 = stopped, 2 = twice as fast */
     public float getSpeed() {
         return this.speed;
     }
 
-    /**
-     * Set the speed multiplier. 0 effectively freezes the cycle (same as {@link #setFrozen}).
-     * The frozen flag is independent — both must allow ticking for time to advance.
-     */
+    /** 0 effectively freezes the cycle (same as setFrozen), the frozen flag is independent so both must allow ticking */
     public void setSpeed(float speed) {
         this.speed = Math.max(0.0F, speed);
     }
 
-    /** Whether the cycle is explicitly frozen, regardless of speed. */
+    /** explicitly frozen, regardless of speed */
     public boolean isFrozen() {
         return this.frozen;
     }
 
-    /** Freeze or unfreeze the cycle. Does not change the speed multiplier. */
+    /** doesn't change the speed multiplier */
     public void setFrozen(boolean frozen) {
         this.frozen = frozen;
     }
 
-    // ── World time modes ──────────────────────────────────────────────────
+    // world time modes
 
-    /** How a world's clock behaves; chosen when the world is created. */
+    /** how a world's clock behaves, chosen when the world is created */
     public enum TimeMode {
-        /** Time of day follows the machine's local clock (midnight = 0.0, noon = 0.5). */
+        // follows the machine's local clock (midnight = 0.0, noon = 0.5)
         REAL_TIME,
-        /** The normal day-night cycle, {@link #CYCLE_SECONDS} long. */
+        // the normal cycle, CYCLE_SECONDS long
         NORMAL,
-        /** Time stops at the chosen time of day. */
+        // stops at the chosen time of day
         FROZEN
     }
 
-    /** Sets up the clock for a brand-new world. startTime is ignored for REAL_TIME. */
+    /** sets up the clock for a brand-new world, startTime is ignored for REAL_TIME */
     public void applyCreationSettings(TimeMode mode, float startTime) {
         this.speed = 1.0F;
         switch (mode) {
@@ -177,7 +164,7 @@ public class DayNightCycle {
         }
     }
 
-    /** Restores saved per-world state (see WorldManager.loadWorldTime). */
+    /** restores saved per-world state (see WorldManager.loadWorldTime) */
     public void restoreState(float time, float speed, boolean frozen, boolean realTime) {
         this.time = Float.isFinite(time) ? wrap(time) : DEFAULT_START_TIME;
         this.speed = Float.isFinite(speed) ? Math.max(0.0F, speed) : 1.0F;
@@ -192,7 +179,7 @@ public class DayNightCycle {
         return this.realTime;
     }
 
-    /** Local time of day as [0, 1): 0 = midnight, 0.5 = noon. */
+    // local time as [0, 1): 0 = midnight, 0.5 = noon
     private static float realTimeOfDay() {
         return (float) (java.time.LocalTime.now().toNanoOfDay() / 86_400_000_000_000.0);
     }
@@ -201,12 +188,12 @@ public class DayNightCycle {
         return ((t % 1.0F) + 1.0F) % 1.0F;
     }
 
-    /** Whether it is broadly daytime (ambient > 0.5). */
+    /** broadly daytime (ambient >= 0.5) */
     public boolean isDay() {
         return getAmbient() >= 0.5F;
     }
 
-    // ── Interpolated values ───────────────────────────────────────────────
+    // interpolated values
 
     public float getAmbient() {
         return interpolate1(AMBIENT_LEVELS);
@@ -218,7 +205,7 @@ public class DayNightCycle {
     public float[] getFogColor()     { return interpolate3(FOG_COLORS);     }
     public float[] getCloudColor()   { return interpolate3(CLOUD_COLORS);   }
 
-    // ── Interpolation helpers ─────────────────────────────────────────────
+    // interpolation helpers
 
     private float interpolate1(float[] values) {
         int a = keyframeBefore();

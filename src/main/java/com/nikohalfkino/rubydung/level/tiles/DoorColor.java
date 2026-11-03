@@ -1,8 +1,9 @@
 package com.nikohalfkino.rubydung.level.tiles;
 
 /**
- * Colour of a dimensional door. A coloured door can only lead to a world that has a door of the
- * same colour; REGULAR doors are universal and match every colour (see {@link #matches}).
+ * colour of a dimensional door: a coloured door only leads to a world with a door of the same colour
+ *
+ * REGULAR is universal and matches every colour (see matches)
  */
 public enum DoorColor {
     REGULAR("", "Regular", 0xE0A868),
@@ -22,12 +23,12 @@ public enum DoorColor {
         this.tint = tint;
     }
 
-    /** RGB tint for UI frames that reflect this colour (same style as the other screens' frame tints). */
+    /** RGB tint for UI frames that reflect this colour */
     public int getTint() {
         return this.tint;
     }
 
-    /** Part of the texture / tile name after "dimensional_door_" ("" for regular doors). */
+    /** part of the texture / tile name after "dimensional_door_" ("" for regular doors) */
     public String getSuffix() {
         return this.suffix;
     }
@@ -36,7 +37,7 @@ public enum DoorColor {
         return this.displayName;
     }
 
-    /** Whether a door of this colour and a door of the other colour can be used to reach each other. */
+    /** whether a door of this colour and one of the other colour can reach each other */
     public boolean matches(DoorColor other) {
         return this == REGULAR || other == REGULAR || this == other;
     }

@@ -17,13 +17,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Inventory: while open, {@link GameFrame} shrinks the world view and slides the panel in. The
- * panel has two slot grids, "Palette" (ordinary tiles) and "Props" (billboarded tiles). The frame
- * draws the headings, boxes and empty slots; each grid is a {@link SlotGrid} in this
- * screen's widget tree, pinned to its panel section every frame, that draws the icons and
- * highlights and handles clicks. Because it is a Screen, the camera gets no mouse input.
- * <p>
- * To add another group, add another {@code addGrid(...)} call in the constructor.
+ * while open, GameFrame shrinks the world view and slides the panel in (being a Screen, the camera gets no mouse input)
+ *
+ * two slot grids, "Palette" (ordinary tiles) and "Props" (billboarded tiles), each a SlotGrid pinned to its panel section every frame
+ *
+ * add another group with another addGrid(...) call in the constructor
  */
 public class InventoryScreen extends FramePanelScreen {
 
@@ -33,10 +31,10 @@ public class InventoryScreen extends FramePanelScreen {
 
     private final List<String> titles = new ArrayList<>();
     private final List<SlotGrid<Tile>> grids = new ArrayList<>();
-    /** Side length (in slots) of each grid; grids are squares sized to their contents. */
+    // side length (in slots) of each grid, squares sized to their contents
     private final List<Integer> sides = new ArrayList<>();
 
-    /** Last mouse position seen by render(), so wheel scrolling hits the grid under the cursor. */
+    // last mouse position seen by render(), so wheel scrolling hits the grid under the cursor
     private int lastMouseX = -1;
     private int lastMouseY = -1;
 
@@ -77,7 +75,7 @@ public class InventoryScreen extends FramePanelScreen {
         this.grids.add(add(grid, Anchor.TOP_LEFT, 0, 0));
     }
 
-    /** Scrolls the grid under the mouse by whole rows (positive = down); the first grid if none is. */
+    /** scrolls the grid under the mouse (the first one if none), positive = down */
     public void scroll(int rows) {
         for (SlotGrid<Tile> grid : this.grids) {
             if (grid.contains(this.lastMouseX, this.lastMouseY)) {
@@ -105,10 +103,7 @@ public class InventoryScreen extends FramePanelScreen {
         return 0xFFFFFF;
     }
 
-    /**
-     * Palette on top, Props below it. Each is a square grid just big enough for its tiles (so the
-     * smaller group gets the smaller grid); squares shrink further if the window is short.
-     */
+    /** Palette on top, Props below, each a square just big enough for its tiles (shrinks if the window is short) */
     @Override
     public List<PanelSection> getSections() {
         List<PanelSection> sections = new ArrayList<>();
@@ -142,7 +137,7 @@ public class InventoryScreen extends FramePanelScreen {
         super.render(mouseX, mouseY);
     }
 
-    /** Size letter (S / M / L) in the top-right corner of the slot, for tiles that have one. */
+    // S / M / L in the slot's top-right corner, for tiles that have one
     private static void drawSizeLabel(Font font, Tile tile, int slotX, int slotY, int slotSize) {
         String label = sizeLabel(tile);
         if (label == null) {
@@ -155,10 +150,7 @@ public class InventoryScreen extends FramePanelScreen {
         font.drawStringScaled(label, x, y, LABEL_COLOR, LABEL_SCALE);
     }
 
-    /**
-     * "S", "M" or "L" for tiles that come in several sizes, null for everything else.
-     * Add other multi-size tile types here.
-     */
+    // "S", "M" or "L" for multi-size tiles, null otherwise. add other multi-size types here
     private static String sizeLabel(Tile tile) {
         if (tile instanceof TreeTile) {
             TreeTile.TreeType type = ((TreeTile) tile).getType();

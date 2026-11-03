@@ -13,23 +13,20 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Everything Katakana reads from disk: kana_tables.txt (required) and dictionary.txt (plus the
- * optional jtalk/dictionary.txt override). Loaded once, when the class is first used.
- */
+/** loads kana_tables.txt (required) and dictionary.txt (plus the optional jtalk/dictionary.txt override) once, on first use */
 final class KanaData {
 
     private static final String RESOURCE_DIR = "/assets/rubydung/tts/";
     private static final String TABLES_RESOURCE = RESOURCE_DIR + "kana_tables.txt";
     private static final String DICTIONARY_RESOURCE = RESOURCE_DIR + "dictionary.txt";
 
-    /** Consonant keys the converter looks up; every one must be present in [rows]. */
+    // consonant keys the converter looks up, all must be in [rows]
     private static final String[] ROW_KEYS = {
             "-", "k", "g", "s", "z", "t", "d", "n", "h", "f", "b", "p", "m", "y", "r", "w", "v",
             "j", "sh", "ch", "q"
     };
 
-    /** Entries the converter reads from [misc]; every one must be present. */
+    // entries read from [misc], all must be present
     private static final String[] MISC_KEYS = {
             "hundred", "point", "oh", "minus", "number", "hash", "dollar", "plural",
             "ordinal_suffix", "ordinal_suffix_ty", "ordinal_ty_ending"
@@ -56,7 +53,7 @@ final class KanaData {
         loadDictionary();
     }
 
-    // ------------------------------------------------------------------ kana_tables.txt
+    // kana_tables.txt
 
     private static void loadTables() {
         try (InputStream in = KanaData.class.getResourceAsStream(TABLES_RESOURCE)) {
@@ -213,7 +210,7 @@ final class KanaData {
         return MISC.get(key);
     }
 
-    // ------------------------------------------------------------------ dictionary.txt
+    // dictionary.txt
 
     private static File externalDictionary() {
         return new File(System.getProperty("jtalk.home", "jtalk"), "dictionary.txt");

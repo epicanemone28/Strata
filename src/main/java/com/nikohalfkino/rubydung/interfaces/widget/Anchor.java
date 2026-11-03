@@ -1,10 +1,9 @@
 package com.nikohalfkino.rubydung.interfaces.widget;
 
 /**
- * Where a widget is pinned inside its parent. The matching point of the widget is lined up with
- * the same point of the parent, so {@code TOP_RIGHT} puts the widget's top-right corner on the
- * parent's top-right corner, {@code CENTER} centres it, and so on. The widget's offset then nudges
- * it from there (positive = right / down).
+ * where a widget is pinned inside its parent: its matching point is lined up with the parent's (TOP_RIGHT puts its top-right corner on the parent's, CENTER centres it)
+ *
+ * the offset then nudges it from there (positive = right / down)
  */
 public enum Anchor {
 
@@ -20,9 +19,9 @@ public enum Anchor {
     BOTTOM_CENTER(0.5f, 1.0f),
     BOTTOM_RIGHT(1.0f, 1.0f);
 
-    /** Horizontal position of the anchor point, 0 = left edge, 1 = right edge. */
+    /** 0 = left edge, 1 = right edge */
     public final float fx;
-    /** Vertical position of the anchor point, 0 = top edge, 1 = bottom edge. */
+    /** 0 = top edge, 1 = bottom edge */
     public final float fy;
 
     Anchor(float fx, float fy) {

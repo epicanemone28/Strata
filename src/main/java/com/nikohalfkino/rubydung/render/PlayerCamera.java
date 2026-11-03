@@ -10,18 +10,13 @@ import static org.lwjgl.opengl.GL11.glTranslated;
 import static org.lwjgl.opengl.GL11.glTranslatef;
 
 /**
- * Where the world is seen from. Replaces CameraUtil.
- * <ul>
- *   <li><b>First person</b>: the camera sits at the player's eyes (as before).</li>
- *   <li><b>Third person</b>: the camera orbits the eyes, a few blocks behind and pulled in by
- *       blocks in the way. The mouse still aims the player (so the crosshair, picking and the
- *       movement keys work exactly like first person, the aim ray passes straight through the
- *       eyes), but the player's body is free to face another way, see {@link Player#bodyYaw}.</li>
- *   <li><b>Freecam</b>: the camera is detached from the player, who stands still (no input, no
- *       picking) so the player sprite can be looked at. The mouse turns the camera and the
- *       movement keys fly it.</li>
- * </ul>
- * Call {@link #update} once per frame before {@link #apply}.
+ * where the world is seen from, call update() once per frame before apply()
+ *
+ * first person: the camera sits at the player's eyes
+ *
+ * third person: the camera orbits the eyes a few blocks behind, pulled in by blocks in the way. the mouse still aims the player (crosshair, picking and movement keys work like first person, the aim ray goes through the eyes) but the body is free to face another way, see Player.bodyYaw
+ *
+ * freecam: the camera is detached and the player stands still (no input, no picking) so the player sprite can be looked at. the mouse turns the camera, movement keys fly it
  */
 public final class PlayerCamera {
 
@@ -40,13 +35,13 @@ public final class PlayerCamera {
         }
     }
 
-    /** The fixed pull-back CameraUtil always applied; kept so first person looks identical. */
+    // same fixed pull-back as CameraUtil, so first person looks identical
     private static final float CAMERA_BACK_OFFSET = 0.3F;
 
     private static final float THIRD_PERSON_DISTANCE = 4.0F;
     private static final double COLLISION_STEP = 0.1D;
     private static final double COLLISION_MARGIN = 0.25D;
-    /** How fast the orbit distance eases back out after a wall let go of the camera (per second). */
+    // how fast the orbit distance eases back out after a wall let go of the camera (per second)
     private static final float DISTANCE_EASE = 10.0F;
 
     public static final float DEFAULT_FREECAM_SPEED = 10.0F;
@@ -76,7 +71,7 @@ public final class PlayerCamera {
         return this.view;
     }
 
-    /** Switches between first and third person. Does nothing while the freecam is on. */
+    /** first <-> third person, does nothing while the freecam is on */
     public boolean cycleView() {
         if (this.freecam) {
             return false;
@@ -89,7 +84,7 @@ public final class PlayerCamera {
         return this.freecam;
     }
 
-    /** Starts the freecam from wherever the camera is now, or goes back to the player's view. */
+    /** starts the freecam from wherever the camera is now, or goes back to the player's view */
     public void setFreecam(boolean on) {
         if (on == this.freecam) {
             return;
@@ -108,7 +103,7 @@ public final class PlayerCamera {
         return this.freecamSpeed;
     }
 
-    /** Freecam speed in blocks per second. */
+    /** blocks per second */
     public void setFreecamSpeed(float speed) {
         this.freecamSpeed = Math.max(MIN_FREECAM_SPEED, Math.min(MAX_FREECAM_SPEED, speed));
     }
@@ -117,7 +112,6 @@ public final class PlayerCamera {
         return !this.freecam && this.view == View.FIRST_PERSON;
     }
 
-    /** Whether the player's own sprite should be drawn. */
     public boolean isPlayerVisible() {
         return !isFirstPerson();
     }
@@ -146,7 +140,7 @@ public final class PlayerCamera {
 
     // Input
 
-    /** Mouse movement: turns the freecam, or the player (whose aim the third-person camera follows). */
+    /** mouse movement: turns the freecam, or the player (whose aim the third-person camera follows) */
     public void turn(Player player, float dx, float dy) {
         if (this.freecam) {
             this.freeYaw += dx * MOUSE_SENSITIVITY;
@@ -157,12 +151,7 @@ public final class PlayerCamera {
         }
     }
 
-    /**
-     * Works out this frame's camera pose.
-     *
-     * @param playing whether the game has the keyboard (no screen or console open), so the freecam
-     *                only flies while it should
-     */
+    /** works out this frame's camera pose. playing = the game has the keyboard (no screen or console open), so the freecam only flies while it should */
     public void update(Player player, Level level, float partialTicks, boolean playing) {
         long now = System.nanoTime();
         float dt = this.lastFrameNanos == 0L ? 0.0F : Math.min(0.1F, (now - this.lastFrameNanos) / 1.0E9F);
@@ -207,7 +196,7 @@ public final class PlayerCamera {
         this.posZ = this.pivotZ - dir[2] * this.distance;
     }
 
-    /** Sets the modelview matrix for the pose computed by the last {@link #update}. */
+    /** sets the modelview matrix for the pose from the last update() */
     public void apply() {
         glTranslatef(0.0F, 0.0F, -(CAMERA_BACK_OFFSET + this.distance));
 
@@ -219,7 +208,7 @@ public final class PlayerCamera {
 
     // Internals
 
-    /** Unit vector the camera looks along (same convention as the pick ray). */
+    // unit vector the camera looks along (same convention as the pick ray)
     private static double[] direction(float yaw, float pitch) {
         double yawRad = Math.toRadians(yaw);
         double pitchRad = Math.toRadians(pitch);
@@ -273,7 +262,7 @@ public final class PlayerCamera {
         this.freeZ += mz * step;
     }
 
-    /** How far behind the eyes the third-person camera can be before a block gets in the way. */
+    // how far behind the eyes the third-person camera can go before a block gets in the way
     private float clearDistance(Level level, Player player) {
         if (player.noClip) {
             return THIRD_PERSON_DISTANCE;

@@ -7,19 +7,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Reads Minecraft-style block model JSON (as exported by Blockbench) and bakes it into quads.
+ * reads Minecraft-style block model JSON (as exported by Blockbench) and bakes it into quads
  *
- * <p>Supported: "parent" inheritance, "textures" with "#ref" indirection, "elements" with
- * from/to, "rotation" (origin, axis, angle, rescale), "shade", and per face "uv", "texture",
- * "cullface" and "rotation". Ignored: "display", "ambientocclusion", "tintindex", "groups".
+ * supported: "parent" inheritance, "textures" with "#ref" indirection, "elements" with from/to, "rotation" (origin, axis, angle, rescale), "shade", and per face "uv", "texture", "cullface", "rotation". ignored: "display", "ambientocclusion", "tintindex", "groups"
  *
- * <p>Models live at /assets/&lt;namespace&gt;/models/&lt;id&gt;.json, e.g. id "rubydung:block/cube_all"
- * (no namespace means rubydung; "minecraft:" is treated as rubydung too, for Blockbench exports).
- * Texture names are plain names under textures/block ("pillar_side"); a namespace and a "block/"
- * prefix are allowed and ignored.
+ * models live at /assets/NAMESPACE/models/ID.json, e.g. "rubydung:block/cube_all" (no namespace = rubydung, "minecraft:" counts as rubydung too, for Blockbench exports). texture names are plain names under textures/block ("pillar_side"), a namespace and a "block/" prefix are allowed and ignored
  *
- * <p>A model can also be defined inline by a blockstate (see {@link BlockStateLoader}); a model file
- * with the same id then takes precedence, which is how resource packs replace it.
+ * a blockstate can define a model inline (see BlockStateLoader), a model file with the same id then wins, which is how resource packs replace it
  */
 public final class ModelLoader {
 
@@ -36,37 +30,26 @@ public final class ModelLoader {
         this.source = source;
     }
 
-    /** A model with its parent chain merged: child textures override parent textures, child elements replace parent elements. */
+    // a model with its parent chain merged: child textures override parent textures, child elements replace parent elements
     private static final class Resolved {
         final Map<String, String> textures = new LinkedHashMap<>();
         List<Object> elements = new ArrayList<>();
-        /** The model's own "collision" boxes (in sixteenths), or null to derive them from the elements. */
+        // the model's own "collision" boxes (sixteenths), null = derive them from the elements
         List<Object> collision = null;
     }
 
-    // -------------------------------------------------------------------------
-    // Public API
+    // public api
 
-    /**
-     * Bakes a model from a file.
-     *
-     * @param textureOverrides replaces entries of the model's "textures" (e.g. side -> pillar_side)
-     * @param rotX, rotY, rotZ rotation of the whole model in degrees, multiples of 90 (x first, then y, then z)
-     * @param uvLock           keep textures aligned to the world instead of turning with the model
-     */
+    /** textureOverrides replace entries of the model's "textures" (e.g. side -> pillar_side), rotX/Y/Z rotate the whole model in degrees (multiples of 90, x then y then z), uvLock keeps textures aligned to the world instead of turning with the model */
     public BakedModel bake(String modelId, Map<String, String> textureOverrides,
                            int rotX, int rotY, int rotZ, boolean uvLock) {
         return bake(modelId, null, textureOverrides, rotX, rotY, rotZ, uvLock);
     }
 
     /**
-     * Bakes a model that a blockstate may define inline.
+     * bakes a model a blockstate may define inline. definition (nullable) holds the inline "parent" and/or "elements"
      *
-     * <p>{@code definition} (nullable) holds the inline model's "parent" and/or "elements". With a
-     * definition: if a model file with this id exists it wins (a resource pack replacing the model),
-     * and {@code textures} only fill in names the file leaves undefined; otherwise the model is
-     * built from the definition plus {@code textures}. Without a definition the file must exist and
-     * {@code textures} override its entries.
+     * with a definition: a model file with this id wins (a resource pack replacing it) and textures only fill in names the file leaves undefined, otherwise it's built from the definition plus textures. without one the file must exist and textures override its entries
      */
     public BakedModel bake(String modelId, Map<String, Object> definition, Map<String, String> textures,
                            int rotX, int rotY, int rotZ, boolean uvLock) {
@@ -97,7 +80,7 @@ public final class ModelLoader {
         return bake(model, overrides, turns(rotX), turns(rotY), turns(rotZ), uvLock);
     }
 
-    /** A plain cube with the "missing" texture on every side, used when something fails to load. */
+    /** plain cube with the "missing" texture on every side, used when something fails to load */
     public BakedModel bakeMissing() {
         if (this.missingCube == null) {
             StringBuilder json = new StringBuilder(
@@ -117,8 +100,7 @@ public final class ModelLoader {
         return this.missingCube;
     }
 
-    // -------------------------------------------------------------------------
-    // Reading and parent resolution
+    // reading and parent resolution
 
     private Resolved resolve(String id, int depth) {
         Resolved cached = this.resolved.get(id);
@@ -150,7 +132,7 @@ public final class ModelLoader {
         return resolveJson(id, json, depth);
     }
 
-    /** Merges a parsed (or inline) model definition with its parent chain. */
+    // merges a parsed (or inline) model definition with its parent chain
     private Resolved resolveJson(String id, Map<String, Object> json, int depth) {
         Resolved model = new Resolved();
 
@@ -190,7 +172,7 @@ public final class ModelLoader {
         return model;
     }
 
-    /** "block/cube" becomes "rubydung:block/cube"; "minecraft:" is treated as the default namespace. */
+    // "block/cube" -> "rubydung:block/cube", "minecraft:" counts as the default namespace
     private static String qualify(String id) {
         String namespace = DEFAULT_NAMESPACE;
         int colon = id.indexOf(':');
@@ -207,7 +189,7 @@ public final class ModelLoader {
         return namespace + ":" + id;
     }
 
-    /** Parent models often declare unset slots as "missing"; those count as undefined. */
+    // parent models often declare unset slots as "missing", those count as undefined
     private static boolean isPlaceholder(String texture) {
         return texture.equals(MISSING_TEXTURE) || texture.endsWith(":" + MISSING_TEXTURE)
                 || texture.endsWith("/" + MISSING_TEXTURE);
@@ -218,8 +200,7 @@ public final class ModelLoader {
         return "/assets/" + qualifiedId.substring(0, colon) + "/models/" + qualifiedId.substring(colon + 1) + ".json";
     }
 
-    // -------------------------------------------------------------------------
-    // Baking
+    // baking
 
     private BakedModel bake(Resolved model, Map<String, String> overrides,
                             int turnsX, int turnsY, int turnsZ, boolean uvLock) {
@@ -265,10 +246,7 @@ public final class ModelLoader {
         return new BakedModel(quads, rotated);
     }
 
-    /**
-     * Reads a list of boxes [x1, y1, z1, x2, y2, z2] given in sixteenths into boxes in blocks,
-     * each as {minX, minY, minZ, maxX, maxY, maxZ}. An empty list means "no collision".
-     */
+    // list of boxes [x1, y1, z1, x2, y2, z2] in sixteenths -> boxes {minX, minY, minZ, maxX, maxY, maxZ} in blocks, an empty list means "no collision"
     static List<float[]> parseBoxes(Object value, String what) {
         if (!(value instanceof List)) {
             throw new ModelException("'" + what + "' must be a list of boxes [x1, y1, z1, x2, y2, z2]");
@@ -417,7 +395,7 @@ public final class ModelLoader {
         }
     }
 
-    /** Default uv rectangle {u1, v1, u2, v2} of a face, from the element's extent (Minecraft's rule). */
+    // default uv rectangle {u1, v1, u2, v2} of a face from the element's extent (Minecraft's rule)
     private static double[] defaultUv(int face, double[] f, double[] t) {
         switch (face) {
             case Face.DOWN:  return new double[]{f[0], 16 - t[2], t[0], 16 - f[2]};
@@ -429,7 +407,7 @@ public final class ModelLoader {
         }
     }
 
-    /** World-aligned uv of a point (in sixteenths) on a face looking toward {@code face}: used by uvlock. */
+    // world-aligned uv of a point (sixteenths) on a face looking toward face, used by uvlock
     private static double[] project(int face, double[] p) {
         switch (face) {
             case Face.UP:    return new double[]{p[0], p[2]};
@@ -441,7 +419,7 @@ public final class ModelLoader {
         }
     }
 
-    /** Rotates a point by any angle about an axis through origin (same sense as the 90 degree turns). */
+    // rotates a point by any angle about an axis through origin (same sense as the 90 degree turns)
     private static void rotateElementPoint(double[] p, double[] origin, int axis, double degrees, boolean rescale) {
         double radians = Math.toRadians(degrees);
         double c = Math.cos(radians);
@@ -472,10 +450,9 @@ public final class ModelLoader {
         p[2] = nz + origin[2];
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
+    // helpers
 
-    /** "#side" -> whatever "side" maps to (following chains); a plain name is used as is. */
+    // "#side" -> whatever "side" maps to (following chains), a plain name is used as is
     private static String resolveTexture(String reference, Map<String, String> textures) {
         String current = reference;
         for (int i = 0; i < MAX_PARENT_DEPTH && current != null && current.startsWith("#"); i++) {

@@ -35,9 +35,9 @@ public final class LevelGenerator {
     }
 
     /**
-     * A generated world: the block array plus the origin cell {x, y, z} of every multi-tile object
-     * the generator stamped into it (all of an object's cells are already in the block array; the
-     * origins are what lets Level register them as objects, so they break and save as one).
+     * a generated world: the block array plus the origin cell {x, y, z} of every multi-tile object stamped into it
+     *
+     * all their cells are already in the block array, the origins let Level register them as objects so they break and save as one
      */
     public static final class Result {
 
@@ -57,7 +57,7 @@ public final class LevelGenerator {
         return new Result(FlatLevelGenerator.generate(width, height, depth), new ArrayList<>());
     }
 
-    /** Blocks only. Prefer generateWorld, which also reports multi-tile objects. */
+    /** blocks only, prefer generateWorld which also reports multi-tile objects */
     public static byte[] generate(WorldType type, int width, int height, int depth, long seed) {
         return generateWorld(type, width, height, depth, seed).blocks;
     }

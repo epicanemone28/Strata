@@ -7,20 +7,9 @@ import com.nikohalfkino.rubydung.render.Font;
 import java.util.function.Consumer;
 
 /**
- * An on/off switch drawn as one of two whole-sprite textures ({@code toggle_on.png} / {@code
- * toggle_off.png}, both native 16x16 - no 9-slice needed since, unlike a {@link Button}, a
- * toggle is never stretched to an arbitrary size) with a text label beside it.
- * <p>
- * Two looks:
- * <ul>
- *   <li>No fixed width: sprite and label sit side by side, as wide as they need to be.</li>
- *   <li>Fixed width ({@link #setSize} / {@link #setRowWidth}) with the label on the left: a
- *       settings-row look - label at the left edge, sprite at the right edge, a grey line between.</li>
- * </ul>
- * <pre>
- *     column.add(new Toggle("VSync", GameSettings.isVsyncEnabled(), Toggle.LabelSide.LEFT)
- *             .setRowWidth(200).onChange(on -> GameSettings.setVsyncEnabled(on)));
- * </pre>
+ * on/off switch drawn as one of two 16x16 sprites (toggle_on.png / toggle_off.png) with a text label beside it
+ *
+ * no fixed width: sprite and label side by side. fixed width (setSize / setRowWidth) with the label on the left: settings-row look, label at the left edge, sprite at the right, grey line between
  */
 public class Toggle extends Widget {
 
@@ -46,13 +35,13 @@ public class Toggle extends Widget {
         this.value = initialValue;
     }
 
-    /** Switches to the fixed-width settings-row look (see class doc). */
+    /** switches to the fixed-width settings-row look */
     public Toggle setRowWidth(float rowWidth) {
         setSize(rowWidth, SPRITE_SIZE);
         return this;
     }
 
-    /** Called with the new state after the toggle is clicked. */
+    /** called with the new state after a click */
     public Toggle onChange(Consumer<Boolean> onChange) {
         this.onChange = onChange;
         return this;
@@ -93,7 +82,7 @@ public class Toggle extends Widget {
         return true;
     }
 
-    /** The hit area covers the sprite and the label both, so clicking the text also toggles it. */
+    /** the hit area covers the sprite and the label, so clicking the text toggles too */
     @Override
     public void onMouseClicked(int mouseX, int mouseY) {
         this.value = !this.value;

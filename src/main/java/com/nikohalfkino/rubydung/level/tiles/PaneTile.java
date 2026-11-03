@@ -5,43 +5,22 @@ import com.nikohalfkino.rubydung.level.SubTile;
 import com.nikohalfkino.rubydung.render.Tessellator;
 
 /**
- * The common class for thin, flat, see-through blocks that stand in the middle of a cell and
- * extend vertically: metal bars, framed glass, and whatever comes next. To add one:
- * <ol>
- *   <li>a 16x48 texture (top / middle / bottom 16x16 slices),</li>
- *   <li>a blockstate that extends the shared one:
- *       <pre>
- * parent = "pane"
- * [textures]
- * top = "my_pane@0,0"
- * middle = "my_pane@0,1"
- * bottom = "my_pane@0,2"</pre></li>
- *   <li>{@code register(new PaneTile("my_pane"))} in TileRegistry.</li>
- * </ol>
+ * thin, flat, see-through blocks that stand in the middle of a cell and extend vertically: metal bars, framed glass, ...
  *
- * <p>The shape (flat plane, 2 px collision), the facing and the stacking rule all live here and in
- * blockstates/pane.toml. Facing north or south gives a plane running east-west, facing east or
- * west one running north-south (the plane faces the player when placed).
+ * to add one: a 16x48 texture (top / middle / bottom 16x16 slices), a blockstate with parent = "pane" and [textures] top / middle / bottom = "my_pane@0,N", and register(new PaneTile("my_pane")) in TileRegistry
  *
- * <p>Only the facing is stored in the world. The "part" property (top / middle / bottom) is worked
- * out when drawing from the panes of the same plane above, so nothing needs updating when
- * neighbours change:
- * <pre>
- *   height 1: top
- *   height 2: top, middle                (the lower one is "middle")
- *   height 3: top, middle, bottom
- *   height 4+: top, middle ... middle, bottom
- * </pre>
+ * shape (flat plane, 2 px collision), facing and stacking live here and in blockstates/pane.toml. facing north/south = a plane running east-west, east/west = north-south
  *
- * <p>Panes may cross slabs: they can be placed into a cell that holds a slab (and the other way
- * round) and the two simply intersect. See {@link #canIntersect}.
+ * only the facing is stored in the world, the "part" is worked out when drawing from the panes of the same plane above, so nothing needs updating when neighbours change: 1 pane = top, 2 = top + middle, 3+ = top, middle ... middle, bottom
+ *
+ * panes may cross slabs (see canIntersect)
  */
 public class PaneTile extends FacingTile {
 
     private static final String[] PARTS = {"top", "middle", "bottom"};
     private static final int TOP = 0, MIDDLE = 1, BOTTOM = 2;
 
-    /** data byte of every (facing, part) combination, for the model state to draw with */
+    // data byte of every (facing, part) combination, for the model state to draw with
     private final int[][] stateData = new int[NAMES.length][PARTS.length];
 
     public PaneTile(String name) {
@@ -54,13 +33,8 @@ public class PaneTile extends FacingTile {
         }
     }
 
-    /**
-     * Placed against a side face the pane faces away from that wall, as for any FacingTile. A top or
-     * bottom click (the top of a slab, the floor) says nothing about direction, so the pointer's
-     * spot in the cell decides: near the east or west edge the pane runs north-south, near the
-     * north or south edge east-west. Aim at the middle for the default (east-west).
-     * (A placement call that passes the look direction overrides all this: see FacingTile.)
-     */
+    // against a side face the pane faces away from that wall (as any FacingTile), a top/bottom click says nothing about direction so the pointer's spot in the cell decides
+    // near the east/west edge = north-south, near the north/south edge = east-west, middle = east-west (default). a call with the look direction overrides all this (see FacingTile)
     @Override
     public int getPlacementData(int face, double fractionX, double fractionY, double fractionZ) {
         if ((face == FACE_TOP || face == FACE_BOTTOM)
@@ -72,7 +46,7 @@ public class PaneTile extends FacingTile {
         return super.getPlacementData(face, fractionX, fractionY, fractionZ);
     }
 
-    /** Slabs pass through panes (and panes through slabs). */
+    /** slabs pass through panes (and panes through slabs) */
     @Override
     public boolean canIntersect(Tile other) {
         return other instanceof SlabTile;
@@ -96,7 +70,7 @@ public class PaneTile extends FacingTile {
         super.render(tessellator, level, layer, x, y, z, totalAtlasSlots, this.stateData[facing][part]);
     }
 
-    /** Whether the cell holds this pane in the same plane (as its tile or as a tile sharing the cell). */
+    // whether the cell holds this pane in the same plane (as its tile or as a tile sharing the cell)
     private boolean connects(Level level, int x, int y, int z, int facing) {
         int plane = facing % 2;
         if (level.getTile(x, y, z) == this.id && facingOf(level.getData(x, y, z)) % 2 == plane) {

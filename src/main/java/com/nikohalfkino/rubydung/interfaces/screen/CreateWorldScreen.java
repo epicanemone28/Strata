@@ -14,10 +14,9 @@ import com.nikohalfkino.rubydung.level.WorldManager;
 import com.nikohalfkino.rubydung.level.generation.LevelGenerator;
 
 /**
- * New-world form, laid out like the Options screen: one panel with a dim header per section
- * (World, Terrain, Size, Time) and Create / Cancel side by side at the bottom. The seed box only
- * shows for natural terrain and the time-of-day row only while the clock is frozen; the gaps
- * around them are adjusted so the sections stay evenly spaced either way.
+ * new-world form laid out like Options: a panel with a dim header per section (World, Terrain, Size, Time), Create / Cancel at the bottom
+ *
+ * the seed box only shows for natural terrain and the time-of-day row only while the clock is frozen, gaps are adjusted so sections stay evenly spaced
  */
 public class CreateWorldScreen extends MenuScreen {
 
@@ -72,13 +71,13 @@ public class CreateWorldScreen extends MenuScreen {
         panel.setShadowAlpha(1.0f);
         panel.setCrossAlign(0.0f);
 
-        // — World —————————————————————————————————————————————
+        // world
         panel.add(new Label("World").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         this.nameInput = panel.add(
                 new TextInput("Name: ", PANEL_WIDTH, FIELD_HEIGHT, MAX_NAME_LENGTH), SECTION_GAP);
 
-        // — Terrain ———————————————————————————————————————————
+        // terrain
         panel.add(new Label("Terrain").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         this.typeRow = panel.add(
@@ -93,7 +92,7 @@ public class CreateWorldScreen extends MenuScreen {
                 new TextInput("Seed: ", PANEL_WIDTH, FIELD_HEIGHT, MAX_SEED_LENGTH), SECTION_GAP);
         this.seedInput.setVisibleWhen(this::showSeedField);
 
-        // — Size ——————————————————————————————————————————————
+        // size
         panel.add(new Label("Size").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         ChoiceRow<LevelGenerator.WorldSize> sizeRow = panel.add(
@@ -106,7 +105,7 @@ public class CreateWorldScreen extends MenuScreen {
                 SECTION_GAP);
         sizeRow.select(this.worldSize);
 
-        // — Time: Real-Time / Normal / Frozen, plus a time-of-day row when frozen ————
+        // time: Real-Time / Normal / Frozen, plus a time-of-day row when frozen
         panel.add(new Label("Time").setColor(UiStyle.TEXT_DIM), HEADER_GAP);
 
         this.timeModeRow = panel.add(
@@ -129,7 +128,7 @@ public class CreateWorldScreen extends MenuScreen {
         timeOfDayRow.select(this.frozenStartTime);
         timeOfDayRow.setVisibleWhen(this::showTimeOfDayRow);
 
-        // — Create | Cancel ———————————————————————————————————
+        // create | Cancel
         float buttonWidth = (PANEL_WIDTH - UiStyle.BUTTON_GAP) / 2.0f;
         Row bottom = panel.add(new Row(UiStyle.BUTTON_GAP), ITEM_GAP);
         bottom.add(new Button("Create", buttonWidth, BUTTON_HEIGHT, true).onClick(this::tryCreate));
@@ -167,12 +166,12 @@ public class CreateWorldScreen extends MenuScreen {
         updateTimeModeGap();
     }
 
-    /** The seed box sits close under the type row; without it the next section follows at the section gap. */
+    // seed box sits close under the type row, without it the next section follows at the section gap
     private void updateTypeGap() {
         this.typeRow.setGapAfter(showSeedField() ? ITEM_GAP : SECTION_GAP);
     }
 
-    /** The time-of-day row sits close under the mode row; without it the next item follows at the section gap. */
+    // same for the time-of-day row under the mode row
     private void updateTimeModeGap() {
         this.timeModeRow.setGapAfter(showTimeOfDayRow() ? ITEM_GAP : SECTION_GAP);
     }

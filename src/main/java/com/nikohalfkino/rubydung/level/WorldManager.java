@@ -34,13 +34,13 @@ public final class WorldManager {
 
         public final String name;
         public final long lastPlayed;
-        /** null for saves created before settings.dat existed. */
+        /** null for saves from before settings.dat existed */
         public final LevelGenerator.WorldType worldType;
-        /** null for saves created before settings.dat existed. */
+        /** null for saves from before settings.dat existed */
         public final LevelGenerator.WorldSize worldSize;
-        /** null for saves created before settings.dat existed. */
+        /** null for saves from before settings.dat existed */
         public final DayNightCycle.TimeMode timeMode;
-        /** Total byte count of all files in the world's save directory. */
+        /** total bytes of all files in the world's save directory */
         public final long sizeBytes;
 
         public WorldInfo(String name, long lastPlayed,
@@ -89,10 +89,7 @@ public final class WorldManager {
         return new File(new File(SAVES_DIR, worldName), LEVEL_FILE_NAME).isFile();
     }
 
-    /**
-     * A file inside a world's save folder. Unlike levelFile this never creates the folder, so it is
-     * safe for reading (e.g. peeking at another world's doors.dat); writers call mkdirs on the parent.
-     */
+    /** unlike levelFile this never creates the folder, so it's safe for reading (e.g. peeking at another world's doors.dat), writers call mkdirs on the parent */
     public static File worldFile(String worldName, String fileName) {
         return new File(new File(SAVES_DIR, worldName), fileName);
     }
@@ -130,10 +127,7 @@ public final class WorldManager {
         }
     }
 
-    /**
-     * Saves the world's tile palette next to level.dat. Written to a temp file and moved into place,
-     * so a crash mid-write can't leave a half-written palette behind.
-     */
+    /** next to level.dat, written to a temp file and moved into place so a crash mid-write can't leave half a palette */
     public static void saveWorldPalette(String worldName, TilePalette palette) {
         File dir = new File(SAVES_DIR, worldName);
         dir.mkdirs();
@@ -155,7 +149,7 @@ public final class WorldManager {
         }
     }
 
-    /** Loads the world's tile palette, or null if the save has none (saves from before palettes existed). */
+    /** null if the save has none (from before palettes existed) */
     public static TilePalette loadWorldPalette(String worldName) {
         File file = new File(new File(SAVES_DIR, worldName), PALETTE_FILE_NAME);
         if (!file.isFile()) {
@@ -170,10 +164,7 @@ public final class WorldManager {
         }
     }
 
-    /**
-     * Saves the origin cell {x, y, z} of every multi-tile object. The cells themselves (tile id and
-     * rotation) are already in level.dat; this only says which cells are the origin of an object.
-     */
+    /** origin cell {x, y, z} of every multi-tile object, the cells themselves (tile id, rotation) are already in level.dat, this just says which are origins */
     public static void saveWorldMultiTiles(String worldName, List<int[]> origins) {
         File dir = new File(SAVES_DIR, worldName);
         dir.mkdirs();
@@ -200,7 +191,7 @@ public final class WorldManager {
         }
     }
 
-    /** Loads multi-tile origins, or null if the save has none (older saves, or no objects placed yet). */
+    /** null if the save has none (older saves, or no objects placed yet) */
     public static List<int[]> loadWorldMultiTiles(String worldName) {
         File file = new File(new File(SAVES_DIR, worldName), MULTI_TILES_FILE_NAME);
         if (!file.isFile()) {
@@ -220,7 +211,7 @@ public final class WorldManager {
         }
     }
 
-    /** Saves the tiles that share cells (SubTiles), by tile name. Written to a temp file and moved into place. */
+    /** SubTiles by tile name, written to a temp file and moved into place */
     public static void saveWorldSubTiles(String worldName, List<SubTiles.Entry> entries) {
         File dir = new File(SAVES_DIR, worldName);
         dir.mkdirs();
@@ -256,7 +247,7 @@ public final class WorldManager {
         }
     }
 
-    /** Loads saved sub-tiles, or null if the save has none. */
+    /** null if the save has none */
     public static List<SubTiles.Entry> loadWorldSubTiles(String worldName) {
         File file = new File(new File(SAVES_DIR, worldName), SUB_TILES_FILE_NAME);
         if (!file.isFile()) {
@@ -284,7 +275,7 @@ public final class WorldManager {
         }
     }
 
-    /** Saves the world type in a tiny file, so loading never has to decompress level.dat just to read it. */
+    /** tiny file so loading never has to decompress level.dat just to read the type */
     public static void saveWorldType(String worldName, LevelGenerator.WorldType type) {
         if (type == null) {
             return;
@@ -300,7 +291,7 @@ public final class WorldManager {
         }
     }
 
-    /** The saved world type, or null for saves from before type.dat existed. */
+    /** null for saves from before type.dat existed */
     public static LevelGenerator.WorldType loadWorldType(String worldName) {
         File file = new File(new File(SAVES_DIR, worldName), TYPE_FILE_NAME);
         if (!file.isFile()) {
@@ -316,7 +307,7 @@ public final class WorldManager {
         }
     }
 
-    /** Saves the world's clock (time of day, speed, frozen and real-time flags). */
+    /** time of day, speed, frozen and real-time flags */
     public static void saveWorldTime(String worldName, DayNightCycle cycle) {
         File dir = new File(SAVES_DIR, worldName);
         dir.mkdirs();
@@ -331,7 +322,7 @@ public final class WorldManager {
         }
     }
 
-    /** Loads the world's clock into the cycle. Returns false (cycle untouched) if nothing usable is saved. */
+    /** loads the clock into the cycle, false (cycle untouched) if nothing usable is saved */
     public static boolean loadWorldTime(String worldName, DayNightCycle cycle) {
         File file = new File(new File(SAVES_DIR, worldName), TIME_FILE_NAME);
         if (!file.isFile()) {
@@ -351,11 +342,7 @@ public final class WorldManager {
         }
     }
 
-    /**
-     * Saves the world's size enum and time mode alongside the other tiny metadata files.
-     * Called once at world creation; read back by {@link #listWorlds()} to populate
-     * {@link WorldInfo#worldSize} and {@link WorldInfo#timeMode}.
-     */
+    /** size enum and time mode, called once at world creation, read back by listWorlds() into WorldInfo */
     public static void saveWorldSettings(String worldName,
                                          LevelGenerator.WorldSize size,
                                          DayNightCycle.TimeMode timeMode) {
@@ -373,9 +360,7 @@ public final class WorldManager {
         }
     }
 
-    /**
-     * Returns {sizeOrdinal, timeModeOrdinal}, or null if settings.dat is absent (old save).
-     */
+    // {sizeOrdinal, timeModeOrdinal}, null if settings.dat is absent (old save)
     private static int[] loadWorldSettings(String worldName) {
         File file = new File(new File(SAVES_DIR, worldName), SETTINGS_FILE_NAME);
         if (!file.isFile()) {
@@ -398,7 +383,7 @@ public final class WorldManager {
         return ordinal >= 0 && ordinal < values.length ? values[ordinal] : null;
     }
 
-    /** Total byte count of every file directly inside the world's save directory. */
+    // total bytes of every file directly in the world's save directory
     private static long worldDiskSize(File dir) {
         File[] files = dir.listFiles();
         if (files == null) {

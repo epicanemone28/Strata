@@ -8,35 +8,30 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A half-height block with a "half" property (bottom / top / both), see blockstates/&lt;name&gt;.toml.
+ * half-height block with a "half" property (bottom / top / both), see blockstates/NAME.toml
  *
- * <ul>
- *   <li>Placed against <em>any</em> block face: the half is chosen from where the player pointed
- *       (above/below the midpoint of the target cell for side faces, or forced top/bottom for the
- *       top/bottom faces of the neighbour).</li>
- *   <li>Clicking the exposed face of an existing half-slab of the same type upgrades it to "both"
- *       in-place (top face of a bottom slab, bottom face of a top slab).</li>
- *   <li>Placing the complementary half into a cell that already holds a single slab of the same
- *       type from a side face also upgrades it to "both".</li>
- *   <li>Breaking a double slab only removes the half the player aimed at, leaving the other.</li>
- * </ul>
+ * placed against any face: the half comes from where the player pointed (above/below the midpoint for side faces, forced top/bottom for the top/bottom faces)
+ *
+ * clicking the exposed face of a half slab of the same type (top of a bottom slab, bottom of a top slab), or placing the complementary half from a side into a cell with a single slab, upgrades it to "both"
+ *
+ * breaking a double slab only removes the half the player aimed at
  */
 public class SlabTile extends ModelTile {
 
-    /** The half the tile icon shows (null = state 0). */
+    // half the tile icon shows (null = state 0)
     private String iconHalf = null;
 
     public SlabTile(String name) {
         super(name);
     }
 
-    /** Which half of the slab the tile icon is drawn with: "bottom", "top" or "both". */
+    /** "bottom", "top" or "both" */
     public SlabTile setIconHalf(String half) {
         this.iconHalf = half;
         return this;
     }
 
-    /** The data byte of the bottom or top half. */
+    /** data byte of the bottom or top half */
     public int halfData(boolean top) {
         return dataOf("half", top ? "top" : "bottom");
     }
@@ -52,9 +47,11 @@ public class SlabTile extends ModelTile {
     }
 
     /**
-     * Against the underside of a block → top slab.
-     * Against the top face         → bottom slab.
-     * Against any side face        → whichever half the player pointed at (fractionY &gt;= 0.5 = top).
+     * against the underside of a block -> top slab
+     *
+     * against the top face -> bottom slab
+     *
+     * against a side face -> whichever half the player pointed at (fractionY >= 0.5 = top)
      */
     @Override
     public int getPlacementData(int face, double fractionX, double fractionY, double fractionZ) {
@@ -69,19 +66,12 @@ public class SlabTile extends ModelTile {
         return dataOf("half", top ? "top" : "bottom");
     }
 
-    // -------------------------------------------------------------------------
-    // Merge on placement
+    // merge on placement
 
     /**
-     * Two merge situations are handled:
+     * in-place upgrade (the hit cell IS the slab cell): clicking the exposed face of a half slab (top of a bottom slab, bottom of a top slab) upgrades it to "both" regardless of fractionY, the intent is unambiguous
      *
-     * <p><b>In-place upgrade</b> (the hit cell IS the slab cell): the player clicked the exposed
-     * face of a half-slab — the top face of a bottom slab, or the bottom face of a top slab.
-     * Upgrade the cell to "both" regardless of fractionY, because the intent is unambiguous.
-     *
-     * <p><b>Adjacent-cell merge</b> (the adjacent cell already has a complementary slab): the
-     * player placed the complementary half into a cell that already holds one slab half. Uses
-     * fractionY / face to determine which half was requested, then checks for complementarity.
+     * adjacent-cell merge: the complementary half placed into a cell that already holds one slab half, fractionY / face say which half was requested, then complementarity is checked
      */
     @Override
     public boolean tryMergePlacement(Level level, int x, int y, int z,
@@ -130,12 +120,7 @@ public class SlabTile extends ModelTile {
     }
 
     /**
-     * Full-hit entry point. Order matters:
-     * <ol>
-     *   <li>The clicked cell itself: aiming at the exposed face of a half slab (top of a bottom
-     *       slab, underside of a top slab) completes it into a double slab.</li>
-     *   <li>Otherwise the cell next to the clicked face (the side-click merge).</li>
-     * </ol>
+     * full-hit entry point, order matters: first the clicked cell itself (aiming at the exposed face of a half slab completes it into a double slab), otherwise the cell next to the clicked face (side-click merge)
      */
     @Override
     public boolean tryMergePlacement(Level level, HitResult hit,
@@ -159,13 +144,9 @@ public class SlabTile extends ModelTile {
         return super.tryMergePlacement(level, hit, fractionX, fractionY, fractionZ);
     }
 
-    // -------------------------------------------------------------------------
-    // Partial breaking
+    // partial breaking
 
-    /**
-     * Breaking a double slab removes only the aimed half and leaves the other.
-     * Breaking a single slab removes it entirely (returns -1).
-     */
+    /** a double slab loses only the aimed half, a single slab is removed entirely (returns -1) */
     @Override
     public int getBreakResult(Level level, int x, int y, int z, AABB hitBox) {
         int data     = level.getData(x, y, z);
@@ -187,13 +168,9 @@ public class SlabTile extends ModelTile {
         return -1; // no box info — remove both
     }
 
-    // -------------------------------------------------------------------------
-    // Pick boxes
+    // pick boxes
 
-    /**
-     * A double slab exposes two independent half-height pick boxes so the player can aim at and
-     * break each half individually.
-     */
+    /** a double slab has two independent half-height pick boxes so each half can be aimed at and broken */
     @Override
     public List<AABB> getPickBoxes(Level level, int x, int y, int z) {
         if (level.getData(x, y, z) == dataOf("half", "both")) {

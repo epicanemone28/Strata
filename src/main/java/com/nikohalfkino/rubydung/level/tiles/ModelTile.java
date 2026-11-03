@@ -18,12 +18,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * A tile whose look comes from data: /assets/rubydung/blockstates/&lt;name&gt;.toml says which
- * model each value of the cell's data byte uses (and how it is rotated), and the models are
- * Minecraft-style JSON under /assets/rubydung/models. Everything is baked into quads at load,
- * so drawing is just lighting and emitting those quads.
+ * a tile whose look comes from data: blockstates/NAME.toml says which model each data value uses (and how it's rotated), models are Minecraft-style JSON under /assets/rubydung/models
  *
- * <p>Lighting, shading and the two render layers work exactly as in {@link Tile#render}.
+ * everything is baked into quads at load, so drawing is just lighting and emitting quads. lighting, shading and the two render layers work exactly as in Tile.render
  */
 public class ModelTile extends Tile {
 
@@ -31,7 +28,7 @@ public class ModelTile extends Tile {
 
     private final BlockStateDef blockState;
 
-    /** Uses the blockstate file named after the tile. */
+    /** uses the blockstate file named after the tile */
     public ModelTile(String name) {
         this(name, name);
     }
@@ -59,7 +56,7 @@ public class ModelTile extends Tile {
         return this.blockState;
     }
 
-    /** The data byte for property values, e.g. {@code dataOf("axis", "x")}. */
+    /** data byte for property values, e.g. dataOf("axis", "x") */
     public int dataOf(String... nameValuePairs) {
         return this.blockState.dataOf(nameValuePairs);
     }
@@ -69,10 +66,9 @@ public class ModelTile extends Tile {
         return this.blockState.isFullCube();
     }
 
-    // -------------------------------------------------------------------------
-    // Shape
+    // shape
 
-    /** The collision boxes of the cell's current state (slab, stairs...), in world coordinates. */
+    /** collision boxes of the cell's current state (slab, stairs...), in world coordinates */
     @Override
     public List<AABB> getCollisionBoxes(int x, int y, int z, int data) {
         List<AABB> boxes = new ArrayList<>();
@@ -85,13 +81,13 @@ public class ModelTile extends Tile {
         return boxes;
     }
 
-    /** Rays are tested against the state's real shape (each step of a staircase, the half of a slab). */
+    /** rays hit the state's real shape (each step of a staircase, the half of a slab) */
     @Override
     public List<AABB> getPickBoxes(Level level, int x, int y, int z) {
         return getOccupancyBoxes(x, y, z, level.getData(x, y, z));
     }
 
-    /** The collision boxes of a state, or its outline box when it has none (so it can still be aimed at and packed). */
+    /** the state's collision boxes, or its outline box if it has none (so it can still be aimed at and packed) */
     @Override
     public List<AABB> getOccupancyBoxes(int x, int y, int z, int data) {
         List<AABB> boxes = getCollisionBoxes(x, y, z, data);
@@ -102,15 +98,14 @@ public class ModelTile extends Tile {
         return boxes;
     }
 
-    /** The selection outline follows the state's shape. */
+    /** the selection outline follows the state's shape */
     @Override
     public AABB getOutlineAABB(Level level, int x, int y, int z) {
         float[] b = this.blockState.state(level.getData(x, y, z)).outlineBox();
         return new AABB(x + b[0], y + b[1], z + b[2], x + b[3], y + b[4], z + b[5]);
     }
 
-    // -------------------------------------------------------------------------
-    // Atlas
+    // atlas
 
     @Override
     public Collection<String> getExtraTextures() {
@@ -133,8 +128,7 @@ public class ModelTile extends Tile {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Drawing
+    // drawing
 
     @Override
     public void render(Tessellator tessellator, Level level, int layer, int x, int y, int z,

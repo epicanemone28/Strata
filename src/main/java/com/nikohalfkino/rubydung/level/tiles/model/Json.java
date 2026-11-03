@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Minimal JSON reader, enough for Minecraft/Blockbench model files.
- * Objects become {@code Map<String,Object>} (in file order), arrays {@code List<Object>},
- * numbers {@code Double}, plus String, Boolean and null.
+ * minimal JSON reader for Minecraft/Blockbench model files
+ *
+ * objects become Map<String,Object> (file order), arrays List<Object>, numbers Double, plus String, Boolean and null
  */
 public final class Json {
 

@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Reads digits as English number words (cardinals, ordinals, years, decimals, dollars) in kana. */
+/** digits -> english number words in kana (cardinals, ordinals, years, decimals, dollars) */
 final class NumberWords {
 
     static int digitValue(int cp) {

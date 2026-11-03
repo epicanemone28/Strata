@@ -13,13 +13,11 @@ import com.nikohalfkino.rubydung.render.Font;
 
 
 /**
- * Pause menu, shown inside the game frame: the portrait stays at the top of the right-hand panel
- * and the buttons sit in the dark panel below it, with the (frozen) world still visible on the left.
- * <p>
- * Everything on screen is a widget pinned to the frame every frame (see {@link FramePanelScreen}):
- * the button column is centred in the panel section, the big "Paused" in the world view and the
- * "Level Saved!" note under the Save button. The bar under the world view shows which world
- * you are playing and its time of day, and "Quit" sits in the bottom-right corner.
+ * pause menu in the game frame: portrait on top of the right panel, buttons in the dark panel below, frozen world on the left
+ *
+ * everything is a widget pinned to the frame every frame (see FramePanelScreen): button column, big "Paused", "Level Saved!" note under Save
+ *
+ * the bar under the world view shows the world and its time of day, "Quit" is in the bottom-right corner
  */
 public class PauseScreen extends FramePanelScreen {
 
@@ -30,16 +28,16 @@ public class PauseScreen extends FramePanelScreen {
     private static final float PAUSED_SCALE = 4.0F;
     private static final int PAUSED_SHADOW = 4;
 
-    /** Same dark overlay the chat screen puts over the world view. */
+    // same dark overlay the chat screen puts over the world view
     private static final float OVERLAY_ALPHA = 0.55F;
 
     private static final int SAVED_MESSAGE_TICKS = 120;
     private static final int SAVED_FADE_TICKS = 30;
 
-    /** Distance from the bottom of the world view to the "Currently playing" line in the bar below it. */
+    // bottom of the world view to the "Currently playing" line in the bar below
     private static final int INFO_Y_OFFSET = 24;
 
-    /** Gap between the Save button and the "Level Saved!" note under it. */
+    // between the Save button and the "Level Saved!" note
     private static final int SAVED_NOTE_GAP = 8;
 
     private final Column menu;
@@ -48,7 +46,7 @@ public class PauseScreen extends FramePanelScreen {
 
     private long saveMessageTicksRemaining = 0;
 
-    /** Kept so existing callers {@code new PauseScreen(game, font)} still compile; the font is the game's own. */
+    // font is ignored, the game's own is used
     public PauseScreen(RubyDung game, Font font) {
         this(game);
     }
@@ -110,10 +108,7 @@ public class PauseScreen extends FramePanelScreen {
         placeUnderSaveButton();
     }
 
-    /**
-     * Centres the "Level Saved!" note under the Save button (the menu's last button). It is placed
-     * by hand instead of being part of the column, so showing it doesn't move the buttons.
-     */
+    // centres the "Level Saved!" note under the Save button by hand (not part of the column) so showing it doesn't move the buttons
     private void placeUnderSaveButton() {
         GameFrame.SectionLayout section = this.layout.sections.get(0);
 
@@ -126,7 +121,7 @@ public class PauseScreen extends FramePanelScreen {
                 menuTop + this.menu.getHeight() + SAVED_NOTE_GAP);
     }
 
-    /** Centres a label under the world view, {@code yOffset} below its bottom edge. */
+    // centres a label under the world view, yOffset below its bottom edge
     private void placeInBar(Label label, int yOffset) {
         label.measure(this.font);
         label.setAnchor(Anchor.TOP_LEFT,
@@ -144,11 +139,7 @@ public class PauseScreen extends FramePanelScreen {
                 level.getWorldName());
     }
 
-    /**
-     * Dark overlay over the world view with the big "Paused" on top of it. Drawn after the widgets,
-     * like the chat screen's, so the text is drawn here (after the overlay) instead of being a label
-     * the overlay would dim.
-     */
+    /** dark overlay with the big "Paused" on top, drawn after the widgets (like the chat screen) so the overlay doesn't dim it */
     @Override
     protected void renderForeground(int mouseX, int mouseY) {
         if (!isFrameOpen()) {

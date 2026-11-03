@@ -2,7 +2,7 @@ package com.nikohalfkino.rubydung.interfaces.widget;
 
 import com.nikohalfkino.rubydung.audio.SoundEffects;
 
-/** The sounds the UI widgets share (files in sfx/ui/). */
+/** the sounds the UI widgets share (sfx/ui/) */
 public final class UiSounds {
 
     private static final String HOVER = "ui/btn_hover";
@@ -16,17 +16,17 @@ public final class UiSounds {
 
     private UiSounds() {}
 
-    /** The cursor just moved onto an enabled widget. */
+    /** cursor just moved onto an enabled widget */
     public static void hover() {
         SoundEffects.play(HOVER);
     }
 
-    /** An enabled widget was clicked. */
+    /** an enabled widget was clicked */
     public static void click() {
         SoundEffects.play(CLICK);
     }
 
-    /** A key changed the text in a text box (random pitch each time). */
+    /** a key changed the text in a text box (random pitch) */
     public static void keyPress() {
         SoundEffects.playVaried(KEYPRESS);
     }

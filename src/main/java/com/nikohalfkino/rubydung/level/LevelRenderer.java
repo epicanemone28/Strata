@@ -110,7 +110,7 @@ public class LevelRenderer implements LevelListener {
         setDirty(minX, minY, minZ, maxX, maxY, maxZ, false);
     }
 
-    /** @param urgent rebuild these chunks at the next draw instead of waiting for the per-frame budget */
+    // urgent = rebuild these chunks at the next draw instead of waiting for the per-frame budget
     private void setDirty(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, boolean urgent) {
         minX /= CHUNK_SIZE;
         minY /= CHUNK_SIZE;
@@ -144,11 +144,7 @@ public class LevelRenderer implements LevelListener {
 
     private static final float MAX_BILLBOARD_OVERHANG = 1.0F;
 
-    /**
-     * Largest edge (width or height) of any registered billboard sprite, in blocks. Grows the
-     * chunk cull box so a billboard whose origin chunk is off-screen is still drawn while its
-     * sprite is visible. Computed from the registered tiles, so new billboards need no upkeep.
-     */
+    // largest edge of any registered billboard sprite in blocks, grows the chunk cull box so a billboard whose origin chunk is off-screen still draws. computed from the registered tiles
     private final float maxBillboardSize;
 
     private static float findMaxBillboardSize() {
@@ -280,9 +276,9 @@ public class LevelRenderer implements LevelListener {
     }
 
     /**
-     * Draws the selection overlay. It follows the shape that was actually hit: one face of a slab or
-     * of one stair step, the whole face of a multi-tile object, or, for a billboard, a blink of the
-     * sprite itself (which needs the camera yaw; without it the billboard's box is outlined).
+     * draws the selection overlay, following the shape that was hit: one face of a slab or stair step, the whole face of a multi-tile object, or a blink of the billboard sprite itself
+     *
+     * the blink needs the camera yaw, without it the billboard's box is outlined
      */
     public void renderHit(HitResult hitResult, float cameraYaw) {
         TilePicker.refine(this.level, hitResult);
@@ -324,7 +320,7 @@ public class LevelRenderer implements LevelListener {
         glDisable(GL_BLEND);
     }
 
-    /** The hit face of whatever part of the tile was hit. */
+    // the hit face of whatever part of the tile was hit
     private void renderFaceOverlay(Tile tile, HitResult hitResult) {
         int[] normal = HIT_FACE_NORMALS[hitResult.face];
         glPushMatrix();
@@ -356,7 +352,7 @@ public class LevelRenderer implements LevelListener {
         glPopMatrix();
     }
 
-    /** Redraws the billboard's sprite (same quad, same place) additively, so it blinks in its own shape. */
+    // redraws the sprite (same quad, same place) additively so it blinks in its own shape
     private void renderBillboardBlink(BillboardTile billboard, HitResult hitResult, float cameraYaw, float pulse) {
         glEnable(GL_TEXTURE_2D);
         glEnable(GL_ALPHA_TEST);
@@ -381,15 +377,15 @@ public class LevelRenderer implements LevelListener {
         glDisable(GL_TEXTURE_2D);
     }
 
-    /** Outward normal per face, numbered like the Tile.FACE_* constants. */
+    // outward normal per face, numbered like Tile.FACE_*
     private static final int[][] HIT_FACE_NORMALS = {
             {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}
     };
 
-    /** How far (in blocks) the selection overlay floats off the face it highlights. */
+    // how far (in blocks) the selection overlay floats off the face it highlights
     private static final float HIT_FACE_NUDGE = 0.002F;
 
-    /** One face of an axis-aligned box, wound the same way as Tile.renderFace. */
+    // one face of an axis-aligned box, wound like Tile.renderFace
     private void renderBoxFace(float minX, float minY, float minZ, float maxX, float maxY, float maxZ, int face) {
         if (face == Tile.FACE_BOTTOM) {
             this.tessellator.vertex(minX, minY, maxZ);
@@ -441,9 +437,8 @@ public class LevelRenderer implements LevelListener {
 
     @Override
     public void tileChanged(int x, int y, int z) {
-        // The block itself and the faces next to it change right now; only light is allowed to lag.
-        // Vertically two cells: a stack of metal bars picks its texture slice from up to two
-        // neighbours (see MetalBarsTile), so a change two cells away can alter this cell's look.
+        // the block itself and the faces next to it change right now, only light is allowed to lag
+        // two cells vertically: a stack of metal bars picks its texture slice from up to two neighbours (see PaneTile), so a change two cells away can alter this cell's look
         setDirty(x - 1, y - 2, z - 1, x + 1, y + 2, z + 1, true);
     }
 

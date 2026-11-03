@@ -4,10 +4,9 @@ import com.nikohalfkino.rubydung.audio.SoundEffects;
 import com.nikohalfkino.rubydung.level.Level;
 
 /**
- * A three-tall billboard door with a colour and two states. Every colour/state combination is its
- * own tile (e.g. dimensional_door_blue.png / dimensional_door_blue_open.png; regular doors use
- * dimensional_door.png / dimensional_door_open.png), all occupying a 1x3x1 footprint.
- * {@link #setOpen} swaps one state for the other in place, keeping position, colour and rotation.
+ * three-tall billboard door with a colour and two states, every colour/state combo is its own tile (dimensional_door_blue.png / dimensional_door_blue_open.png, regular doors use dimensional_door.png / dimensional_door_open.png), all 1x3x1
+ *
+ * setOpen swaps one state for the other in place, keeping position, colour and rotation
  */
 public class DimensionalDoorTile extends BillboardTile {
 
@@ -27,7 +26,7 @@ public class DimensionalDoorTile extends BillboardTile {
         this.open = open;
     }
 
-    /** Name of both the tile and its texture, e.g. "dimensional_door_blue_open". */
+    /** name of both the tile and its texture, e.g. "dimensional_door_blue_open" */
     public static String textureName(DoorColor color, boolean open) {
         String name = "dimensional_door";
         if (!color.getSuffix().isEmpty()) {
@@ -36,7 +35,6 @@ public class DimensionalDoorTile extends BillboardTile {
         return open ? name + "_open" : name;
     }
 
-    /** The registered tile for a colour and state. */
     public static DimensionalDoorTile forColor(DoorColor color, boolean open) {
         return (DimensionalDoorTile) Tile.byName(textureName(color, open));
     }
@@ -54,15 +52,12 @@ public class DimensionalDoorTile extends BillboardTile {
         return true;
     }
 
-    /** The placeable (closed) form of this door; what pick-block should select. */
+    /** the placeable (closed) form, what pick-block should select */
     public Tile getClosedForm() {
         return forColor(this.color, false);
     }
 
-    /**
-     * Opens or closes the door whose origin cell is (x, y, z). Does nothing if that cell isn't a
-     * dimensional door or is already in the requested state.
-     */
+    /** opens/closes the door whose origin cell is (x, y, z), does nothing if it isn't a dimensional door or is already in that state */
     public static void setOpen(Level level, int x, int y, int z, boolean open) {
         Tile current = Tile.byId(level.getTile(x, y, z));
         if (!(current instanceof DimensionalDoorTile) || ((DimensionalDoorTile) current).open == open) {

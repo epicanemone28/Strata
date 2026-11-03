@@ -13,9 +13,9 @@ import java.util.List;
 import static com.nikohalfkino.rubydung.player.InteractionContext.DEBUG_CLICKS;
 
 /**
- * Public face of the player's block interaction. Owns the held-button state machine (tap vs. hold,
- * the break+place chord, suppression after screens close) and delegates the actual work to
- * {@link BlockBreaker}, {@link BlockPlacer} and {@link BlockReplacer}.
+ * public face of the player's block interaction: owns the held-button state machine (tap vs hold, break+place chord, suppression after screens close)
+ *
+ * delegates the actual work to BlockBreaker, BlockPlacer and BlockReplacer
  */
 public class PlayerInteraction {
 
@@ -30,7 +30,7 @@ public class PlayerInteraction {
     private int heldTicks = 0;
     private boolean chordActive = false;
 
-    /** Break was pressed and is still waiting out the chord grace period without having acted. */
+    // break was pressed and is still waiting out the chord grace period without having acted
     private boolean tapPending = false;
 
     private boolean breakSuppressedUntilRelease = false;
@@ -54,7 +54,7 @@ public class PlayerInteraction {
         this.hitTracker.set(hitResult);
     }
 
-    /** Whether the crosshair is on a tile the interact key does something with (drives the "[E] Interact" prompt). */
+    /** crosshair is on a tile the interact key does something with (drives the "[E] Interact" prompt) */
     public boolean isTargetingInteractable() {
         HitResult hit = this.hitTracker.current();
         if (hit == null) {
@@ -65,10 +65,7 @@ public class PlayerInteraction {
         return tile != null && tile.isInteractable();
     }
 
-    /**
-     * Origin cell {x, y, z} of the dimensional door under the crosshair, or null if the player
-     * isn't aiming at one. (For a multi-tile object the hit position is its origin.)
-     */
+    /** origin cell {x, y, z} of the dimensional door under the crosshair, null if not aiming at one (a multi-tile hit position is its origin) */
     public int[] getTargetedDoorOrigin() {
         HitResult hit = this.hitTracker.current();
         if (hit == null) {
@@ -79,11 +76,7 @@ public class PlayerInteraction {
         return tile instanceof DimensionalDoorTile ? new int[]{hit.x, hit.y, hit.z} : null;
     }
 
-    /**
-     * The interact key. Handles the tiles that react straight away (wooden doors open or close).
-     * Returns true if it did something, so the caller can skip its own handling (screens for
-     * dimensional doors and so on).
-     */
+    /** the interact key: handles tiles that react straight away (wooden doors open/close). true if it did something, so the caller skips its own handling (screens for dimensional doors etc.) */
     public boolean interact() {
         HitResult hit = this.hitTracker.current();
         if (hit == null || !(this.ctx.targetTile(hit) instanceof WoodenDoorTile)) {
@@ -95,7 +88,7 @@ public class PlayerInteraction {
         return true;
     }
 
-    /** The knock key: raps on the (wooden or dimensional) door under the crosshair if it is closed. Returns true if it did. */
+    /** raps on the (wooden or dimensional) door under the crosshair if it's closed, true if it did */
     public boolean knock() {
         HitResult hit = this.hitTracker.current();
         if (hit == null) {
@@ -267,7 +260,7 @@ public class PlayerInteraction {
         }
     }
 
-    /** Blocks the player moved during the last tick. */
+    // blocks moved during the last tick
     private double playerSpeed() {
         Player p = this.ctx.player;
         double dx = p.x - p.prevX;

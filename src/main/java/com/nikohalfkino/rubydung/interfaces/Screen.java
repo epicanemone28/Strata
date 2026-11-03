@@ -11,33 +11,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Base class of every full-window screen. A screen is a tree of {@link Widget}s: build it in the
- * constructor with {@link #add}, and drawing, hover, clicks, focus, Tab and Escape all work
- * without any per-screen render/click code.
- * <pre>
- *     public class MyScreen extends MenuScreen {
- *         public MyScreen(RubyDung game) {
- *             super(game);
- *             addTitle("My Screen");
- *             Column menu = addColumn(10, UiStyle.CONTENT_Y);
- *             menu.add(new Button("Do it").onClick(() -> doIt()));
- *             menu.add(new Button("Back").onClick(() -> game.openScreen(new TitleScreen(game))));
- *             onEscape(() -> game.openScreen(new TitleScreen(game)));
- *         }
- *     }
- * </pre>
- * Screens with fully custom drawing (the inventory, the loading screen) can still override
- * {@link #render} and ignore the widget tree.
+ * base class of every full-window screen: a tree of Widgets built with add() in the constructor, drawing / hover / clicks / focus / Tab / Escape just work
+ *
+ * screens with fully custom drawing (inventory, loading) can override render and ignore the tree
  */
 public abstract class Screen {
 
     protected int width;
     protected int height;
 
-    /** Used by every widget to draw text. Null only for screens built with the no-argument constructor. */
+    // used by every widget to draw text, null only for screens built with the no-arg constructor
     protected Font font;
 
-    /** Everything on the screen hangs off this group, which always fills {@link #layoutRoot()}'s rectangle. */
+    // everything hangs off this, it fills layoutRoot()'s rectangle
     protected final Group root = new Group();
 
     private Widget focused;
@@ -62,7 +48,7 @@ public abstract class Screen {
         }
     }
 
-    /** The logical window size changed (fullscreen toggled / mode switched). Layout is redone every frame. */
+    /** logical window size changed (fullscreen / mode switch), layout is redone every frame anyway */
     public void resize(int width, int height) {
         this.width = width;
         this.height = height;
@@ -78,46 +64,44 @@ public abstract class Screen {
         }
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Building the screen
-    // ---------------------------------------------------------------------------------------
+    // building the screen
 
-    /** Adds a widget to the screen; position it with {@link Widget#setAnchor} first, or use the 4-argument overload. */
+    /** position with Widget.setAnchor first, or use the 4-arg overload */
     protected <T extends Widget> T add(T widget) {
         return this.root.add(widget);
     }
 
-    /** Adds a widget pinned to {@code anchor} of the window, nudged by (dx, dy) pixels. */
+    /** pinned to anchor of the window, nudged by (dx, dy) pixels */
     protected <T extends Widget> T add(T widget, Anchor anchor, float dx, float dy) {
         return this.root.add(widget, anchor, dx, dy);
     }
 
-    /** What Escape does when no text box is using it. */
+    /** what Escape does when no text box is using it */
     protected void onEscape(Runnable action) {
         this.escapeAction = action;
     }
 
-    /** What Enter does when no text box is using it. */
+    /** what Enter does when no text box is using it */
     protected void onEnter(Runnable action) {
         this.enterAction = action;
     }
 
-    /** True = this screen swallows every key it doesn't use, so nothing reaches the game behind it. */
+    /** true = swallows every key it doesn't use so nothing reaches the game behind */
     protected void setSwallowKeys(boolean swallowKeys) {
         this.swallowKeys = swallowKeys;
     }
 
-    /** Typing a key keeps firing while it is held (for screens with text boxes). */
+    /** keys keep firing while held (for text boxes) */
     protected void setKeyRepeat(boolean keyRepeat) {
         this.keyRepeat = keyRepeat;
     }
 
-    /** When true, clicking something that isn't a text box does not take focus away from the focused one. */
+    /** true = clicking something that isn't a text box doesn't take focus from the focused one */
     protected void setStickyFocus(boolean stickyFocus) {
         this.stickyFocus = stickyFocus;
     }
 
-    /** Gives the keyboard to a text box (or null to clear). */
+    /** gives the keyboard to a text box, null clears */
     protected void setFocus(Widget widget) {
         if (this.focused == widget) {
             return;
@@ -136,20 +120,18 @@ public abstract class Screen {
         return this.focused;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Layout & drawing
-    // ---------------------------------------------------------------------------------------
+    // layout & drawing
 
-    /** Lays the widget tree out in the window. Screens drawn inside the game frame override this to use the panel's rectangle. */
+    /** screens drawn inside the game frame override this to use the panel's rectangle */
     protected void layoutRoot() {
         this.root.layoutRoot(this.font, 0.0f, 0.0f, this.width, this.height);
     }
 
-    /** Drawn first, behind all widgets (menu background, plain fill, ...). */
+    /** drawn first, behind the widgets */
     protected void renderBackground() {
     }
 
-    /** Drawn last, on top of all widgets. */
+    /** drawn last, on top of the widgets */
     protected void renderForeground(int mouseX, int mouseY) {
     }
 
@@ -171,9 +153,7 @@ public abstract class Screen {
         Gui2D.end();
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Input
-    // ---------------------------------------------------------------------------------------
+    // input
 
     public void mouseClicked(int mouseX, int mouseY) {
         Widget hit = this.root.pick(mouseX, mouseY);
@@ -223,7 +203,7 @@ public abstract class Screen {
         return this.swallowKeys;
     }
 
-    /** Moves focus to the next visible text box (wrapping round). Does nothing unless one is focused. */
+    // next visible text box (wraps), does nothing unless one is focused
     private boolean focusNext() {
         if (this.focused == null) {
             return false;

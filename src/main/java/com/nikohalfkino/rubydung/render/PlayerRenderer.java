@@ -14,24 +14,19 @@ import java.nio.ByteBuffer;
 import static org.lwjgl.opengl.GL11.*;
 
 /**
- * Draws the player as a Doom-style prerendered sprite: one frame per viewing angle, picked from where
- * the camera is relative to the way the player's body faces.
- * <p>
- * Sheet layout: {@value #FRAME_WIDTH}x{@value #FRAME_HEIGHT} frames side by side, frame 0 seen from
- * in front of the player, then every 45 degrees round toward the player's right (1 = front-right,
- * 2 = right side, 3 = back-right, 4 = behind, 5 = back-left, 6 = left side, 7 = front-left). The
- * feet are on the frame's bottom edge and the sprite is centred horizontally on the player.
+ * the player as a Doom-style prerendered sprite: one frame per viewing angle, picked from where the camera is relative to the way the body faces
+ *
+ * sheet: FRAME_WIDTH x FRAME_HEIGHT frames side by side, frame 0 seen from in front, then every 45 degrees toward the player's right (1 front-right, 2 right, 3 back-right, 4 behind, 5 back-left, 6 left, 7 front-left). feet on the frame's bottom edge, sprite centred horizontally on the player
  */
 public final class PlayerRenderer {
 
-    /** Classpath location of the sprite sheet. */
     public static final String SHEET_RESOURCE = "/assets/rubydung/textures/player/idle.png";
 
     public static final int FRAME_WIDTH = 32;
     public static final int FRAME_HEIGHT = 48;
     private static final int ANGLES = 8;
 
-    /** Same pixel density as the terrain and billboard tiles. */
+    // same pixel density as the terrain and billboard tiles
     private static final int PIXELS_PER_BLOCK = 16;
 
     private int texture = 0;
@@ -83,10 +78,7 @@ public final class PlayerRenderer {
         GL20.glUseProgram(program);
     }
 
-    /**
-     * Which frame to show: the angle between the way the body faces and the direction from the player
-     * to the camera, in 45 degree steps, counted toward the player's right.
-     */
+    // which frame to show: the angle between the body's facing and the direction to the camera, in 45 degree steps counted toward the player's right
     static int frameFor(float bodyYaw, double toCameraX, double toCameraZ) {
         double length = Math.sqrt(toCameraX * toCameraX + toCameraZ * toCameraZ);
         if (length < 1.0E-4D) {

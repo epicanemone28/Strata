@@ -122,7 +122,7 @@ public class TextField {
         return end;
     }
 
-    /** Handles one key. Plays the keypress sound when it changed the text (cursor moves stay silent). */
+    /** plays the keypress sound when the text changed (cursor moves stay silent) */
     public boolean keyTyped(int key, char character) {
         String before = this.text.toString();
         boolean handled = handleKey(key, character);

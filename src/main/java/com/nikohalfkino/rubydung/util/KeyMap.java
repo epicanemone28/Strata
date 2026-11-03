@@ -2,9 +2,7 @@ package com.nikohalfkino.rubydung.util;
 
 import org.lwjgl.input.Keyboard;
 
-/**
- * Key mapping utility providing clean aliases for LWJGL keyboard codes.
- */
+/** aliases for LWJGL keyboard codes */
 public final class KeyMap {
 
     private KeyMap() {}

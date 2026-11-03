@@ -11,7 +11,7 @@ public class Player {
 
     public static final double EYE_HEIGHT = 1.62D;
 
-    /** Highest ledge the player walks up without jumping (slabs are 0.5, full blocks 1.0). */
+    // highest ledge walked up without jumping (slabs are 0.5, full blocks 1.0)
     private static final double STEP_HEIGHT = 0.6D;
 
     private final Level level;
@@ -29,17 +29,14 @@ public class Player {
 
     public boolean flying = false;
 
-    /**
-     * The way the body (the player sprite) faces, in the same degrees as yRotation. In first person it
-     * is simply the look direction; otherwise it turns toward where the player walks, or toward the
-     * aim while breaking or placing. Independent of where the camera looks.
-     */
+    // way the body (player sprite) faces, same degrees as yRotation. in first person it's the look direction, otherwise it turns toward where the player walks, or the aim while breaking/placing
+    // independent of where the camera looks
     public float bodyYaw, prevBodyYaw;
 
-    /** Set by PlayerCamera: the body copies yRotation (first person) instead of turning on its own. */
+    // set by PlayerCamera: the body copies yRotation (first person) instead of turning on its own
     public boolean bodyFollowsLook = true;
 
-    /** Set by PlayerCamera in freecam: movement keys are ignored (gravity and collisions still run). */
+    // set by PlayerCamera in freecam: movement keys are ignored (gravity and collisions still run)
     public boolean controlsLocked = false;
 
     private static final float BODY_TURN_PER_TICK = 40.0F;
@@ -124,7 +121,7 @@ public class Player {
         updateBody();
     }
 
-    /** Body yaw for rendering, blended between the last two ticks (taking the short way round). */
+    /** body yaw for rendering, blended between the last two ticks (short way round) */
     public float getBodyYaw(float partialTicks) {
         return this.prevBodyYaw + wrapDegrees(this.bodyYaw - this.prevBodyYaw) * partialTicks;
     }

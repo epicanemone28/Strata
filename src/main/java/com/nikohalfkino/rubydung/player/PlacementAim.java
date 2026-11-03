@@ -1,6 +1,6 @@
 package com.nikohalfkino.rubydung.player;
 
-/** Where in the cell being placed into the player pointed (fractions 0..1; NaN = unknown). */
+/** where in the cell being placed into the player pointed (fractions 0..1, NaN = unknown) */
 final class PlacementAim {
 
     double fx = Double.NaN;

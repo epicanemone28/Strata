@@ -9,20 +9,11 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * A horizontal slider for picking a value in a range. Drawn as a 9-slice track ({@code
- * slider_track.png}, same 20x20/border-6 layout {@link Button} uses for {@code button.png})
- * with a thumb ({@code slider_thumb.png}, 10x16 source art, drawn 2x like everything else in
- * this UI) riding along it. The thumb stays fully on the track: its left edge is at the start
- * of the track at the minimum value and its right edge at the end at the maximum.
- * <p>
- * Dragging is self-polling: the slider checks {@link Mouse#isButtonDown} itself every frame while
- * it is being drawn, so screens need no drag callbacks.
- * <pre>
- *     column.add(new Slider("FOV", 300, 28, 30, 110, GameSettings.getFov(), true)
- *             .onChange(v -> GameSettings.setFov(v))      // live, while dragging
- *             .onCommit(GameSettings::save));              // once, when the drag ends with a new value
- * </pre>
- * By default the value is shown as a number; {@link #setFormatter} changes that (e.g. "Off" for 0).
+ * horizontal slider for picking a value in a range: 9-slice track (slider_track.png) with a thumb (slider_thumb.png) that stays fully on the track
+ *
+ * dragging polls Mouse.isButtonDown every frame while drawn, so screens need no drag callbacks
+ *
+ * the value shows as a number by default, setFormatter changes that (e.g. "Off" for 0)
  */
 public class Slider extends Widget {
 
@@ -32,7 +23,7 @@ public class Slider extends Widget {
     private static final int TRACK_TEX_SIZE = 20;
     private static final int TRACK_BORDER = 6;
 
-    /** slider_thumb.png is 10x16 pixels, drawn at THUMB_SCALE like the rest of the UI art. */
+    // slider_thumb.png is 10x16, drawn at THUMB_SCALE like the rest of the UI art
     private static final int THUMB_TEX_WIDTH = 10;
     private static final int THUMB_TEX_HEIGHT = 16;
     private static final float THUMB_SCALE = 2.0f;
@@ -45,14 +36,14 @@ public class Slider extends Widget {
     private final float minValue;
     private final float maxValue;
 
-    /** Snap dragged/clicked values to whole numbers - for things like an integer FOV or FPS cap. */
+    // snap dragged/clicked values to whole numbers (integer FOV, FPS cap)
     private final boolean wholeNumbers;
 
     private float value;
     private float valueAtPress;
     private boolean dragging = false;
 
-    /** Whether the cursor was over the (enabled) slider last frame, so the hover sound plays once per entry. */
+    // cursor was over the (enabled) slider last frame, so the hover sound plays once per entry
     private boolean wasHovered = false;
 
     private Consumer<Float> onChange;
@@ -68,19 +59,19 @@ public class Slider extends Widget {
         setSize(width, height);
     }
 
-    /** Called with the new value every time dragging changes it. */
+    /** called with the new value every time dragging changes it */
     public Slider onChange(Consumer<Float> onChange) {
         this.onChange = onChange;
         return this;
     }
 
-    /** Called once when a drag ends and the value is different from when it started. */
+    /** called once when a drag ends on a different value than it started with */
     public Slider onCommit(Runnable onCommit) {
         this.onCommit = onCommit;
         return this;
     }
 
-    /** How the value is written next to the label, e.g. {@code v -> v == 0 ? "Off" : v + " min"}. */
+    /** how the value is written next to the label, e.g. v -> v == 0 ? "Off" : v + " min" */
     public Slider setFormatter(Function<Float, String> formatter) {
         this.formatter = formatter;
         return this;
@@ -94,7 +85,6 @@ public class Slider extends Widget {
         this.value = clamp(value);
     }
 
-    /** Whether a drag is currently in progress. */
     public boolean isDragging() {
         return this.dragging;
     }
@@ -104,10 +94,7 @@ public class Slider extends Widget {
         return true;
     }
 
-    /**
-     * Starts a drag, immediately snapping the thumb under the cursor rather than waiting for the
-     * first drag movement - clicking anywhere on the track jumps the value there.
-     */
+    /** starts a drag and snaps the thumb under the cursor right away, so clicking the track jumps the value there */
     @Override
     public void onMouseClicked(int mouseX, int mouseY) {
         mouseClicked(mouseX, mouseY);
@@ -124,10 +111,7 @@ public class Slider extends Widget {
         }
     }
 
-    /**
-     * Follows the mouse while a drag is in progress and ends it when the button comes back up.
-     * Called automatically while drawing.
-     */
+    /** follows the mouse during a drag and ends it when the button comes up, called automatically while drawing */
     public void updateMouse(int mouseX, int mouseY) {
         if (!this.dragging) {
             return;
@@ -142,7 +126,7 @@ public class Slider extends Widget {
         setValueFromMouseX(mouseX);
     }
 
-    /** The thumb's centre travels from half a thumb inside the left end to half a thumb inside the right end. */
+    // the thumb's centre travels from half a thumb inside the left end to half a thumb inside the right end
     private void setValueFromMouseX(int mouseX) {
         float usableWidth = this.width - THUMB_WIDTH;
         float t = usableWidth <= 0 ? 0 : (mouseX - (this.x + THUMB_WIDTH / 2.0f)) / usableWidth;

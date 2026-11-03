@@ -9,22 +9,17 @@ import com.nikohalfkino.rubydung.phys.AABB;
 import java.util.List;
 
 /**
- * Decides where a tile goes when it is placed INTO a cell that already has something in it, and
- * whether it fits there.
+ * decides where a tile goes when placed INTO a cell that already has something in it, and whether it fits
  *
- * <ol>
- *   <li>The cell is the one holding the spot just outside the surface that was clicked. That is the
- *       next cell over for a face on a cell boundary, but the clicked cell itself for a face inside
- *       it (the top of a bottom slab).</li>
- *   <li>Along the clicked axis the tile's shape is pushed flush against that surface.</li>
- *   <li>Across the surface it is centred on the click point, snapped to 1/16 block and kept
- *       inside the cell.</li>
- *   <li>If the result overlaps anything already in the cell, or the player, nothing is placed.</li>
- * </ol>
+ * the cell is the one holding the spot just outside the clicked surface (the next cell over for a face on a cell boundary, the clicked cell itself for a face inside it, like the top of a bottom slab)
+ *
+ * along the clicked axis the shape is pushed flush against the surface, across it it's centred on the click, snapped to 1/16 block and kept inside the cell
+ *
+ * nothing is placed if the result overlaps anything in the cell, or the player
  */
 public final class SubTilePlacement {
 
-    /** Offsets snap to this (one texture pixel on a 16px texture). */
+    /** offsets snap to this (one pixel on a 16px texture) */
     public static final double GRID = 1.0 / 16.0;
 
     private static final double EPS = SubTiles.EPSILON;
@@ -35,7 +30,7 @@ public final class SubTilePlacement {
 
     private SubTilePlacement() {}
 
-    /** A placement that passed every check. */
+    /** a placement that passed every check */
     public static final class Plan {
         public final int x, y, z;
         public final int data;
@@ -56,7 +51,7 @@ public final class SubTilePlacement {
         }
     }
 
-    /** The cell {x, y, z} that holds the spot just outside the clicked surface. */
+    /** the cell {x, y, z} holding the spot just outside the clicked surface */
     public static int[] targetCell(HitResult hit) {
         int[] n = NORMALS[hit.face];
         if (!hit.hasPoint) {
@@ -70,12 +65,7 @@ public final class SubTilePlacement {
         };
     }
 
-    /**
-     * @param data      the data byte the tile would get here (the caller works it out from where in
-     *                  {@code cell} the player pointed)
-     * @param playerBox the player's box, or null to ignore the player
-     * @return the placement, or null if the tile can't share, or doesn't fit in, that cell
-     */
+    /** data is what the tile would get here (worked out from where in the cell the player pointed), playerBox null ignores the player. returns null if the tile can't share or doesn't fit in that cell */
     public static Plan plan(Level level, HitResult hit, Tile tile, int data, int[] cell, AABB playerBox) {
         if (hit == null || !hit.hasPoint || tile == null || !(tile.canShareCell() || tile.canClipToHalf())) {
             return null;
@@ -173,7 +163,7 @@ public final class SubTilePlacement {
         return new Plan(cx, cy, cz, data, ox, oy, oz);
     }
 
-    /** Which half of the cell the player means: the upper one (true) or the lower. */
+    // which half the player means: the upper one (true) or the lower
     private static boolean chooseTop(HitResult hit, int[] cell) {
         boolean insideClickedCell = cell[0] == hit.cellX && cell[1] == hit.cellY && cell[2] == hit.cellZ;
         double localY = hit.hitY - cell[1];
@@ -188,11 +178,8 @@ public final class SubTilePlacement {
                 : localY >= 0.5;
     }
 
-    /**
-     * A full block placed into a cell that already holds something (a slab) fills the free half only:
-     * it becomes a sub-tile flagged as the lower or upper half of itself, so it is drawn, collided
-     * with and picked as a half block. Fails if that half is not free.
-     */
+    // a full block placed into a cell that holds something (a slab) fills the free half only, as a sub-tile flagged lower/upper half
+    // so it's drawn, collided with and picked as a half block. fails if that half isn't free
     private static Plan planHalfBlock(Level level, HitResult hit, Tile tile, int data, int[] cell, AABB playerBox) {
         int cx = cell[0], cy = cell[1], cz = cell[2];
         Tile host = Tile.byId(level.getTile(cx, cy, cz));
@@ -219,11 +206,8 @@ public final class SubTilePlacement {
         return new Plan(cx, cy, cz, data | clip, 0.0F, 0.0F, 0.0F);
     }
 
-    /**
-     * A slab goes into a cell as one exact half (bottom or top, no offset), next to whatever else
-     * is there: a wooden bottom slab with a metal grate on top, two different slabs in one cell.
-     * The half comes from what was clicked; it only fits if that half is free.
-     */
+    // a slab goes in as one exact half (bottom or top, no offset) next to whatever's there (wooden bottom slab + metal grate on top, two different slabs)
+    // the half comes from what was clicked, it fits only if that half is free
     private static Plan planSlab(Level level, HitResult hit, SlabTile slab, int[] cell, AABB playerBox) {
         int cx = cell[0], cy = cell[1], cz = cell[2];
         boolean top = chooseTop(hit, cell);
@@ -247,11 +231,8 @@ public final class SubTilePlacement {
         return new Plan(cx, cy, cz, data, 0.0F, 0.0F, 0.0F);
     }
 
-    /**
-     * A pane goes into the cell exactly where it was authored (no offset: it is a full-height plane
-     * through the middle, so there is nothing to slide). It fits if nothing but things it may cross
-     * (slabs) is in its way.
-     */
+    // a pane goes in exactly where it was authored (no offset, it's a full-height plane through the middle)
+    // fits if only things it may cross (slabs) are in the way
     private static Plan planPane(Level level, PaneTile pane, int data, int[] cell, AABB playerBox) {
         int cx = cell[0], cy = cell[1], cz = cell[2];
         List<AABB> placed = pane.getOccupancyBoxes(cx, cy, cz, data);

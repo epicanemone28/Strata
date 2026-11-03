@@ -3,27 +3,23 @@ package com.nikohalfkino.rubydung.render;
 import static org.lwjgl.opengl.GL11.*;
 
 /**
- * Geometry shared by everything that is drawn as an upright, camera-facing sprite: billboard tiles
- * (batched through the {@link Tessellator}) and the player sprite (drawn immediately).
- * <p>
- * The quad stands on {@code y}, is centred on {@code (cx, cz)} and is turned around the Y axis only,
- * so it never tilts when the camera looks up or down. The turn is given as the screen-right vector
- * in the XZ plane; {@link #rightX} / {@link #rightZ} derive it from a camera yaw.
+ * geometry shared by everything drawn as an upright camera-facing sprite: billboard tiles (batched through the Tessellator) and the player sprite (drawn immediately)
+ *
+ * the quad stands on y, is centred on (cx, cz) and turns around Y only, so it never tilts when the camera looks up or down. the turn is the screen-right vector in the XZ plane, rightX / rightZ derive it from a camera yaw
  */
 public final class Billboard {
 
-    /** Corner scratch buffer: top-left, top-right, bottom-right, bottom-left (x, y, z each). */
+    // scratch buffer: top-left, top-right, bottom-right, bottom-left (x, y, z each)
     private static final float[] CORNERS = new float[12];
 
     private Billboard() {
     }
 
-    /** X of the screen-right vector for a camera yaw in degrees (same convention as Player's strafe). */
+    /** x of the screen-right vector for a camera yaw in degrees (same convention as Player's strafe) */
     public static double rightX(float cameraYaw) {
         return Math.cos(Math.toRadians(cameraYaw));
     }
 
-    /** Z of the screen-right vector for a camera yaw in degrees. */
     public static double rightZ(float cameraYaw) {
         return Math.sin(Math.toRadians(cameraYaw));
     }
@@ -45,11 +41,9 @@ public final class Billboard {
     }
 
     /**
-     * Adds the sprite to a tessellator batch. With {@code doubleSided} a second, mirrored quad is
-     * added for seeing the sprite from behind (the texture reads the right way round from both
-     * sides); leave it off when back-face culling is disabled anyway.
-     * <p>
-     * (u0, v0) is the texture coordinate of the top-left corner, (u1, v1) of the bottom-right.
+     * adds the sprite to a tessellator batch. doubleSided adds a second mirrored quad so it reads the right way round from behind, leave it off when back-face culling is disabled anyway
+     *
+     * (u0, v0) is the texture coordinate of the top-left corner, (u1, v1) of the bottom-right
      */
     public static void emit(Tessellator t, double cx, double y, double cz, float width, float height,
                             double rightX, double rightZ,
@@ -78,11 +72,7 @@ public final class Billboard {
         t.vertex(c[i], c[i + 1], c[i + 2]);
     }
 
-    /**
-     * Draws the sprite straight away in immediate mode, with whatever texture is bound. For the odd
-     * sprite that has its own texture and doesn't belong in a batch. One-sided: disable face
-     * culling around the call if it is on.
-     */
+    /** draws straight away in immediate mode with whatever texture is bound, for the odd sprite with its own texture that doesn't belong in a batch. one-sided, disable face culling around the call if it's on */
     public static void draw(double cx, double y, double cz, float width, float height,
                             double rightX, double rightZ,
                             float u0, float v0, float u1, float v1,

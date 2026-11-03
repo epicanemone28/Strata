@@ -8,31 +8,25 @@ import com.nikohalfkino.rubydung.render.Font;
 import static org.lwjgl.opengl.GL11.*;
 
 /**
- * The always-on in-world overlay (crosshair, selected tile, debug text, ...). It is the same kind
- * of widget tree a {@link Screen} uses, covering the whole window, so HUD elements are positioned
- * exactly like menu widgets - with an anchor and an offset.
- * <pre>
- *     hud.register(new CrosshairHud());                                   // uses the element's own default spot
- *     hud.register(new SelectedTileHud(game), Anchor.TOP_RIGHT, -10, 10); // ...or put it somewhere else
- * </pre>
- * Elements that predate the widget system (plain {@link HudElement}s that draw themselves with
- * absolute coordinates) can still be registered and are given the whole window.
+ * always-on in-world overlay (crosshair, selected tile, debug text...), same widget tree as a Screen so elements use an anchor + offset
+ *
+ * old-style HudElements that draw with absolute coordinates can still be registered
  */
 public class Hud {
 
     private final Group root = new Group();
 
-    /** Registers an element that draws itself with absolute coordinates. */
+    /** for elements that draw themselves with absolute coordinates */
     public void register(HudElement element) {
         this.root.add(new LegacyElement(element));
     }
 
-    /** Registers a widget at the anchor / offset it already has. */
+    /** keeps the widget's own anchor / offset */
     public <T extends Widget> T register(T widget) {
         return this.root.add(widget);
     }
 
-    /** Registers a widget pinned to {@code anchor} of the window, nudged by (dx, dy) pixels. */
+    /** pinned to anchor of the window, nudged by (dx, dy) pixels */
     public <T extends Widget> T register(T widget, Anchor anchor, float dx, float dy) {
         return this.root.add(widget, anchor, dx, dy);
     }
@@ -64,7 +58,7 @@ public class Hud {
         glPopMatrix();
     }
 
-    /** Adapter that gives an old-style element the whole window to draw in. */
+    // gives an old-style element the whole window
     private static final class LegacyElement extends Widget {
 
         private final HudElement element;

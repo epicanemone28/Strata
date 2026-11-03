@@ -5,13 +5,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/** Where model and blockstate files come from. Swappable so the loaders can be tested without a classpath. */
+/** where model and blockstate files come from, swappable so the loaders can be tested without a classpath */
 public interface ModelSource {
 
-    /** The text of the resource at {@code path} (e.g. "/assets/rubydung/models/block/cube.json"), or null if there is none. */
+    /** text of the resource at path (e.g. "/assets/rubydung/models/block/cube.json"), or null if there is none */
     String read(String path);
 
-    /** Reads from the classpath, next to the textures. */
+    /** reads from the classpath, next to the textures */
     ModelSource CLASSPATH = new ModelSource() {
         @Override
         public String read(String path) {

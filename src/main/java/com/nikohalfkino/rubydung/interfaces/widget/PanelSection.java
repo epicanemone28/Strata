@@ -4,18 +4,11 @@ import com.nikohalfkino.rubydung.interfaces.FrameScreen;
 import com.nikohalfkino.rubydung.interfaces.GameFrame;
 
 /**
- * Describes one block of a {@link FrameScreen}'s right-hand panel: a heading over a sunken box.
- * <p>
- * A screen returns a list of these from {@link FrameScreen#getSections()} and {@link GameFrame}
- * stacks them under the portrait, draws the headings, boxes and (for slot sections) the slot
- * cells, and hands the resolved rectangles back as {@link GameFrame.SectionLayout}s.
- * <ul>
- *   <li>{@link #slots} - a grid of slots. {@code rows} is a maximum: if the window is too short
- *       the frame uses fewer rows (never less than one). If columns equals rows the grid is a
- *       square and stays one when it shrinks.</li>
- *   <li>{@link #fill} - a plain panel that takes all the vertical space the slot sections leave
- *       over (user list, menu buttons, ...).</li>
- * </ul>
+ * one block of a FrameScreen's right-hand panel: a heading over a sunken box. screens return a list of these from getSections(), GameFrame stacks them under the portrait and hands the rects back as GameFrame.SectionLayout
+ *
+ * slots: a slot grid, rows is a maximum (fewer if the window is short, never below one), columns == rows stays a square when it shrinks
+ *
+ * fill: a plain panel that takes the vertical space the slot sections leave (user list, menu buttons, ...)
  */
 public final class PanelSection {
 

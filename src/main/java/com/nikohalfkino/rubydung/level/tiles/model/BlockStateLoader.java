@@ -11,49 +11,35 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Reads a blockstate file, /assets/rubydung/blockstates/&lt;name&gt;.toml, and bakes a model for
- * every state.
+ * reads /assets/rubydung/blockstates/NAME.toml and bakes a model for every state
  *
- * <pre>
  * parent = "axis_column"            # optional: start from another blockstate file
  *
  * [textures]                        # defaults for every state (a state can override them)
  * side = "rubydung:pillar_side"
  * end  = "rubydung:pillar_end"
  *
- * [properties]                      # each property lists its values; the first is the default
+ * [properties]                      # each property lists its values, the first is the default
  * axis = ["y", "z", "x"]
  *
  * [[state]]                         # the first state whose "condition" matches is used
- * condition = { axis = "z" }        # omit to match everything; a list means "any of"
- * model     = "&amp;"                   # which model; "&amp;" = the model named like this tile (the default)
+ * condition = { axis = "z" }        # omit to match everything, a list means "any of"
+ * model     = "&"                   # "&" = the model named like this tile (the default)
  * parent    = "block/cube_column"   # optional: define that model right here, extending this one
  * textures  = { side = "other" }    # optional per-state overrides
  * transform = { rx = 90 }           # optional: rx, ry, rz (multiples of 90, x then y then z), uvlock
- * collision = [[0,0,0, 16,8,16]]    # optional: the boxes (in sixteenths) entities collide with
- * </pre>
+ * collision = [[0,0,0, 16,8,16]]    # optional: boxes (in sixteenths) entities collide with
  *
- * <h3>Collision</h3>
- * Without a {@code collision} key a state collides with its model's {@code "collision"} boxes, or
- * if the model has none, with its elements (a slab model is a half-height cube, so a slab needs
- * nothing extra). A state's boxes are written like the model's, before the transform, and turn with
- * it. {@code collision = []} makes the state walk-through.
+ * collision: without the key a state uses its model's "collision" boxes, or its elements if there
+ * are none. the boxes turn with the transform, collision = [] makes the state walk-through
  *
- * <h3>Implicit models</h3>
- * A state that gives a {@code parent} (or its own {@code elements}) defines its model inline, so
- * most tiles need no model file at all. The model still has an id (the {@code model} value, with
- * every "&amp;" replaced by the tile's name), and if a model file with that id exists it wins over
- * the inline definition. That is how a resource pack replaces a tile's model without touching the
- * blockstate. When a model file wins, the state's textures only fill in names the file leaves
- * undefined. Without {@code parent}/{@code elements} the model file must exist, and the textures
- * override its own.
+ * a state with a parent (or its own elements) defines its model inline, so most tiles need no model
+ * file. a model file with the same id still wins over the inline one (that's how a resource pack
+ * replaces a model), and then the state's textures only fill in names the file leaves undefined.
+ * several states can share a model id as long as they define it identically
  *
- * <p>Several states may share a model id (for instance three rotations of the same "&amp;") as long as
- * they define it identically; differing definitions need different ids.
- *
- * <p>A file with no properties and no states may instead just say {@code model = "block/cube_all"}.
- * Child files replace the parent's "properties", "state" and "model" as a whole, and merge "textures".
- * Unknown keys in a state are errors, so a typo such as "transfrom" doesn't silently do nothing.
+ * child files replace the parent's properties / state / model as a whole and merge textures.
+ * unknown keys in a state are errors, so a typo doesn't silently do nothing
  */
 public final class BlockStateLoader {
 
@@ -74,7 +60,7 @@ public final class BlockStateLoader {
         this.models = new ModelLoader(source);
     }
 
-    /** Like {@link #load}, but never fails: problems are printed and the tile becomes a missing-texture cube. */
+    /** like load(), but never fails: problems are printed and the tile becomes a missing-texture cube */
     public BlockStateDef loadOrMissing(String name, String tileName) {
         try {
             BlockStateDef def = load(name, tileName);
@@ -97,12 +83,7 @@ public final class BlockStateLoader {
         return load(name, name);
     }
 
-    /**
-     * The baked blockstate, or null if there is no file for that name. Throws ModelException if the
-     * file is bad.
-     *
-     * @param tileName what "&amp;" stands for in model ids
-     */
+    /** null if there's no file for that name, throws ModelException if the file is bad. tileName is what "&" stands for in model ids */
     public BlockStateDef load(String name, String tileName) {
         Map<String, Object> doc = document(name, 0);
         if (doc == null) {
@@ -150,8 +131,7 @@ public final class BlockStateLoader {
         return new BlockStateDef(properties, states);
     }
 
-    // -------------------------------------------------------------------------
-    // File reading and parents
+    // file reading and parents
 
     private Map<String, Object> document(String name, int depth) {
         String text = this.source.read(DIR + name + ".toml");
@@ -199,8 +179,7 @@ public final class BlockStateLoader {
         return result;
     }
 
-    // -------------------------------------------------------------------------
-    // Properties and states
+    // properties and states
 
     private static List<BlockStateDef.Property> parseProperties(Object value) {
         List<BlockStateDef.Property> properties = new ArrayList<>();
@@ -257,7 +236,7 @@ public final class BlockStateLoader {
         return entries;
     }
 
-    /** Catches typos early: only known keys, and a condition may only name properties/values that exist. */
+    // catches typos early: only known keys, and conditions may only name properties/values that exist
     private static void checkState(Map<String, Object> state, List<BlockStateDef.Property> properties) {
         for (String key : state.keySet()) {
             if (!STATE_KEYS.contains(key)) {
@@ -353,8 +332,7 @@ public final class BlockStateLoader {
         return null;
     }
 
-    // -------------------------------------------------------------------------
-    // Baking
+    // baking
 
     private BakedModel bakeState(Map<String, Object> state, String tileName, Map<String, String> baseTextures,
                                  Map<String, String> definitions, Map<String, BakedModel> cache) {

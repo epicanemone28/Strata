@@ -28,19 +28,13 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Menu opened by pressing the interact key on a dimensional door. The world view shows the world
- * list, drawn like {@link WorldListScreen} (same rows, same empty slots), with each world's doors
- * overlaid on the right of its row. The right-hand panel has the door colours you can pick, and the
- * whole frame is tinted with the colour of the door the menu was opened from.
- * <p>
- * Rules: a coloured door only leads to worlds that have a door of the same colour; regular doors
- * are universal (a regular door can pick any colour, and a regular door in the other world matches
- * any colour). A coloured door can only pick its own colour. Worlds with no matching door are dimmed
- * and can't be selected. The door stands open while the menu is up and closes again on dismissal.
- * <p>
- * Clicking a matching world travels there: the current world is saved and the other one loaded, and
- * the player arrives in front of a matching door (see RubyDung#travelThroughDoor and DoorTravel).
- * That door leads back, because the world you left has a matching door too.
+ * menu for a dimensional door: world list in the world view (like WorldListScreen) with each world's doors on its row, door colours to pick in the right panel, frame tinted with this door's colour
+ *
+ * a coloured door only leads to worlds with a door of the same colour and can only pick its own colour, regular doors are universal (can pick any colour, match any colour)
+ *
+ * worlds with no matching door are dimmed and can't be selected, the door stays open while the menu is up
+ *
+ * clicking a match saves this world, loads the other and arrives in front of a matching door (see RubyDung.travelThroughDoor, DoorTravel), which leads back since the world you left has a matching door too
  */
 public class DimensionalDoorScreen extends FramePanelScreen implements FramePatternProvider {
 
@@ -52,14 +46,14 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
     private static final int TITLE_Y = 15;
     private static final int LIST_TOP = 45;
 
-    /** Distance from the bottom of the world view to the world name in the bar below it. */
+    // bottom of the world view to the world name in the bar below
     private static final int BOTTOM_BAR_Y_OFFSET = 20;
 
-    /** Text inside a row, measured from the row's left / top edge. */
+    // text inside a row, from its left / top edge
     private static final int TEXT_X = 10;
     private static final int TEXT_Y = 10;
 
-    /** Door badges: 14px of art at the UI's 2x scale, right-aligned in the row like the world list's. */
+    // door badges: 14px of art at the UI's 2x scale, right-aligned like the world list's
     private static final int DOOR_ICON_SIZE = 14 * GameFrame.UI_SCALE;
     private static final int DOOR_ICON_GAP = 4;
     private static final int BADGE_MARGIN = 4;
@@ -91,23 +85,23 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
     private final int doorY;
     private final int doorZ;
 
-    /** Colour of the door this menu was opened from. */
+    // colour of the door this menu was opened from
     private final DoorColor doorColor;
 
-    /** Every saved world except the one the door is in. */
+    // every saved world except the one the door is in
     private final List<WorldEntry> worlds = new ArrayList<>();
 
     private final Column panel;
     private final Label worldName;
 
-    /** The colour being looked for in other worlds (REGULAR = any door at all). */
+    // colour being looked for in other worlds (REGULAR = any door)
     private DoorColor filter;
 
     private int selected = -1;
     private int hovered = -1;
     private int scrollRows = 0;
 
-    /** (doorX, doorY, doorZ) is the door's origin cell, see PlayerInteraction#getTargetedDoorOrigin. */
+    /** (doorX, doorY, doorZ) is the door's origin cell, see PlayerInteraction.getTargetedDoorOrigin */
     public DimensionalDoorScreen(RubyDung game, int doorX, int doorY, int doorZ) {
         super(game);
 
@@ -147,7 +141,7 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
         DimensionalDoorTile.setOpen(this.level, this.doorX, this.doorY, this.doorZ, false);
     }
 
-    /** Scrolls the list by whole rows (positive = down). */
+    /** positive = down */
     public void scroll(int rows) {
         this.scrollRows = Math.max(0, Math.min(maxScroll(), this.scrollRows + rows));
     }
@@ -168,7 +162,7 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
         return (this.doorColor == null ? DoorColor.REGULAR : this.doorColor).getTint();
     }
 
-    /** Wooden frame, like the door itself. */
+    /** wooden frame, like the door */
     @Override
     public NoisePattern getFramePattern() {
         return NoisePattern.WOOD_GRAIN;
@@ -190,11 +184,9 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
                 this.layout.viewY + this.layout.viewHeight + BOTTOM_BAR_Y_OFFSET);
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Door matching
-    // ---------------------------------------------------------------------------------------
+    // door matching
 
-    /** Whether a door of this colour in another world matches the colour currently picked. */
+    // whether a door of this colour in another world matches the current pick
     private boolean doorMatches(DoorColor other) {
         return this.filter == DoorColor.REGULAR || this.filter.matches(other);
     }
@@ -208,16 +200,14 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
         return false;
     }
 
-    /** Regular doors can pick any colour; a coloured door only its own. */
+    // regular doors can pick any colour, a coloured door only its own
     private boolean isSelectable(DoorColor color) {
         return this.doorColor == DoorColor.REGULAR || color == this.doorColor;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Right-hand panel
-    // ---------------------------------------------------------------------------------------
+    // right-hand panel
 
-    /** The door colours, as door icons in a grid. Greyed-out colours can't be picked from this door. */
+    // door colours as icons in a grid, greyed-out ones can't be picked from this door
     private final class ColorPicker extends Widget {
 
         ColorPicker() {
@@ -295,9 +285,7 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
         }
     }
 
-    // ---------------------------------------------------------------------------------------
-    // World list (drawn in the world view, like WorldListScreen)
-    // ---------------------------------------------------------------------------------------
+    // world list (drawn in the world view, like WorldListScreen)
 
     private int slotCount() {
         return Math.max(TOTAL_WORLD_SLOTS, this.worlds.size());
@@ -323,7 +311,7 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
         return this.layout.viewY + LIST_TOP + (slot - this.scrollRows) * (ROW_HEIGHT + ROW_GAP);
     }
 
-    /** The world (not empty slot) row under the point, or -1. */
+    // world (not empty slot) row under the point, or -1
     private int worldIndexAt(int mouseX, int mouseY) {
         if (this.layout == null || mouseX < rowX() || mouseX > rowX() + ROW_WIDTH) {
             return -1;
@@ -396,20 +384,20 @@ public class DimensionalDoorScreen extends FramePanelScreen implements FramePatt
         Gui2D.end();
     }
 
-    /** The sunken slot look shared with the world list: a solid inset with the inventory's bevel. */
+    // sunken slot shared with the world list (solid inset with the inventory's bevel)
     private static void drawSlot(float x, float y, float shade, float bevelStrength) {
         Gui2D.fillRect(x, y, ROW_WIDTH, ROW_HEIGHT, shade, shade, shade, 1.0f);
         Bevel.ring(x, y, ROW_WIDTH, ROW_HEIGHT, GameFrame.UI_SCALE, false, SLOT_SHADOW, SLOT_LIGHT,
                 bevelStrength, bevelStrength, bevelStrength);
     }
 
-    /** Width the door badges take from the row's right edge, margin included (0 = no doors). */
+    // width the door badges take from the row's right edge incl. margin (0 = no doors)
     private static int badgesWidth(WorldEntry world) {
         int count = world.doors.size();
         return count == 0 ? 0 : count * DOOR_ICON_SIZE + (count - 1) * DOOR_ICON_GAP + BADGE_MARGIN;
     }
 
-    /** The text cut short with "..." so it fits in maxWidth pixels. */
+    // cuts the text short with "..." to fit maxWidth
     private static String fit(Font font, String text, int maxWidth) {
         if (font.width(text) <= maxWidth) {
             return text;

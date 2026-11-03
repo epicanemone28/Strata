@@ -5,9 +5,9 @@ import com.nikohalfkino.rubydung.interfaces.Gui2D;
 import com.nikohalfkino.rubydung.render.Font;
 
 /**
- * A sunken box with the frame's bevel (see {@link Bevel}) - the backdrop for an input line, a text
- * area, and so on. The bevel is drawn just OUTSIDE the widget's rectangle, so it takes 2 UI units
- * on every side; leave room for that.
+ * sunken box with the frame's bevel (see Bevel), backdrop for an input line or text area
+ *
+ * the bevel is drawn just outside the rectangle (2 UI units per side), so leave room
  */
 public class BevelBox extends Widget {
 
@@ -17,7 +17,7 @@ public class BevelBox extends Widget {
     private float fillB = 0.0F;
     private float fillA = 0.55F;
 
-    /** Colour multiplier for the bevel; pass the screen's {@code getFrameTint()} to match the frame. */
+    /** colour multiplier for the bevel, pass the screen's getFrameTint() to match the frame */
     public BevelBox setTint(int tint) {
         this.tint = tint;
         return this;

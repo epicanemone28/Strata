@@ -7,11 +7,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A tile's properties and the baked model of every combination of them.
+ * a tile's properties and the baked model of every combination of them
  *
- * <p>The combination is packed into the cell's data byte as a mixed-radix number: the first
- * property is the least significant. With {@code axis = ["y","z","x"]} the data values are
- * 0 = y, 1 = z, 2 = x. A tile with no properties has exactly one state (data 0).
+ * the combination is packed into the cell's data byte as a mixed-radix number, first property least significant. axis = ["y","z","x"] gives 0 = y, 1 = z, 2 = x. no properties = exactly one state (data 0)
  */
 public final class BlockStateDef {
 
@@ -48,17 +46,16 @@ public final class BlockStateDef {
         return this.states.length;
     }
 
-    /** The model for a data byte. Values past the last state use state 0 (the default), as unknown directions always did. */
+    /** values past the last state use state 0 (the default) */
     public BakedModel state(int data) {
         return data >= 0 && data < this.states.length ? this.states[data] : this.states[0];
     }
 
-    /** True if every state fills the whole cell, so neighbours may hide the faces that touch it. */
+    /** every state fills the whole cell, so neighbours may hide the faces that touch it */
     public boolean isFullCube() {
         return this.fullCube;
     }
 
-    /** Every texture name any state uses. */
     public Set<String> textures() {
         Set<String> names = new LinkedHashSet<>();
         for (BakedModel state : this.states) {
@@ -67,10 +64,7 @@ public final class BlockStateDef {
         return names;
     }
 
-    /**
-     * The data byte for a combination of property values, given as name, value pairs:
-     * {@code dataOf("axis", "x")}. Properties you leave out take their first value.
-     */
+    /** data byte for property values given as name, value pairs: dataOf("axis", "x"). left-out properties take their first value */
     public int dataOf(String... nameValuePairs) {
         if (nameValuePairs.length % 2 != 0) {
             throw new IllegalArgumentException("dataOf takes name, value pairs");

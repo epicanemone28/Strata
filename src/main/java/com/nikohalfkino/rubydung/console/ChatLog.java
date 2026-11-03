@@ -6,16 +6,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * The chat window's backlog: IRC-style lines (timestamp, nick, text) plus the sent-line history.
- * Lives on {@code RubyDung} so it survives opening and closing the chat screen.
- */
+/** chat backlog (irc-style lines) plus sent-line history, lives on RubyDung so it survives closing the chat screen */
 public class ChatLog {
 
     public enum Kind {
-        /** "[12:34] <player> hello" */
+        // "[12:34] <player> hello"
         MESSAGE,
-        /** "[12:34] *** Now talking in #strata" - server notices and command output. */
+        // "[12:34] *** Now talking in #strata", server notices and command output
         NOTICE
     }
 
@@ -45,7 +42,7 @@ public class ChatLog {
     private String nick = DEFAULT_NICK;
     private String channel = "#strata";
 
-    /** Starts a fresh log for a world: the channel is named after it, like joining an IRC channel. */
+    /** channel is named after the world, like joining an irc channel */
     public void reset(String worldName) {
         this.lines.clear();
 
@@ -93,7 +90,7 @@ public class ChatLog {
         return this.channel;
     }
 
-    /** Lines the player has sent, oldest first (for Up/Down recall). */
+    /** sent lines, oldest first (for up/down recall) */
     public List<String> getHistory() {
         return this.history;
     }

@@ -13,19 +13,13 @@ import java.nio.ByteBuffer;
 import static org.lwjgl.opengl.GL11.*;
 
 /**
- * A {@link Column} that draws a raised bevelled panel behind its children: a soft drop shadow, the
- * same noise texture {@link GameFrame} uses for its background (the inventory screen's stone by
- * default) and the frame's bevel, see {@link Bevel#raisedFrame}. Use {@link #setPadding} to keep
- * the children clear of the bevel (at least 2 UI units).
- * <pre>
- *     Panel menu = add(new Panel(10), Anchor.TOP_CENTER, 0, 200);
- *     menu.setPadding(16);
- *     menu.add(new Button("Play"));
- * </pre>
+ * Column that draws a raised bevelled panel behind its children: soft drop shadow, the same noise texture GameFrame uses (the inventory's stone by default) and the frame's bevel
+ *
+ * use setPadding to keep children clear of the bevel (at least 2 UI units)
  */
 public class Panel extends Column {
 
-    /** How far down and to the right the drop shadow is offset, in pixels. */
+    /** how far down-right the drop shadow is offset, in pixels */
     public static final float SHADOW_OFFSET = 3 * GameFrame.UI_SCALE;
 
     // These match GameFrame, so the panel's noise looks identical to the frame's.
@@ -35,7 +29,7 @@ public class Panel extends Column {
     private static final int NOISE_MIN = 52;
     private static final int NOISE_MAX = 116;
 
-    /** Each pattern's texture, generated the first time a panel uses it. */
+    // each pattern's texture, generated the first time a panel uses it
     private static final int[] TEXTURE_CACHE = new int[NoisePattern.values().length];
 
     private NoisePattern pattern = NoisePattern.STONE;
@@ -47,13 +41,13 @@ public class Panel extends Column {
         super(gap);
     }
 
-    /** Which noise to draw, e.g. the one a screen returns from {@code FramePatternProvider}. */
+    /** which noise to draw, e.g. the one a screen returns from FramePatternProvider */
     public Panel setPattern(NoisePattern pattern) {
         this.pattern = pattern == null ? NoisePattern.STONE : pattern;
         return this;
     }
 
-    /** Colour multiplier for the noise and bevel; pass a screen's {@code getFrameTint()} to match the frame. */
+    /** colour multiplier for the noise and bevel, pass the screen's getFrameTint() to match the frame */
     public Panel setTint(int tint) {
         this.tint = tint;
         return this;
@@ -64,7 +58,7 @@ public class Panel extends Column {
         return this;
     }
 
-    /** How dark the black drop shadow is (0..1, default 0.35). */
+    /** 0..1, default 0.35 */
     public Panel setShadowAlpha(float shadowAlpha) {
         this.shadowAlpha = shadowAlpha;
         return this;
@@ -81,7 +75,7 @@ public class Panel extends Column {
         Bevel.raisedFrame(this.x, this.y, this.width, this.height, this.tint);
     }
 
-    /** Fills the panel with the noise, lined up to the window like the frame's so the tiles match. */
+    // lined up to the window like the frame's so the tiles match
     private void drawNoise() {
         glEnable(GL_TEXTURE_2D);
         Textures.bind(texture(this.pattern));

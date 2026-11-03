@@ -6,22 +6,18 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Properties;
 
-/**
- * How often the game saves the world by itself. Kept in its own small file next to the other
- * settings; if you would rather have it in GameSettings, move the field, getter, setter and the
- * load / save lines there and delete this class.
- */
+/** how often the game saves the world by itself, kept in its own small file next to the other settings */
 public final class AutosaveSettings {
 
     public static final int DEFAULT_MINUTES = 5;
 
-    /** Longest interval the options slider offers. */
+    /** longest interval on the options slider */
     public static final int MAX_MINUTES = 30;
 
     private static final File FILE = new File("autosave.properties");
     private static final String KEY_INTERVAL = "interval_minutes";
 
-    /** 0 = autosave is off. */
+    // 0 = autosave is off
     private static int intervalMinutes = DEFAULT_MINUTES;
 
     private AutosaveSettings() {

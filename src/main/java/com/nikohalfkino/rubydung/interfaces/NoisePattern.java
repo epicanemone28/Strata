@@ -3,32 +3,23 @@ package com.nikohalfkino.rubydung.interfaces;
 import java.util.Random;
 
 /**
- * The procedural greyscale patterns {@link GameFrame} can use for its background and slot
- * interiors. Every pattern is generated in code and is seamlessly tileable at {@code size} x
- * {@code size}. {@link #STONE} and {@link #WOOD_GRAIN} stay inside the frame's brightness band
- * (roughly 0.22 .. 0.44); {@link #COBBLESTONE} uses a wider band (0 .. 0.6) because it needs
- * near-black gaps, so a caller that clamps (GameFrame does) flattens its darkest and brightest
- * parts. Per-screen tinting works on all of them unchanged.
- * <ul>
- *   <li>{@link #STONE}: the original soft, cloudy noise.</li>
- *   <li>{@link #COBBLESTONE}: big rounded, bevelled stones (lit from the top left) with black gaps.</li>
- *   <li>{@link #WOOD_GRAIN}: wavy horizontal growth rings with fine fibres.</li>
- * </ul>
- * Screens pick a pattern through {@link FramePatternProvider}.
+ * procedural greyscale patterns for GameFrame, all tileable at size x size
+ *
+ * STONE and WOOD_GRAIN stay in the frame's brightness band (~0.22 .. 0.44), COBBLESTONE goes 0 .. 0.6 for near-black gaps (GameFrame's clamp flattens its extremes)
+ *
+ * STONE: soft cloudy noise, COBBLESTONE: bevelled stones with black gaps, WOOD_GRAIN: wavy rings with fibres
+ *
+ * screens pick one through FramePatternProvider
  */
 public enum NoisePattern {
     STONE,
     COBBLESTONE,
     WOOD_GRAIN;
 
-    /**
-     * Tile size the game generates at. Bigger tiles repeat less often on screen, which hides the
-     * tiling; every pattern scales its features with {@code size} so the look stays the same.
-     * Must be a multiple of 128.
-     */
+    // bigger tiles repeat less on screen, features scale with size. must be a multiple of 128
     public static final int TILE_SIZE = 512;
 
-    /** The size the tuning constants below were designed for. */
+    // size the tuning constants below were designed for
     private static final int REFERENCE_SIZE = 128;
 
     // Every pattern is squeezed into this band (see GameFrame's NOISE_MIN / NOISE_MAX).
@@ -36,43 +27,42 @@ public enum NoisePattern {
     private static final float OUT_RANGE = 0.22F;
 
     // Cobblestone tuning.
-    /** Stones per side of a 128-sized tile (more in bigger tiles). */
+    // stones per side of a 128 tile (more in bigger ones)
     private static final int COBBLE_CELLS = 5;
-    /** Output band of the cobblestone: 0 (black gaps) .. 0.6 (brightest highlights). */
+    // output band: 0 (black gaps) .. 0.6 (brightest highlights)
     private static final float COBBLE_RANGE = 0.60F;
-    /** Distance (texture pixels) from a stone's edge that is pure black gap. */
+    // pure black gap distance from a stone's edge (texture pixels)
     private static final float GAP_WIDTH = 0.6F;
-    /** Width of the sloped rim between the gap and the flat top of a stone. */
+    // sloped rim between the gap and the flat top of a stone
     private static final float RIM_WIDTH = 6.0F;
-    /** Rotation (radians) and stretch of the stones, so they are oval and tilted instead of round. */
+    // rotation (radians) and stretch of the stones, so they're oval and tilted
     private static final double STONE_ANGLE = 0.55;
     private static final float STONE_STRETCH_U = 0.80F;
     private static final float STONE_STRETCH_V = 1.20F;
-    /** How strongly the rim catches the light (light comes from the top left). */
+    // how strongly the rim catches the light (from the top left)
     private static final float LIGHT_STRENGTH = 2.20F;
 
     // Wood tuning.
-    /** Growth rings per 128-sized tile (more in bigger tiles); whole number or the grain will not tile. */
+    // rings per 128 tile (more in bigger ones), must be whole or the grain won't tile
     private static final int WOOD_RINGS = 8;
-    /** How strongly the low-frequency noise bends the rings, in rings. */
+    // how much (in rings) low-frequency noise bends the rings
     private static final float WOOD_WAVINESS = 1.6F;
 
-    /** Knots per 128x128 of tile area (so a 512 tile gets about three). */
+    // knots per 128x128 of tile area (a 512 tile gets about three)
     private static final float WOOD_KNOTS_PER_REF_TILE = 0.2F;
-    /** Knot radius across the grain, in texture pixels (min, max). */
+    // knot radius across the grain in texture pixels (min, max)
     private static final float KNOT_RADIUS_MIN = 9.0F;
     private static final float KNOT_RADIUS_MAX = 15.0F;
-    /** Knots are longer along the grain than across it. */
+    // knots are longer along the grain
     private static final float KNOT_ASPECT = 1.8F;
-    /** How far (in knot radii) the grain is pushed aside, and how much. */
+    // how far (in knot radii) and how much the grain is pushed aside
     private static final float KNOT_FLOW = 2.4F;
     private static final float KNOT_BEND = 2.6F;
-    /** Concentric rings inside a knot. */
     private static final float KNOT_RINGS = 3.0F;
-    /** Beyond this many knot radii the knot has no effect at all. */
+    // knot radii beyond which a knot has no effect
     private static final float KNOT_REACH = 7.5F;
 
-    /** Generates {@code size * size} brightness values (row by row), same seed = same pattern. */
+    /** size * size brightness values (row by row), same seed = same pattern */
     public float[] generate(int size, long seed) {
         Random random = new Random(seed);
         // Feature counts grow with the tile so sizes on screen stay constant.
@@ -88,11 +78,9 @@ public enum NoisePattern {
         }
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Patterns
-    // ---------------------------------------------------------------------------------------
+    // patterns
 
-    /** The original frame noise: four octaves of value noise plus a little grain. */
+    // four octaves of value noise plus a little grain
     private static float[] stone(int size, int scale, Random random) {
         float[] result = new float[size * size];
 
@@ -117,14 +105,9 @@ public enum NoisePattern {
         return result;
     }
 
-    /**
-     * Cobblestones: a jittered grid of stone centres (wrapping at the tile edges); each pixel
-     * belongs to its nearest centre, using a stretched, tilted distance so the stones are oval.
-     * Close to the border with the second-nearest stone the height drops into a black gap, which
-     * gives every stone a sloped rim. A light from the top left then brightens the rims facing it
-     * and darkens the ones facing away, so the stones look bevelled. Each stone gets its own tone
-     * plus mottling and speckle.
-     */
+    // jittered grid of stone centres (wrapping), each pixel belongs to its nearest one using a stretched, tilted distance (oval stones)
+    // near the border with the second-nearest stone the height drops into a black gap, which gives a sloped rim lit from the top left
+    // each stone gets its own tone plus mottling and speckle
     private static float[] cobblestone(int size, int scale, Random random) {
         final int cells = COBBLE_CELLS * scale;
         final float cell = size / (float) cells;
@@ -225,13 +208,8 @@ public enum NoisePattern {
         return result;
     }
 
-    /**
-     * Wood: the grain runs left to right. Brightness follows a sine of the (warped) vertical
-     * position, which makes rings; the warp is slow tileable noise so the rings wander. Streaky
-     * noise (fine vertically, long horizontally) adds the fibres. Knots are oval whorls: around
-     * each one the grain is pushed aside so the rings flow around it, inside it the rings turn
-     * concentric, and it gets a dark outline and a darker core.
-     */
+    // grain runs left to right: a sine of the warped vertical position makes rings, slow tileable noise warps them, streaky noise adds fibres
+    // knots are oval whorls: the grain flows around them, the rings turn concentric inside, with a dark outline and core
     private static float[] woodGrain(int size, int scale, Random random) {
         float[] warp = tileableValueNoise(size, 2 * scale, 4 * scale, random);
         float[] fibres = tileableValueNoise(size, 4 * scale, 64 * scale, random);
@@ -319,14 +297,9 @@ public enum NoisePattern {
         return result;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------------------------------
+    // helpers
 
-    /**
-     * Value noise that wraps at the tile edges. {@code gridX} / {@code gridY} are the lattice
-     * points per side (they must divide {@code size}); unequal values stretch the noise.
-     */
+    // wraps at the tile edges. gridX/gridY are lattice points per side (must divide size), unequal values stretch it
     private static float[] tileableValueNoise(int size, int gridX, int gridY, Random random) {
         float[] points = new float[gridX * gridY];
         for (int i = 0; i < points.length; i++) {
@@ -359,7 +332,7 @@ public enum NoisePattern {
         return out;
     }
 
-    /** 3x3 box blur that wraps at the tile edges. */
+    // 3x3 box blur, wraps at the tile edges
     private static float[] blur(float[] in, int size) {
         float[] out = new float[in.length];
         for (int y = 0; y < size; y++) {
@@ -376,7 +349,7 @@ public enum NoisePattern {
         return out;
     }
 
-    /** Shortest signed distance between two positions on a wrapping axis of length {@code size}. */
+    // shortest signed distance on a wrapping axis of length size
     private static float wrapDelta(float delta, int size) {
         float d = delta % size;
         if (d > size / 2.0F) {

@@ -7,24 +7,24 @@ import com.nikohalfkino.rubydung.phys.AABB;
 import java.util.List;
 
 /**
- * Ray picking inside one cell, against the tile's real shape (Tile.getPickBoxes): a slab only
- * answers in its own half of the cell, a staircase in its steps. A ray that passes through the
- * empty part of the cell gets null and should simply carry on to the next cell.
+ * ray picking inside one cell against the tile's real shape (Tile.getPickBoxes): a slab only answers in its own half, a staircase in its steps
+ *
+ * a ray through the empty part of the cell gets null and should carry on to the next cell
  */
 public final class TilePicker {
 
     private TilePicker() {}
 
     public static final class Result {
-        /** Ray parameter of the hit (distance, if the direction is a unit vector). */
+        /** ray parameter of the hit (distance if the direction is a unit vector) */
         public final double t;
-        /** World position of the hit. */
+        /** world position of the hit */
         public final double x, y, z;
-        /** The Tile.FACE_* of the struck box that the ray entered through. */
+        /** Tile.FACE_* of the struck box that the ray entered through */
         public final int face;
-        /** The box that was struck, in world coordinates. */
+        /** the struck box, world coordinates */
         public final AABB box;
-        /** SubTile.id of the sub-tile that was struck, -1 for the cell's normal tile. */
+        /** SubTile.id of the struck sub-tile, -1 for the cell's normal tile */
         public final int overlayId;
 
         Result(double t, double x, double y, double z, int face, AABB box) {
@@ -46,12 +46,7 @@ public final class TilePicker {
         }
     }
 
-    /**
-     * @param ox,oy,oz ray origin (the eye)
-     * @param dx,dy,dz ray direction (need not be normalised)
-     * @param maxT     furthest ray parameter that still counts (the reach, for a unit direction)
-     * @return the nearest hit on the tile at (x, y, z), or null if the ray misses its shape
-     */
+    /** ox,oy,oz = ray origin (the eye), dx,dy,dz = direction (need not be normalised), maxT = furthest ray parameter that counts. returns the nearest hit on the tile at (x, y, z), null if the ray misses its shape */
     public static Result pick(Level level, int x, int y, int z,
                               double ox, double oy, double oz,
                               double dx, double dy, double dz, double maxT) {
@@ -81,11 +76,9 @@ public final class TilePicker {
     }
 
     /**
-     * Sharpens a hit that came from plain cell stepping, using the camera ray (CameraRay): fills in
-     * the exact hit point and the box struck, and corrects the face. If the ray only crossed the empty
-     * part of the cell (above a bottom slab, say), the hit moves on to whatever lies behind it.
-     * Billboards and multi-tile objects are left exactly as they were. Does nothing if the camera
-     * is unknown or the hit was already refined.
+     * sharpens a hit that came from plain cell stepping using the camera ray (CameraRay): fills in the exact hit point and box struck, and corrects the face. if the ray only crossed the empty part of the cell (above a bottom slab) the hit moves on to whatever's behind
+     *
+     * billboards and multi-tile objects are left as they were. does nothing if the camera is unknown or the hit was already refined
      */
     public static void refine(Level level, HitResult hit) {
         if (hit == null || hit.hasPoint || !CameraRay.isKnown()) {
@@ -203,7 +196,7 @@ public final class TilePicker {
         hit.withPoint(r.x, r.y, r.z, r.box);
     }
 
-    /** Slab test of a ray against one box. If the origin is inside, the hit is at t = 0. */
+    // slab test of a ray against one box, hit at t = 0 if the origin is inside
     static Result intersect(AABB box, double ox, double oy, double oz, double dx, double dy, double dz) {
         double[] origin = {ox, oy, oz};
         double[] dir = {dx, dy, dz};

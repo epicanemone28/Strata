@@ -1,11 +1,9 @@
 package com.nikohalfkino.rubydung.interfaces;
 
 /**
- * The bevelled borders used by {@link GameFrame}, usable by any screen so custom boxes (a chat
- * input, a text area, ...) match the rest of the frame. Call inside {@link Gui2D#begin}.
- * <p>
- * Colours are grey levels (0..255) multiplied by a tint, so a screen can pass its own
- * {@link FrameScreen#getFrameTint()} and match the frame around it.
+ * bevelled borders used by GameFrame, usable by any screen so custom boxes match the frame
+ *
+ * call inside Gui2D.begin. greys are 0..255 multiplied by a tint (see FrameScreen.getFrameTint)
  */
 public final class Bevel {
 
@@ -16,10 +14,7 @@ public final class Bevel {
     private Bevel() {
     }
 
-    /**
-     * The sunken look of the viewport / panels: a dark outline plus a bevel (dark top/left, light
-     * bottom/right) just OUTSIDE the given rectangle. Takes 2 UI units on every side.
-     */
+    /** dark outline + bevel (dark top/left, light bottom/right) just outside the rectangle, takes 2 UI units per side */
     public static void sunkenFrame(float x, float y, float w, float h, int tint) {
         sunkenFrame(x, y, w, h, red(tint), green(tint), blue(tint));
     }
@@ -30,10 +25,7 @@ public final class Bevel {
         ring(x - u, y - u, w + 2 * u, h + 2 * u, u, true, FRAME_SHADOW, FRAME_LIGHT, tr, tg, tb);
     }
 
-    /**
-     * The raised look of a button or a floating panel: a dark outline plus a bevel (light top/left,
-     * dark bottom/right), both drawn INSIDE the given rectangle. Takes 2 UI units on every side.
-     */
+    /** dark outline + bevel (light top/left, dark bottom/right) inside the rectangle, takes 2 UI units per side */
     public static void raisedFrame(float x, float y, float w, float h, int tint) {
         raisedFrame(x, y, w, h, red(tint), green(tint), blue(tint));
     }
@@ -45,13 +37,9 @@ public final class Bevel {
     }
 
     /**
-     * Draws a bevelled border of thickness t. Top/left strips use the first grey, bottom/right
-     * strips the second (both multiplied by the tint), and the two mixed corners (top-right,
-     * bottom-left) are split along the diagonal, one UI unit at a time, so the bevel mitres
-     * properly.
-     * <p>
-     * If {@code outside} is true, (x, y, w, h) is the rectangle being surrounded and the border
-     * sits just outside it; otherwise the border sits inside the rectangle.
+     * bevelled border of thickness t: first grey on top/left, second on bottom/right, the mixed corners are split along the diagonal
+     *
+     * outside = true surrounds (x, y, w, h), otherwise the border sits inside it
      */
     public static void ring(float x, float y, float w, float h, float t, boolean outside,
                             int topLeftGray, int bottomRightGray,

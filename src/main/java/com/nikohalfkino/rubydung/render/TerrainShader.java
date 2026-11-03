@@ -3,10 +3,9 @@ package com.nikohalfkino.rubydung.render;
 import org.lwjgl.opengl.GL20;
 
 /**
- * Draws chunk meshes with the time of day applied at draw time instead of baked into the mesh.
+ * draws chunk meshes with the time of day applied at draw time instead of baked into the mesh
  *
- * Chunk vertex colour is packed as: r = sky light (shadow only), g = block light, b = face shade.
- * Light-emitting tiles write g = 1, so they stay fullbright at any ambient.
+ * chunk vertex colour is packed as r = sky light (shadow only), g = block light, b = face shade. light-emitting tiles write g = 1 so they stay fullbright at any ambient
  */
 public final class TerrainShader {
 

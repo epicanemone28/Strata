@@ -8,15 +8,9 @@ import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * Text, sized from the text unless given a fixed size, in which case the text is centred inside
- * that box (useful for click targets like a "Reset" link). A {@code \n} in the text starts a new
- * line, and {@link #setMaxWidth} wraps long text onto several lines.
- * <pre>
- *     add(new Label("Options"), Anchor.TOP_CENTER, 0, UiStyle.TITLE_Y);
- *     add(new Label(() -> "Page " + page), Anchor.CENTER, 0, 0);          // text re-read every frame
- *     Label reset = new Label("Reset"); reset.setColor(0xFF8888); reset.setHoverColor(0xFFFF00);
- *     reset.onClick(() -> doReset());                                       // makes it clickable
- * </pre>
+ * text, sized from the text unless given a fixed size (then centred in that box, useful for click targets like a "Reset" link)
+ *
+ * a \n in the text starts a new line, setMaxWidth wraps long text
  */
 public class Label extends Widget {
 
@@ -34,7 +28,7 @@ public class Label extends Widget {
         this.text = () -> text;
     }
 
-    /** A label whose text is looked up again every frame. */
+    /** text is looked up again every frame */
     public Label(Supplier<String> text) {
         this.text = text;
     }
@@ -44,38 +38,31 @@ public class Label extends Widget {
         return this;
     }
 
-    /** Colour while the mouse is over the label (-1 = no change). */
+    /** colour while hovered (-1 = no change) */
     public Label setHoverColor(int hoverColor) {
         this.hoverColor = hoverColor;
         return this;
     }
 
-    /** Draws the text at this scale instead of the default size (0 = default). */
+    /** text scale instead of the default size (0 = default) */
     public Label setScale(float scale) {
         this.scale = scale;
         return this;
     }
 
-    /** Draws a black copy of the text this many pixels down-right behind it. */
+    /** black copy of the text this many pixels down-right behind it */
     public Label setShadow(int offset) {
         this.shadowOffset = offset;
         return this;
     }
 
-    /**
-     * Opacity (0..1), re-read every frame, for fading text out. Only applies to default-size text;
-     * text drawn with {@link #setScale} is always opaque.
-     */
+    /** opacity 0..1, re-read every frame, only for default-size text (setScale text is always opaque) */
     public Label setAlpha(Supplier<Float> alpha) {
         this.alpha = alpha;
         return this;
     }
 
-    /**
-     * Wraps the text onto several lines so no line is wider than this many pixels (0 = never wrap).
-     * Breaks happen at spaces; a single word that is too long is split. A fixed-size label should
-     * pass its own width. Explicit {@code \n} line breaks work with or without this.
-     */
+    /** wraps so no line is wider than this many pixels (0 = never). breaks at spaces, a too-long word is split. a fixed-size label should pass its own width */
     public Label setMaxWidth(int maxWidth) {
         this.maxWidth = Math.max(0, maxWidth);
         return this;
@@ -99,12 +86,11 @@ public class Label extends Widget {
         return this.scale > 0.0f ? 8.0f * this.scale : UiStyle.LINE_HEIGHT;
     }
 
-    /** Distance between the tops of two consecutive lines. */
     private float lineHeight() {
         return this.scale > 0.0f ? 9.0f * this.scale : UiStyle.LINE_HEIGHT;
     }
 
-    /** The text split at {@code \n} and, if a max width is set, wrapped to it. */
+    // text split at \n and wrapped to the max width if one is set
     private List<String> lines(Font font, String value) {
         List<String> out = new ArrayList<>();
         for (String paragraph : value.split("\\r?\\n", -1)) {

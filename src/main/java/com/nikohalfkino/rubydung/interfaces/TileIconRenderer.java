@@ -8,32 +8,25 @@ import com.nikohalfkino.rubydung.render.Textures;
 
 import static org.lwjgl.opengl.GL11.*;
 
-/**
- * Draws a tile as a 2D icon: an isometric cube for normal tiles, a flat sprite for billboards.
- * Used by the selected-tile HUD and the inventory slots.
- */
+/** draws a tile as a 2d icon (isometric cube, flat sprite for billboards) for the selected-tile HUD and inventory */
 public final class TileIconRenderer {
 
-    /** Billboard sprites are drawn this much larger than the cube scale, so they look the same size. */
+    // billboards are drawn this much larger than the cube scale so they look the same size
     private static final float BILLBOARD_SCALE = 44.0F / 32.0F;
 
-    /**
-     * Billboard icons show only a square of this many of the sprite's own pixels, zoomed in to
-     * fill the icon. Sprites have different resolutions, so this is measured in each sprite's
-     * source pixels, not in atlas pixels: a 16px sprite is shown whole, a 32px one shows a
-     * quarter of it, a 64px one a sixteenth.
-     */
+    // billboard icons show a square of this many of the sprite's own pixels (not atlas pixels), zoomed to fill the icon
+    // 16px sprite = whole, 32px = a quarter, 64px = a sixteenth
     private static final int SPRITE_CROP_PIXELS = 16;
 
-    /** Where the crop sits vertically in the sprite: 0 = top edge, 0.5 = centred, 1 = bottom edge. */
+    // 0 = top edge, 0.5 = centred, 1 = bottom edge
     private static final float SPRITE_CROP_VERTICAL = 0.5F;
 
-    /** Outward normals by Tile.FACE_* (bottom, top, north, south, west, east), as in the tile's own table. */
+    // outward normals by Tile.FACE_*, same as the tile's own table
     private static final int[][] FACE_NORMALS = {
             {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}
     };
 
-    /** The tilt and turn the cube is drawn with (see draw): 30 degrees about X, then -45 + spin about Y. */
+    // cube tilt: 30 degrees about X, then -45 + spin about Y (see draw)
     private static final double ICON_PITCH_DEGREES = 30.0;
     private static final double ICON_YAW_DEGREES = -45.0;
 
@@ -42,37 +35,25 @@ public final class TileIconRenderer {
     private TileIconRenderer() {
     }
 
-    /**
-     * @param centerX      icon centre in window pixels (origin top-left, same space as the 2D UI)
-     * @param centerY      icon centre in window pixels
-     * @param size         cube scale in pixels (a cube icon ends up roughly 1.4x this wide)
-     * @param screenWidth  width of the area the 2D UI is currently laid out in
-     * @param screenHeight height of that area
-     */
+    /** centerX/Y are in window pixels (top-left origin), size is the cube scale (a cube ends up ~1.4x this wide), screenWidth/Height is the area the 2D UI is laid out in */
     public static void draw(Tile tile, Level level, float centerX, float centerY, float size,
                             int screenWidth, int screenHeight) {
         draw(tile, level, centerX, centerY, size, screenWidth, screenHeight, 0.0F);
     }
 
-    /**
-     * As above, with the icon darkened: {@code darken} is how much black is laid over the icon
-     * (0 = none, 1 = solid black). Only the icon's own pixels are darkened, not the area around it.
-     */
+    /** darken = how much black is laid over the icon's own pixels (0 = none, 1 = solid) */
     public static void draw(Tile tile, Level level, float centerX, float centerY, float size,
                             int screenWidth, int screenHeight, float darken) {
         draw(tile, level, centerX, centerY, size, screenWidth, screenHeight, darken, 0.0F);
     }
 
-    /**
-     * As above, with a cube turned {@code spinDegrees} about its vertical axis (a flat sprite
-     * ignores it). Billboard sprites are cropped.
-     */
+    /** cube turned spinDegrees about its vertical axis (sprites ignore it), billboard sprites are cropped */
     public static void draw(Tile tile, Level level, float centerX, float centerY, float size,
                             int screenWidth, int screenHeight, float darken, float spinDegrees) {
         draw(tile, level, centerX, centerY, size, screenWidth, screenHeight, darken, spinDegrees, true);
     }
 
-    /** As above; {@code cropSprites} false shows a billboard's whole sprite instead of the zoomed-in crop. */
+    /** cropSprites false shows a billboard's whole sprite */
     public static void draw(Tile tile, Level level, float centerX, float centerY, float size,
                             int screenWidth, int screenHeight, float darken, float spinDegrees,
                             boolean cropSprites) {
@@ -80,12 +61,7 @@ public final class TileIconRenderer {
                 cropSprites, 1.0F);
     }
 
-    /**
-     * As above, with {@code billboardScale} multiplying the size of a billboard's quad (cubes
-     * ignore it). 1 draws the quad at the usual icon size whatever the sprite's resolution; the
-     * hand HUD passes the sprite's size in blocks (times a global factor) so that every sprite
-     * pixel ends up the same size on screen.
-     */
+    /** billboardScale multiplies a billboard's quad size (cubes ignore it), 1 = usual icon size, the hand HUD passes the sprite's size in blocks so every sprite pixel is the same size on screen */
     public static void draw(Tile tile, Level level, float centerX, float centerY, float size,
                             int screenWidth, int screenHeight, float darken, float spinDegrees,
                             boolean cropSprites, float billboardScale) {
@@ -179,11 +155,8 @@ public final class TileIconRenderer {
         setEnabled(GL_BLEND, blendWasOn);
     }
 
-    /**
-     * The faces (bit per Tile.FACE_*) of a cube that point away from the icon's camera: the cube is
-     * turned by Ry(yaw) and then tilted by Rx(pitch) (the order draw applies them in), and the
-     * camera looks down -z, so a face is visible when its rotated normal has a positive z.
-     */
+    // faces (bit per Tile.FACE_*) pointing away from the icon's camera, which looks down -z
+    // the cube is turned by Ry(yaw) then tilted by Rx(pitch), a face is visible when its rotated normal has a positive z
     private static int hiddenFaces(float spinDegrees) {
         double yaw = Math.toRadians(ICON_YAW_DEGREES + spinDegrees);
         double pitch = Math.toRadians(ICON_PITCH_DEGREES);
@@ -204,12 +177,9 @@ public final class TileIconRenderer {
         return mask;
     }
 
-    /**
-     * Lays a translucent black quad over the icon that was just drawn, but only where the icon is.
-     * The icon wrote its depth (the area around it kept the cleared 1.0), so a quad at depth 0.9
-     * passes the GEQUAL test on the icon's pixels and fails everywhere else. (The projection is
-     * 100..300 and the icon sits at 200, i.e. depth 0.5; z = -280 is depth 0.9.)
-     */
+    // translucent black quad over the icon, only where the icon is
+    // the icon wrote its depth (the area around it kept the cleared 1.0), so a quad at depth 0.9 passes the GEQUAL test only on the icon's pixels
+    // (projection is 100..300, icon sits at 200 = depth 0.5, z = -280 is depth 0.9)
     private static void darkenIcon(float size, float darken) {
         int depthFunc = glGetInteger(GL_DEPTH_FUNC);
         float half = size * 1.5F;

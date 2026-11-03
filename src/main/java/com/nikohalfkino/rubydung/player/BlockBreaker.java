@@ -12,19 +12,19 @@ import java.util.List;
 
 import static com.nikohalfkino.rubydung.player.InteractionContext.*;
 
-/** Breaking blocks: single clicks, buffered clicks, hold-to-break and break-while-moving. */
+/** breaking blocks: single clicks, buffered clicks, hold-to-break and break-while-moving */
 final class BlockBreaker {
 
-    /** How many ticks a break click that found nothing to break is kept alive and retried. */
+    // ticks a break click that found nothing to break is kept alive and retried
     private static final int BREAK_CLICK_BUFFER_TICKS = 3;
 
     private final InteractionContext ctx;
     private final HitTracker hitTracker;
 
-    /** Ticks left to retry a break click that had no valid target when it was pressed. */
+    // ticks left to retry a break click that had no valid target when pressed
     private int bufferedBreakTicks = 0;
 
-    /** Distance travelled that pays for extra breaks while moving. */
+    // distance travelled that pays for extra breaks while moving
     private double breakBank = 0.0;
 
     BlockBreaker(InteractionContext ctx, HitTracker hitTracker) {
@@ -32,7 +32,7 @@ final class BlockBreaker {
         this.hitTracker = hitTracker;
     }
 
-    /** Left mouse button pressed. */
+    // left mouse button pressed
     void handleClick() {
         HandHud.swingCurrent(HandHud.Action.BREAK);
 
@@ -50,10 +50,7 @@ final class BlockBreaker {
         }
     }
 
-    /**
-     * Retries a break click that had nothing to break when it was pressed. Called before the
-     * held-button logic, so it works even if the button was already released.
-     */
+    // retries a break click that had nothing to break when pressed, called before the held-button logic so it works even if the button was already released
     void retryBufferedClick(List<HitResult> hits) {
         if (this.bufferedBreakTicks <= 0) {
             return;
@@ -65,7 +62,7 @@ final class BlockBreaker {
         }
     }
 
-    /** A tap that ended inside the chord grace period never got to act: do it now, on release. */
+    // a tap that ended inside the chord grace period never got to act, so do it on release
     void breakOnRelease(List<HitResult> hits) {
         if (breakTargetedTile()) {
             return;
@@ -109,7 +106,7 @@ final class BlockBreaker {
 
     // Internals
 
-    /** Starts the repeat timer so tick() doesn't break a second block a few ticks later. */
+    // starts the repeat timer so tick() doesn't break a second block a few ticks later
     private void startBreakCooldown() {
         this.bufferedBreakTicks = 0;
         this.ctx.acted = true;
@@ -126,7 +123,7 @@ final class BlockBreaker {
         return false;
     }
 
-    /** Breaks the newest hit in the list that still has a block in it. */
+    // breaks the newest hit in the list that still has a block in it
     private boolean breakNewest(List<HitResult> hits) {
         for (int i = hits.size() - 1; i >= 0; i--) {
             if (breakCells(hits.subList(i, i + 1), 1) == 1) {
@@ -179,12 +176,9 @@ final class BlockBreaker {
         this.ctx.level.setTile(hit.x, hit.y, hit.z, 0);
     }
 
-    /**
-     * A block that was placed into the free half of a slab's cell (a clipped sub-tile) is only a half
-     * block because the slab was in the way. Once the slab is gone, the block grows to fill the whole
-     * cell instead of floating there as a half: back to a normal tile if nothing else is in the cell,
-     * otherwise a full-height sub-tile. Left alone if the player is standing in the freed half.
-     */
+    // a block placed into the free half of a slab's cell (a clipped sub-tile) is only a half block because the slab was in the way
+    // once the slab is gone it grows to fill the cell: back to a normal tile if nothing else is in there, otherwise a full-height sub-tile
+    // left alone if the player is standing in the freed half
     private void fillFreedHalf(int x, int y, int z) {
         SubTiles store = this.ctx.level.getSubTiles();
         for (SubTile sub : new ArrayList<>(store.at(x, y, z))) {

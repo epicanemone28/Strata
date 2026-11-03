@@ -9,10 +9,7 @@ public final class Gui2D {
     private Gui2D() {
     }
 
-    /**
-     * How many begin() calls are open. Widgets such as TextInput call begin()/end() themselves
-     * while a Screen already has one open, so only the outermost end() may restore the 3D state.
-     */
+    // open begin() calls, widgets like TextInput nest them, so only the outermost end() restores the 3D state
     private static int depth = 0;
 
     public static void begin(int width, int height) {
@@ -122,10 +119,7 @@ public final class Gui2D {
         glEnd();
     }
 
-    /**
-     * Like {@link #drawTexture}, but only the part of the texture between (u0, v0) and (u1, v1)
-     * (each 0..1) is stretched over the rectangle - e.g. to leave out a sprite's empty border.
-     */
+    /** like drawTexture, but only stretches the (u0, v0)-(u1, v1) part (0..1), e.g. to skip a sprite's empty border */
     public static void drawTextureRegion(String texturePath, float x, float y, float width, float height,
                                          float u0, float v0, float u1, float v1) {
         int textureId = Textures.loadTexture(texturePath, GL_NEAREST);

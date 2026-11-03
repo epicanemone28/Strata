@@ -163,7 +163,7 @@ public class GameSession {
         Mouse.setGrabbed(true);
     }
 
-    /** Saves on the calling thread (quit, travelling through a door). */
+    /** saves on the calling thread (quit, door travel) */
     public void saveLevel() {
         if (!hasWorld()) {
             return;
@@ -172,7 +172,7 @@ public class GameSession {
         this.level.save();
     }
 
-    /** Saves with the GZIP + disk write on the save thread; onDone runs on that thread. */
+    /** saves with the gzip + disk write on the save thread, onDone runs there */
     public void saveLevelAsync(Runnable onDone) {
         if (!hasWorld()) {
             return;
@@ -186,7 +186,7 @@ public class GameSession {
         this.level.setPlayerFlightState(this.player.flying, this.player.noClip, this.player.flySpeedMultiplier);
     }
 
-    /** Drops the current world (the caller saves first) so {@link #hasWorld()} is false again. */
+    /** drops the world, the caller saves first */
     public void leaveWorld() {
         if (this.levelRenderer != null) {
             this.levelRenderer.dispose();

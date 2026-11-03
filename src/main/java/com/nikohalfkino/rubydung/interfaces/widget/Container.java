@@ -6,14 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A widget that holds other widgets. Subclasses decide how the children are placed:
- * {@link Group} (each child anchored on its own), {@link Column} and {@link Row} (stacked).
- * <p>
- * Registration is always {@code add(...)}, which returns the widget you passed in so it can be
- * stored in a field in the same line:
- * <pre>
- *     this.play = column.add(new Button("Play", 200, 30, true));
- * </pre>
+ * a widget that holds other widgets, subclasses decide placement: Group (each child anchored on its own), Column / Row (stacked)
+ *
+ * add(...) returns the widget you passed in so it can be stored in a field in the same line
  */
 public abstract class Container extends Widget {
 
@@ -23,9 +18,7 @@ public abstract class Container extends Widget {
     private boolean hasBackground = false;
     private float bgR, bgG, bgB, bgA;
 
-    // ---------------------------------------------------------------------------------------
-    // Registration
-    // ---------------------------------------------------------------------------------------
+    // registration
 
     public <T extends Widget> T add(T child) {
         child.parent = this;
@@ -33,13 +26,13 @@ public abstract class Container extends Widget {
         return child;
     }
 
-    /** Adds a child pinned to {@code anchor} of this container, nudged by (dx, dy). Only meaningful in a {@link Group}. */
+    /** pinned to anchor of this container, nudged by (dx, dy). only meaningful in a Group */
     public <T extends Widget> T add(T child, Anchor anchor, float dx, float dy) {
         child.setAnchor(anchor, dx, dy);
         return add(child);
     }
 
-    /** Adds a child with a custom gap after it. Only meaningful in a {@link Column} / {@link Row}. */
+    /** custom gap after the child. only meaningful in a Column / Row */
     public <T extends Widget> T add(T child, float gapAfter) {
         child.setGapAfter(gapAfter);
         return add(child);
@@ -62,7 +55,7 @@ public abstract class Container extends Widget {
         return this.children;
     }
 
-    /** Draws a flat translucent colour behind the children. */
+    /** flat translucent colour behind the children */
     public void setBackground(float r, float g, float b, float a) {
         this.hasBackground = true;
         this.bgR = r;
@@ -71,9 +64,7 @@ public abstract class Container extends Widget {
         this.bgA = a;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Layout
-    // ---------------------------------------------------------------------------------------
+    // layout
 
     protected List<Widget> visibleChildren() {
         List<Widget> visible = new ArrayList<>(this.children.size());
@@ -96,15 +87,12 @@ public abstract class Container extends Widget {
         this.height = getPrefHeight() >= 0.0f ? getPrefHeight() : contentHeight();
     }
 
-    /** Size needed to hold the (already measured) visible children. */
+    /** size needed to hold the (already measured) visible children */
     protected abstract float contentWidth();
 
     protected abstract float contentHeight();
 
-    /**
-     * Lays this container out as the top of a widget tree occupying the given rectangle - used by
-     * Screen and Hud for their root group.
-     */
+    /** lays this container out as the top of a widget tree in the given rectangle, used by Screen and Hud for their root group */
     public final void layoutRoot(Font font, float rootX, float rootY, float rootWidth, float rootHeight) {
         setSize(rootWidth, rootHeight);
         this.width = rootWidth;
@@ -114,9 +102,7 @@ public abstract class Container extends Widget {
         arrange(font);
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Rendering
-    // ---------------------------------------------------------------------------------------
+    // rendering
 
     @Override
     protected final void draw(Font font, int mouseX, int mouseY) {
@@ -130,13 +116,11 @@ public abstract class Container extends Widget {
         }
     }
 
-    /** Hook for containers that draw something of their own behind their children. */
+    /** hook for containers that draw something behind their children */
     protected void drawSelf(Font font, int mouseX, int mouseY) {
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Input
-    // ---------------------------------------------------------------------------------------
+    // input
 
     @Override
     public Widget pick(int mouseX, int mouseY) {

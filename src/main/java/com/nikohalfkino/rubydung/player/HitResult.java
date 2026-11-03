@@ -12,37 +12,27 @@ public class HitResult {
     public int face;
 
     /**
-     * The cell the ray actually entered. Equal to x/y/z for ordinary tiles; for a multi-tile
-     * object x/y/z is the object's origin (so breaking or highlighting acts on the whole object)
-     * while this is the specific cell that was hit (so placing against the face lands correctly).
+     * the cell the ray actually entered. equal to x/y/z for ordinary tiles, for a multi-tile object x/y/z is the origin (so breaking or highlighting acts on the whole object)
+     *
+     * and this is the cell that was hit (so placing against the face lands right)
      */
     public int cellX;
     public int cellY;
     public int cellZ;
 
-    /**
-     * Where exactly the ray struck the tile, in world coordinates. Only set (hasPoint) when the
-     * picker produced the hit; a plain cell-stepping hit leaves these at 0.
-     */
+    /** exact point the ray struck, world coordinates. only set (hasPoint) when the picker produced the hit, a plain cell-stepping hit leaves these at 0 */
     public boolean hasPoint;
     public double hitX;
     public double hitY;
     public double hitZ;
 
-    /**
-     * The part of the tile that was struck, in world coordinates: the whole cell for a cube, the
-     * slab itself, the one step of a staircase. Null when unknown (the overlay then falls back to
-     * the tile's outline box).
-     */
+    /** part of the tile that was struck, world coordinates: the whole cell for a cube, the slab itself, one step of a staircase. null when unknown (the overlay falls back to the tile's outline box) */
     public AABB hitBox;
 
-    /**
-     * Which SubTile of the cell was struck (SubTile.id), or -1 for the cell's normal tile. Tiles that
-     * share a cell are told apart by this; x/y/z are the cell either way.
-     */
+    /** which SubTile of the cell was struck (SubTile.id), -1 for the cell's normal tile. x/y/z are the cell either way */
     public int overlayId = -1;
 
-    /** Records the exact hit point and the box that was struck. Returns this, for chaining. */
+    /** records the exact hit point and the box struck, returns this */
     public HitResult withPoint(double hitX, double hitY, double hitZ, AABB hitBox) {
         this.hasPoint = true;
         this.hitX = hitX;

@@ -108,7 +108,7 @@ public class CloudRenderer {
         cleanupRenderState();
     }
 
-    /** Sets the constant colour the texture is multiplied by (layer tint * time-of-day cloud colour). */
+    // constant colour the texture is multiplied by (layer tint * time-of-day cloud colour)
     private void setLayerTint(float[] layerTint, float[] cloudColor) {
         this.tintBuffer.clear();
         this.tintBuffer.put(layerTint[0] * cloudColor[0])

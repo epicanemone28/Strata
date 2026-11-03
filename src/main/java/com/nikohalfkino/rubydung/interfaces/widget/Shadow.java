@@ -4,9 +4,9 @@ import com.nikohalfkino.rubydung.interfaces.Gui2D;
 import com.nikohalfkino.rubydung.render.Font;
 
 /**
- * Draws the drop shadow of another widget (normally a {@link Panel} with its own shadow turned
- * off) on its own, so the shadow can sit in a different layer than the panel: add this first,
- * then whatever should cover the shadow, then the panel.
+ * drop shadow of another widget (normally a Panel with its own shadow off) on its own, so it can sit in a different layer
+ *
+ * add this first, then whatever should cover the shadow, then the panel
  */
 public class Shadow extends Widget {
 

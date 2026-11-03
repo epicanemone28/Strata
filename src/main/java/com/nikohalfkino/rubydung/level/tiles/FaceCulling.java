@@ -10,14 +10,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Partial face culling. A face on the edge of a cell is hidden by whatever fills the cell next to
- * it, but a neighbour that only fills PART of that face (a bottom slab, a sub-tile) hides only that
- * part. This works out which rectangles of a face are still visible and cuts the face down to them,
- * so a full block beside a bottom slab draws just the upper half of its side, and a bottom slab
- * beside a full slab block draws nothing at all.
+ * partial face culling: a neighbour that only fills PART of a face (a bottom slab, a sub-tile) hides only that part. works out which rectangles of a face are still visible and cuts the face down to them, so a full block beside a bottom slab draws just the upper half of its side
  *
- * <p>Neighbours are read from their real boxes (host tile and every sub-tile of the cell), so slabs
- * of different kinds, or a slab beside a sub-tile, cull each other exactly like same-kind ones.
+ * neighbours are read from their real boxes (host + every sub-tile of the cell), so different slab kinds, or a slab beside a sub-tile, cull each other like same-kind ones
  */
 public final class FaceCulling {
 
@@ -25,25 +20,22 @@ public final class FaceCulling {
 
     private FaceCulling() {}
 
-    /** One visible part of a quad: its own corners, texture coordinates and where they sit in the original quad. */
+    /** one visible part of a quad: its corners, uvs and where they sit in the original quad */
     public static final class Piece {
-        /** 4 vertices x (x, y, z), relative to the cell corner (same space as the original quad). */
+        /** 4 vertices x (x, y, z), relative to the cell corner (same space as the original quad) */
         public final float[] pos = new float[12];
-        /** 4 vertices x (u, v), same units as the original quad's uvs. */
+        /** 4 vertices x (u, v), same units as the original quad's */
         public final float[] uv = new float[8];
-        /** For each new vertex, its weight (4) on each of the ORIGINAL vertices: interpolates light and colour. */
+        /** per new vertex, its weight (4) on each ORIGINAL vertex, interpolates light and colour */
         public final float[] weights = new float[16];
     }
 
     /**
-     * @param self          the tile drawing the quad
-     * @param selfCulls     whether this face is hidden by the same kind of tile next to it (self-cull)
-     * @param x,y,z         the cell being drawn
-     * @param pos,uv        the quad (positions relative to the cell, uvs in whatever unit; they are only interpolated)
-     * @param face          the world face of the cell the quad lies on (Tile.FACE_*)
-     * @param ox,oy,oz      sub-tile offset of what is being drawn (0 for a normal tile)
-     * @return null if the whole quad is visible (draw it as it is), an empty list if none of it is,
-     *         otherwise the visible pieces
+     * self = tile drawing the quad, selfCulls = hidden by the same kind of tile next to it, x,y,z = cell being drawn
+     *
+     * pos/uv = the quad (positions relative to the cell, uvs only interpolated), face = world face it lies on (Tile.FACE_*), ox,oy,oz = sub-tile offset (0 for a normal tile)
+     *
+     * returns null if the whole quad is visible, an empty list if none of it is, else the visible pieces
      */
     public static List<Piece> visiblePieces(Level level, Tile self, boolean selfCulls, int x, int y, int z,
                                             float[] pos, float[] uv, int face, float ox, float oy, float oz) {
@@ -169,7 +161,7 @@ public final class FaceCulling {
         return pieces;
     }
 
-    /** Whether a neighbouring occupant can hide faces of {@code self} at all. */
+    // whether a neighbouring occupant can hide faces of self at all
     private static boolean coversFor(Tile other, Tile self, boolean selfCulls) {
         if (other == null || other == Tile.AIR || !other.isSolid() || other.isBillboard() || other.isMultiTile()) {
             return false;
@@ -199,7 +191,7 @@ public final class FaceCulling {
         }
     }
 
-    /** rect minus cover, as up to four rectangles {minA, maxA, minB, maxB}. */
+    // rect minus cover, as up to four rectangles {minA, maxA, minB, maxB}
     private static void subtract(double[] rect, double[] cover, List<double[]> out) {
         double a0 = Math.max(rect[0], cover[0]);
         double a1 = Math.min(rect[1], cover[1]);

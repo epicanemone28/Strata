@@ -109,7 +109,7 @@ public class TimeCommand implements Command {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
+    // helpers
 
     private static float parseTimeValue(String s) {
         switch (s.toLowerCase()) {
