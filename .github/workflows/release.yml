@@ -9,6 +9,9 @@ on:
       version:
         description: "Version to build, e.g. 1.0.0 (the release is tagged v<version>)"
         required: true
+      changelog:
+        description: "Changelog (optional). Use \\n for new lines. Falls back to RELEASE_NOTES.md"
+        required: false
 
 jobs:
   build:
@@ -81,10 +84,25 @@ jobs:
       contents: write
 
     steps:
+      # needed so RELEASE_NOTES.md can be read from the tagged commit
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+
+      - name: Prepare release notes
+        env:
+          INPUT_NOTES: ${{ inputs.changelog }}
+        run: |
+          if [[ -n "$INPUT_NOTES" ]]; then
+            printf '%b\n' "$INPUT_NOTES" > notes.md
+          elif [[ -f RELEASE_NOTES.md ]]; then
+            cp RELEASE_NOTES.md notes.md
+          else
+            echo "No changelog provided." > notes.md
+          fi
 
       - uses: softprops/action-gh-release@v2
         with:
@@ -94,4 +112,5 @@ jobs:
           target_commitish: ${{ github.sha }}
           draft: ${{ github.event_name == 'workflow_dispatch' }}
           files: dist/*.zip
-          generate_release_notes: true
+          body_path: notes.md
+          generate_release_notes: false   # set to true to append GitHub's auto "What's Changed" list

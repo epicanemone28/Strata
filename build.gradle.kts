@@ -31,6 +31,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+}
+
 val appName = "Strata"
 val mainClassName = "com.nikohalfkino.rubydung.RubyDung"
 
